@@ -1,0 +1,1075 @@
+<!DOCTYPE html>
+<html lang="tr" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MeteoSite — Meteoroloji Danışmanlık</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { display:['Syne','sans-serif'], body:['DM Sans','sans-serif'] },
+          colors: { brand:'#38bdf8', accent:'#f59e0b' },
+          backgroundImage: {
+            'hero-mesh':"radial-gradient(ellipse 80% 60% at 50% -10%,rgba(56,189,248,.18) 0%,transparent 70%),radial-gradient(ellipse 60% 40% at 80% 80%,rgba(99,102,241,.12) 0%,transparent 60%)",
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    *{box-sizing:border-box}
+    body{font-family:'DM Sans',sans-serif;background:#04111f;color:#e0f2fe}
+    h1,h2,h3,h4,h5{font-family:'Syne',sans-serif}
+
+    #navbar{transition:background .3s,box-shadow .3s}
+    #navbar.scrolled{background:rgba(4,17,31,.92);backdrop-filter:blur(14px);box-shadow:0 1px 0 rgba(56,189,248,.12)}
+
+    .particle{position:absolute;border-radius:50%;pointer-events:none;animation:drift linear infinite}
+    @keyframes drift{0%{transform:translateY(0) translateX(0) scale(1);opacity:.6}50%{opacity:1}100%{transform:translateY(-120px) translateX(40px) scale(1.2);opacity:0}}
+
+    .glass{background:rgba(255,255,255,.04);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.09)}
+    .glass:hover{border-color:rgba(56,189,248,.3);transition:border-color .3s}
+
+    .stat-card{position:relative;overflow:hidden}
+    .stat-card::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 120% 120%,rgba(56,189,248,.1),transparent 60%)}
+
+    .tab-btn.active{background:rgba(56,189,248,.15);border-color:#38bdf8;color:#38bdf8}
+    .tab-panel{display:none}
+    .tab-panel.active{display:block;animation:fadeUp .4s ease}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+    .chart-pill{background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.2);border-radius:9999px;padding:4px 14px;font-size:.75rem;cursor:pointer;transition:all .2s;color:#94a3b8}
+    .chart-pill.active{background:#38bdf8;color:#04111f;font-weight:600}
+    .marine-pill{background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.2);border-radius:9999px;padding:4px 12px;font-size:.72rem;cursor:pointer;transition:all .2s;color:#94a3b8}
+    .marine-pill.active{background:#60a5fa;color:#04111f;font-weight:600}
+
+    #wind-arrow{transition:transform .6s cubic-bezier(.34,1.56,.64,1)}
+
+    .reveal{opacity:0;transform:translateY(30px);transition:opacity .7s ease,transform .7s ease}
+    .reveal.visible{opacity:1;transform:none}
+
+    .spinner{width:24px;height:24px;border:3px solid rgba(56,189,248,.2);border-top-color:#38bdf8;border-radius:50%;animation:spin .8s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    #search-box{transition:box-shadow .2s}
+    #search-box:focus{box-shadow:0 0 0 2px #38bdf8;outline:none}
+
+    .section-line{height:1px;background:linear-gradient(90deg,transparent,rgba(56,189,248,.4),transparent)}
+
+    .btn-primary{background:linear-gradient(135deg,#0ea5e9,#6366f1);border-radius:8px;font-weight:600;transition:opacity .2s,transform .15s}
+    .btn-primary:hover{opacity:.9;transform:translateY(-1px)}
+    .btn-outline{border:1px solid rgba(56,189,248,.4);border-radius:8px;font-weight:500;transition:background .2s,border-color .2s}
+    .btn-outline:hover{background:rgba(56,189,248,.08);border-color:#38bdf8}
+
+    /* Leaflet */
+    #pick-map{height:440px;border-radius:16px;overflow:hidden}
+    .leaflet-container{background:#04111f;font-family:'DM Sans',sans-serif}
+    .leaflet-tile-pane{filter:brightness(.85) saturate(.9)}
+    .leaflet-control-zoom a{background:rgba(4,17,31,.9)!important;color:#38bdf8!important;border-color:rgba(56,189,248,.25)!important}
+    .leaflet-control-zoom a:hover{background:rgba(56,189,248,.15)!important}
+    .leaflet-popup-content-wrapper{background:rgba(4,17,31,.95);border:1px solid rgba(56,189,248,.25);color:#e0f2fe;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.5)}
+    .leaflet-popup-tip{background:rgba(4,17,31,.95)}
+    .leaflet-popup-content{font-family:'DM Sans',sans-serif;font-size:.85rem;line-height:1.5;margin:10px 14px}
+
+    /* AQI */
+    .aqi-bar{height:8px;border-radius:9999px;background:linear-gradient(90deg,#22c55e 0%,#84cc16 20%,#eab308 40%,#f97316 60%,#ef4444 80%,#8b5cf6 100%);position:relative}
+    .aqi-needle{width:14px;height:14px;background:#fff;border-radius:50%;position:absolute;top:-3px;box-shadow:0 0 8px rgba(0,0,0,.6);transition:left .6s cubic-bezier(.34,1.56,.64,1)}
+
+    /* Skeleton */
+    .skel{background:linear-gradient(90deg,rgba(255,255,255,.05) 25%,rgba(56,189,248,.08) 50%,rgba(255,255,255,.05) 75%);background-size:200% 100%;animation:shimmer 1.6s infinite;border-radius:12px}
+    @keyframes shimmer{to{background-position:-200% 0}}
+
+    /* Source badge */
+    .src-badge{display:inline-flex;align-items:center;gap:5px;font-size:.68rem;padding:3px 9px;border-radius:9999px;font-weight:600;letter-spacing:.04em}
+
+    /* font-600 / font-700 / font-800 Tailwind'de yok — burada tanımlıyoruz */
+    .font-600{font-weight:600}.font-700{font-weight:700}.font-800{font-weight:800}.font-950{font-weight:800}
+
+    /* 7 günlük tahmin kartları */
+    .day-card{transition:transform .15s ease,border-color .2s ease}
+    .day-card:hover{transform:translateY(-3px);border-color:rgba(56,189,248,.4)}
+    .day-card.today{border-color:rgba(56,189,248,.5);background:rgba(56,189,248,.07)}
+    .temp-range{height:5px;border-radius:9999px;background:rgba(255,255,255,.07);position:relative;overflow:hidden}
+    .temp-range span{position:absolute;top:0;bottom:0;border-radius:9999px;background:linear-gradient(90deg,#38bdf8,#f59e0b)}
+
+    @media (prefers-reduced-motion:reduce){
+      .particle,.animate-bounce,.animate-pulse{animation:none!important}
+      .reveal{transition:none;opacity:1;transform:none}
+    }
+  </style>
+</head>
+<body>
+
+<!-- ======== NAVBAR ======== -->
+<nav id="navbar" class="fixed top-0 inset-x-0 z-50 py-4 px-6 md:px-12 flex items-center justify-between">
+  <a href="#" class="flex items-center gap-2.5">
+    <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+      <circle cx="16" cy="16" r="15" stroke="#38bdf8" stroke-width="1.5"/>
+      <path d="M7 20 Q11 11 16 15 Q21 19 25 12" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" fill="none"/>
+      <circle cx="16" cy="15" r="2.5" fill="#38bdf8" opacity=".5"/>
+    </svg>
+    <span class="font-display font-800 text-lg tracking-tight text-white">Meteo<span class="text-brand">Site</span></span>
+  </a>
+  <div class="hidden md:flex items-center gap-6 text-sm text-slate-300">
+    <a href="#map-picker"  class="hover:text-brand transition-colors">Harita</a>
+    <a href="#dashboard"   class="hover:text-brand transition-colors">Dashboard</a>
+    <a href="#daily"       class="hover:text-brand transition-colors">7 Günlük</a>
+    <a href="#airquality"  class="hover:text-brand transition-colors">Hava Kalitesi</a>
+    <a href="#marine"      class="hover:text-brand transition-colors">Deniz</a>
+    <a href="#hourly"      class="hover:text-brand transition-colors">Grafik</a>
+    <a href="#services"    class="hover:text-brand transition-colors">Hizmetler</a>
+    <a href="#contact"     class="hover:text-brand transition-colors">İletişim</a>
+  </div>
+  <button id="btn-locate" class="btn-primary text-white text-sm px-4 py-2 flex items-center gap-2">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0L6.343 16.657a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+    Konumum
+  </button>
+</nav>
+
+<!-- ======== HERO ======== -->
+<section class="relative min-h-screen flex flex-col items-center justify-center overflow-hidden bg-hero-mesh pt-20">
+  <div id="particles" class="absolute inset-0 pointer-events-none"></div>
+  <div class="absolute inset-0" style="background-image:linear-gradient(rgba(56,189,248,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(56,189,248,.04) 1px,transparent 1px);background-size:60px 60px;"></div>
+
+  <div class="relative z-10 text-center px-6 max-w-4xl mx-auto">
+    <div class="inline-flex items-center gap-2 text-xs font-600 uppercase tracking-widest text-brand border border-brand/30 rounded-full px-4 py-1.5 mb-8 bg-brand/5">
+      <span class="w-1.5 h-1.5 rounded-full bg-brand animate-pulse"></span>
+      Canlı Meteoroloji — 4 Açık Kaynak API
+    </div>
+    <h1 class="font-display text-5xl md:text-7xl font-800 leading-[1.05] mb-6 text-white">
+      Hava Durumunu<br/>
+      <span style="background-image:linear-gradient(135deg,#38bdf8,#818cf8);-webkit-background-clip:text;background-clip:text;color:transparent">Gerçek Zamanlı</span><br/>
+      Takip Edin
+    </h1>
+    <p class="text-slate-400 text-lg md:text-xl max-w-2xl mx-auto mb-8 leading-relaxed">
+      Hava tahmini · Hava kalitesi · Deniz verileri · Konum — tümü ücretsiz açık kaynaklardan.
+    </p>
+
+    <!-- API badges -->
+    <div class="flex flex-wrap justify-center gap-2 mb-10">
+      <span class="src-badge bg-sky-500/10   text-sky-400   border border-sky-500/20">🌤 Open-Meteo Forecast</span>
+      <span class="src-badge bg-green-500/10  text-green-400 border border-green-500/20">🍃 Open-Meteo Air Quality</span>
+      <span class="src-badge bg-blue-500/10   text-blue-400  border border-blue-500/20">🌊 Open-Meteo Marine</span>
+      <span class="src-badge bg-purple-500/10 text-purple-400 border border-purple-500/20">📍 Nominatim OSM</span>
+    </div>
+
+    <div class="flex flex-col sm:flex-row items-stretch gap-3 max-w-xl mx-auto">
+      <div class="relative flex-1">
+        <svg class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+        <input id="search-box" class="w-full pl-10 pr-4 py-3 glass rounded-lg text-sm text-white placeholder-slate-500" type="text" placeholder="Enlem, boylam girin... örn: 41.01, 28.97"/>
+      </div>
+      <button id="btn-search" class="btn-primary text-white text-sm px-6 py-3 whitespace-nowrap">Ara</button>
+    </div>
+    <p class="text-slate-600 text-xs mt-3">Ya da "Konumum" butonuna tıklayın — veya haritadan seçin ↓</p>
+  </div>
+
+  <!-- Hero weather strip -->
+  <div id="hero-weather" class="relative z-10 mt-16 w-full max-w-5xl mx-auto px-6 hidden">
+    <div class="glass rounded-2xl p-6 md:p-8">
+      <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8">
+        <div>
+          <p id="hw-location" class="text-brand text-sm font-600 mb-1">Yükleniyor…</p>
+          <p id="hw-cond" class="text-white text-lg font-600"></p>
+          <p id="hw-time" class="text-slate-500 text-xs"></p>
+        </div>
+        <div id="hw-loader" class="spinner"></div>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div class="stat-card glass rounded-xl p-5 col-span-2 md:col-span-1 flex flex-col gap-1">
+          <p class="text-slate-500 text-xs uppercase tracking-widest">Sıcaklık</p>
+          <p id="hw-temp" class="font-display text-4xl font-700 text-white">—</p>
+          <p class="text-slate-500 text-xs">°C</p>
+        </div>
+        <div class="stat-card glass rounded-xl p-5 flex flex-col gap-1">
+          <p class="text-slate-500 text-xs uppercase tracking-widest">Nem</p>
+          <p id="hw-hum" class="font-display text-3xl font-700 text-brand">—</p>
+          <p class="text-slate-500 text-xs">%</p>
+        </div>
+        <div class="stat-card glass rounded-xl p-5 flex flex-col gap-1">
+          <p class="text-slate-500 text-xs uppercase tracking-widest">Basınç</p>
+          <p id="hw-pres" class="font-display text-3xl font-700 text-indigo-400">—</p>
+          <p class="text-slate-500 text-xs">hPa</p>
+        </div>
+        <div class="stat-card glass rounded-xl p-5 flex flex-col gap-1">
+          <p class="text-slate-500 text-xs uppercase tracking-widest">Rüzgar</p>
+          <p id="hw-wind" class="font-display text-3xl font-700 text-emerald-400">—</p>
+          <p class="text-slate-500 text-xs">m/s</p>
+        </div>
+        <div class="stat-card glass rounded-xl p-5 flex flex-col items-center justify-center gap-2">
+          <p class="text-slate-500 text-xs uppercase tracking-widest">Yön</p>
+          <div class="relative w-12 h-12">
+            <svg viewBox="0 0 48 48" class="w-full h-full opacity-20"><circle cx="24" cy="24" r="22" stroke="#38bdf8" stroke-width="1" fill="none"/></svg>
+            <svg id="wind-arrow" viewBox="0 0 24 24" class="absolute inset-0 w-full h-full text-brand" fill="currentColor"><path d="M12 2l3 8H9l3-8z"/></svg>
+          </div>
+          <p id="hw-dir" class="text-brand text-sm font-600">—°</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="absolute bottom-10 inset-x-0 flex justify-center animate-bounce">
+    <svg class="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+  </div>
+</section>
+
+<div class="section-line"></div>
+
+<!-- ======== MAP PICKER ======== -->
+<section id="map-picker" class="py-24 px-6 md:px-12 max-w-7xl mx-auto">
+  <div class="reveal mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
+    <div>
+      <p class="text-brand text-sm font-600 uppercase tracking-widest mb-3">Konum Seç</p>
+      <h2 class="font-display text-4xl md:text-5xl font-700 text-white">Haritadan Tıklayın</h2>
+      <p class="text-slate-400 mt-4 max-w-lg">Herhangi bir noktaya tıklayarak tüm meteorolojik verileri (hava, kalite, deniz) anında yükleyin.</p>
+    </div>
+    <div class="flex items-center gap-3 glass rounded-xl px-5 py-3 text-sm min-w-max">
+      <svg class="w-4 h-4 text-brand flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0L6.343 16.657a8 8 0 1111.314 0z"/></svg>
+      <span id="map-coords-text" class="text-slate-400">Henüz seçim yapılmadı</span>
+    </div>
+  </div>
+  <div class="reveal relative">
+    <div id="pick-map" style="cursor:crosshair"></div>
+    <div id="map-hint" class="absolute inset-0 flex items-center justify-center pointer-events-none z-10" style="border-radius:16px;transition:opacity .4s">
+      <div class="glass rounded-2xl px-8 py-5 flex items-center gap-3 text-sm text-slate-300 shadow-2xl">
+        <svg class="w-5 h-5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5"/></svg>
+        Harita üzerinde bir noktaya tıklayın
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-line"></div>
+
+<!-- ======== DASHBOARD — Extended Forecast ======== -->
+<section id="dashboard" class="py-24 px-6 md:px-12 max-w-7xl mx-auto">
+  <div class="reveal mb-12 flex flex-col md:flex-row md:items-end justify-between gap-4">
+    <div>
+      <p class="text-brand text-sm font-600 uppercase tracking-widest mb-3">Anlık Veri</p>
+      <h2 class="font-display text-4xl md:text-5xl font-700 text-white">Meteoroloji Dashboard</h2>
+      <p class="text-slate-400 mt-4 max-w-xl">Hissedilen sıcaklık, nem, basınç, rüzgar atışı, bulut örtüsü, görüş mesafesi, UV ve güneş radyasyonu.</p>
+    </div>
+    <span class="src-badge bg-sky-500/10 text-sky-400 border border-sky-500/20 self-start">🌤 Open-Meteo Forecast API</span>
+  </div>
+  <div id="detail-grid" class="reveal grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+    <div class="skel h-28 rounded-2xl col-span-2 sm:col-span-3 lg:col-span-5"></div>
+  </div>
+</section>
+
+<div class="section-line"></div>
+
+<!-- ======== 7-DAY FORECAST ======== -->
+<section id="daily" class="py-24 px-6 md:px-12 max-w-7xl mx-auto">
+  <div class="reveal mb-12 flex flex-col md:flex-row md:items-end justify-between gap-4">
+    <div>
+      <p class="text-brand text-sm font-600 uppercase tracking-widest mb-3">Haftalık Bakış</p>
+      <h2 class="font-display text-4xl md:text-5xl font-700 text-white">7 Günlük Tahmin</h2>
+      <p class="text-slate-400 mt-4 max-w-xl">Günlük min/maks sıcaklık, hava durumu, yağış olasılığı, rüzgar ve gün doğumu/batımı.</p>
+    </div>
+    <span class="src-badge bg-sky-500/10 text-sky-400 border border-sky-500/20 self-start">🌤 Open-Meteo Forecast API</span>
+  </div>
+  <div id="daily-grid" class="reveal grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
+    <div class="skel h-56 rounded-2xl col-span-2 sm:col-span-3 lg:col-span-7"></div>
+  </div>
+  <div id="sun-strip" class="reveal hidden mt-6 glass rounded-2xl p-5 flex flex-wrap items-center justify-center gap-x-10 gap-y-3 text-sm">
+    <span class="flex items-center gap-2 text-slate-300">🌅 Gün doğumu: <b id="sun-rise" class="text-amber-300 font-600">—</b></span>
+    <span class="flex items-center gap-2 text-slate-300">🌇 Gün batımı: <b id="sun-set" class="text-orange-400 font-600">—</b></span>
+    <span class="flex items-center gap-2 text-slate-300">🔆 Maks UV: <b id="sun-uv" class="text-yellow-300 font-600">—</b></span>
+  </div>
+</section>
+
+<div class="section-line"></div>
+
+<!-- ======== AIR QUALITY ======== -->
+<section id="airquality" class="py-24 px-6 md:px-12 max-w-7xl mx-auto">
+  <div class="reveal mb-12 flex flex-col md:flex-row md:items-end justify-between gap-4">
+    <div>
+      <p class="text-emerald-400 text-sm font-600 uppercase tracking-widest mb-3">Açık Kaynak API</p>
+      <h2 class="font-display text-4xl md:text-5xl font-700 text-white">Hava Kalitesi</h2>
+      <p class="text-slate-400 mt-4 max-w-xl">PM2.5, PM10, Ozon (O₃), NO₂, CO ve Avrupa Hava Kalitesi İndeksi (EU-AQI) anlık değerleri.</p>
+    </div>
+    <span class="src-badge bg-green-500/10 text-green-400 border border-green-500/20 self-start">🍃 Open-Meteo Air Quality API</span>
+  </div>
+
+  <div class="reveal">
+    <!-- AQI Big Card -->
+    <div class="glass rounded-2xl p-8 mb-6">
+      <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-8">
+        <div>
+          <p class="text-slate-500 text-xs uppercase tracking-widest mb-2">Avrupa AQI — European Air Quality Index</p>
+          <div class="flex items-end gap-4">
+            <p id="aqi-value" class="font-display text-6xl font-800 text-white">—</p>
+            <p id="aqi-label" class="text-xl font-600 text-slate-400 mb-2">Konum bekleniyor</p>
+          </div>
+        </div>
+        <div id="aqi-loader" class="spinner"></div>
+      </div>
+      <!-- Gauge -->
+      <div class="aqi-bar w-full mb-1">
+        <div id="aqi-needle" class="aqi-needle" style="left:0%"></div>
+      </div>
+      <div class="flex justify-between text-xs text-slate-600 mt-4 mb-8">
+        <span>🟢 İyi</span><span>🟡 Orta</span><span>🟠 Hassas</span><span>🔴 Sağlıksız</span><span>🟣 Tehlikeli</span>
+      </div>
+      <!-- Pollutants -->
+      <div id="pollutant-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div class="skel h-24 rounded-xl col-span-2 sm:col-span-3 lg:col-span-6"></div>
+      </div>
+    </div>
+    <!-- AQI chart -->
+    <div class="glass rounded-2xl p-6">
+      <p class="text-slate-400 text-sm font-600 mb-4">Saatlik AQI Trendi (168 saat)</p>
+      <canvas id="aqi-chart" height="80"></canvas>
+      <p id="aqi-chart-empty" class="text-center text-slate-500 py-8 text-sm">Konum seçildiğinde grafik yüklenecek.</p>
+    </div>
+  </div>
+</section>
+
+<div class="section-line"></div>
+
+<!-- ======== MARINE ======== -->
+<section id="marine" class="py-24 px-6 md:px-12 max-w-7xl mx-auto">
+  <div class="reveal mb-12 flex flex-col md:flex-row md:items-end justify-between gap-4">
+    <div>
+      <p class="text-blue-400 text-sm font-600 uppercase tracking-widest mb-3">Açık Kaynak API</p>
+      <h2 class="font-display text-4xl md:text-5xl font-700 text-white">Deniz Verileri</h2>
+      <p class="text-slate-400 mt-4 max-w-xl">Dalga yüksekliği, yönü, periyodu ve swell verileri. Kıyı ve açık deniz konumları için optimize edilmiştir.</p>
+    </div>
+    <span class="src-badge bg-blue-500/10 text-blue-400 border border-blue-500/20 self-start">🌊 Open-Meteo Marine API</span>
+  </div>
+
+  <div class="reveal">
+    <div id="marine-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+      <div class="skel h-36 rounded-2xl col-span-2 sm:col-span-3 lg:col-span-6"></div>
+    </div>
+    <div class="glass rounded-2xl p-6">
+      <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <p class="text-slate-400 text-sm font-600">Saatlik Dalga Grafiği</p>
+        <div class="flex gap-2 flex-wrap">
+          <button class="marine-pill active" data-field="wave_height">🌊 Toplam</button>
+          <button class="marine-pill" data-field="wind_wave_height">💨 Rüzgar</button>
+          <button class="marine-pill" data-field="swell_wave_height">🏄 Swell</button>
+        </div>
+      </div>
+      <canvas id="marine-chart" height="80"></canvas>
+      <p id="marine-chart-empty" class="text-center text-slate-500 py-8 text-sm">Konum seçildiğinde grafik yüklenecek.</p>
+    </div>
+  </div>
+</section>
+
+<div class="section-line"></div>
+
+<!-- ======== HOURLY CHART ======== -->
+<section id="hourly" class="py-24 px-6 md:px-12 max-w-7xl mx-auto">
+  <div class="reveal mb-12 flex flex-col md:flex-row md:items-end justify-between gap-4">
+    <div>
+      <p class="text-brand text-sm font-600 uppercase tracking-widest mb-3">Saatlik Tahmin</p>
+      <h2 class="font-display text-4xl md:text-5xl font-700 text-white">168 Saatlik Grafik</h2>
+      <p class="text-slate-400 mt-4 max-w-xl">Sıcaklık, nem, basınç, rüzgar, bulut örtüsü ve yağış miktarı.</p>
+    </div>
+    <span class="src-badge bg-sky-500/10 text-sky-400 border border-sky-500/20 self-start">🌤 Open-Meteo Forecast API</span>
+  </div>
+  <div class="flex flex-wrap gap-2 mb-8 reveal">
+    <button class="chart-pill active" data-metric="temperature_c">🌡 Sıcaklık</button>
+    <button class="chart-pill" data-metric="humidity_pct">💧 Nem</button>
+    <button class="chart-pill" data-metric="pressure_hpa">📊 Basınç</button>
+    <button class="chart-pill" data-metric="wind_speed_ms">💨 Rüzgar</button>
+    <button class="chart-pill" data-metric="cloud_cover">☁️ Bulut</button>
+    <button class="chart-pill" data-metric="precipitation">🌧 Yağış</button>
+    <button class="chart-pill" data-metric="precip_prob">🎲 Yağış Olasılığı</button>
+  </div>
+  <div class="reveal glass rounded-2xl p-6">
+    <canvas id="hourly-chart" height="100"></canvas>
+    <p id="chart-empty" class="text-center text-slate-500 py-12 text-sm">Konum seçildiğinde grafik yüklenecek.</p>
+  </div>
+</section>
+
+<div class="section-line"></div>
+
+<!-- ======== SERVICES TABS ======== -->
+<section id="services" class="py-24 px-6 md:px-12 max-w-7xl mx-auto">
+  <div class="reveal mb-12">
+    <p class="text-brand text-sm font-600 uppercase tracking-widest mb-3">Sektörel Çözümler</p>
+    <h2 class="font-display text-4xl md:text-5xl font-700 text-white">Hizmetlerimiz</h2>
+    <p class="text-slate-400 mt-4 max-w-xl">Enerji, denizcilik, karayolları ve havacılık sektörlerine özel meteoroloji danışmanlığı.</p>
+  </div>
+  <div id="tab-buttons" class="flex flex-wrap gap-3 mb-10 reveal"><div class="spinner"></div></div>
+  <div id="tab-panels" class="reveal"></div>
+</section>
+
+<div class="section-line"></div>
+
+<!-- ======== FEATURES BENTO ======== -->
+<section class="py-24 px-6 md:px-12 max-w-7xl mx-auto">
+  <div class="reveal mb-16 text-center">
+    <p class="text-brand text-sm font-600 uppercase tracking-widest mb-3">Neden MeteoSite?</p>
+    <h2 class="font-display text-4xl md:text-5xl font-700 text-white max-w-2xl mx-auto">Doğru verilerle doğru kararlar alın</h2>
+  </div>
+  <div class="reveal grid grid-cols-1 md:grid-cols-3 gap-5">
+    <div class="stat-card glass rounded-2xl p-7 md:col-span-2">
+      <div class="w-10 h-10 rounded-xl bg-brand/10 flex items-center justify-center mb-5">
+        <svg class="w-5 h-5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+      </div>
+      <h3 class="font-display text-xl font-700 text-white mb-3">4 Açık Kaynak API — Sıfır Maliyet</h3>
+      <p class="text-slate-400 text-sm leading-relaxed">Open-Meteo Forecast, Air Quality, Marine + Nominatim OSM. Tümü ücretsiz, CORS destekli, API anahtarı gerektirmiyor. CC BY 4.0 lisansı.</p>
+    </div>
+    <div class="stat-card glass rounded-2xl p-7">
+      <div class="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center mb-5">
+        <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      </div>
+      <h3 class="font-display text-xl font-700 text-white mb-3">Hava Kalitesi AQI</h3>
+      <p class="text-slate-400 text-sm leading-relaxed">PM2.5, PM10, O₃, NO₂, CO ve EU-AQI skoruyla anlık sağlık risk değerlendirmesi.</p>
+    </div>
+    <div class="stat-card glass rounded-2xl p-7">
+      <div class="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center mb-5">
+        <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"/></svg>
+      </div>
+      <h3 class="font-display text-xl font-700 text-white mb-3">Deniz Verileri</h3>
+      <p class="text-slate-400 text-sm leading-relaxed">Dalga yüksekliği, periyot ve swell. Marinalar ve balıkçı sektörü için kritik öneme sahip.</p>
+    </div>
+    <div class="stat-card glass rounded-2xl p-7 md:col-span-2">
+      <div class="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center mb-5">
+        <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+      </div>
+      <h3 class="font-display text-xl font-700 text-white mb-3">4 Kritik Sektör</h3>
+      <p class="text-slate-400 text-sm leading-relaxed">Yenilenebilir enerji, denizcilik, karayolları ve havacılık için özel içerik ve danışmanlık hizmetleri.</p>
+    </div>
+  </div>
+</section>
+
+<div class="section-line"></div>
+
+<!-- ======== CONTACT ======== -->
+<section id="contact" class="py-24 px-6 md:px-12 max-w-3xl mx-auto text-center">
+  <div class="reveal">
+    <p class="text-brand text-sm font-600 uppercase tracking-widest mb-3">İletişim</p>
+    <h2 class="font-display text-4xl md:text-5xl font-700 text-white mb-6">Danışmanlık Alın</h2>
+    <p class="text-slate-400 text-lg mb-10">Sektörünüze özel meteoroloji raporu ve uzman desteği için bize ulaşın. Raporlar e-posta, SMS veya telefon ile sunulmaktadır.</p>
+    <div class="flex flex-col sm:flex-row gap-4 justify-center">
+      <a href="mailto:info@meteosite.com" class="btn-primary text-white px-8 py-4 text-sm inline-flex items-center gap-2 justify-center">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+        E-posta Gönder
+      </a>
+      <a href="tel:+905324051523" class="btn-outline text-white px-8 py-4 text-sm inline-flex items-center gap-2 justify-center">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
+        0532 405 15 23
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ======== FOOTER ======== -->
+<footer class="border-t border-white/5 py-10 px-6 md:px-12">
+  <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6 text-slate-600 text-sm">
+    <span class="font-display font-700 text-slate-400">Meteo<span class="text-brand">Site</span></span>
+    <div class="flex flex-wrap justify-center gap-2">
+      <span class="src-badge bg-sky-900/20 text-slate-600 border border-slate-800">Open-Meteo CC BY 4.0</span>
+      <span class="src-badge bg-sky-900/20 text-slate-600 border border-slate-800">Nominatim ODbL</span>
+    </div>
+    <span>© 2025 MeteoSite. Tüm hakları saklıdır.</span>
+  </div>
+</footer>
+
+<!-- TOAST -->
+<div id="toast" class="fixed bottom-6 right-6 z-50 glass rounded-xl px-5 py-3.5 text-sm text-white flex items-center gap-3 shadow-2xl transition-all duration-300 opacity-0 translate-y-4 pointer-events-none max-w-xs">
+  <span id="toast-icon" class="text-lg">ℹ️</span>
+  <span id="toast-msg">Mesaj</span>
+</div>
+
+<!-- ================================================================
+     JAVASCRIPT
+================================================================ -->
+<script>
+/* ---------------------------------------------------------------
+   ENDPOINTS
+--------------------------------------------------------------- */
+/* Sayfa FastAPI'den servis ediliyorsa aynı origin'i kullan (deploy'da da çalışır);
+   dosya olarak açıldıysa localhost'a düş. */
+const BACKEND     = location.protocol === 'file:' ? 'http://localhost:8000' : '';
+
+/* WMO hava durumu kodları → Türkçe açıklama + ikon */
+const WMO = {
+  0:['☀️','Açık'],1:['🌤','Az bulutlu'],2:['⛅','Parçalı bulutlu'],3:['☁️','Kapalı'],
+  45:['🌫','Sisli'],48:['🌫','Kırağılı sis'],
+  51:['🌦','Hafif çisenti'],53:['🌦','Çisenti'],55:['🌧','Yoğun çisenti'],
+  56:['🌧','Donan çisenti'],57:['🌧','Yoğun donan çisenti'],
+  61:['🌧','Hafif yağmur'],63:['🌧','Yağmur'],65:['🌧','Şiddetli yağmur'],
+  66:['🌧','Donan yağmur'],67:['🌧','Şiddetli donan yağmur'],
+  71:['🌨','Hafif kar'],73:['🌨','Kar'],75:['❄️','Yoğun kar'],77:['❄️','Kar taneleri'],
+  80:['🌦','Hafif sağanak'],81:['🌧','Sağanak'],82:['⛈','Şiddetli sağanak'],
+  85:['🌨','Kar sağanağı'],86:['❄️','Yoğun kar sağanağı'],
+  95:['⛈','Gök gürültülü fırtına'],96:['⛈','Dolu ile fırtına'],99:['⛈','Şiddetli dolu fırtınası'],
+};
+function wmo(code){ return WMO[code] || ['🌡','—']; }
+const OM_FORECAST = 'https://api.open-meteo.com/v1/forecast';
+const OM_AIR      = 'https://air-quality-api.open-meteo.com/v1/air-quality';
+const OM_MARINE   = 'https://marine-api.open-meteo.com/v1/marine';
+const NOMINATIM   = 'https://nominatim.openstreetmap.org/reverse';
+
+/* ---------------------------------------------------------------
+   STATE
+--------------------------------------------------------------- */
+let hourlyData = null, aqiHourly = null, marineHourly = null;
+let activeMetric = 'temperature_c', activeMarineField = 'wave_height';
+let chartInst = null, aqiInst = null, marineInst = null;
+
+/* ---------------------------------------------------------------
+   HELPERS
+--------------------------------------------------------------- */
+function toast(msg, type='info') {
+  const icons={info:'ℹ️',success:'✅',error:'❌',warn:'⚠️'};
+  document.getElementById('toast-icon').textContent = icons[type]||'ℹ️';
+  document.getElementById('toast-msg').textContent  = msg;
+  const el=document.getElementById('toast');
+  el.style.opacity='1'; el.style.transform='translateY(0)'; el.style.pointerEvents='auto';
+  setTimeout(()=>{ el.style.opacity='0'; el.style.transform='translateY(16px)'; el.style.pointerEvents='none'; },3500);
+}
+
+async function gFetch(url) {
+  const r = await fetch(url);
+  if(!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+
+function fmtTime(t) {
+  const d=new Date(t);
+  return d.getDate()+'/'+(d.getMonth()+1)+' '+String(d.getHours()).padStart(2,'0')+':00';
+}
+
+function dirStr(deg) {
+  if(deg===null||deg===undefined) return '—';
+  const n=['K','KD','D','GD','G','GB','B','KB'];
+  return n[Math.round(deg/45)%8]+' ('+deg+'°)';
+}
+
+/* AQI color/label */
+function aqiMeta(v) {
+  if(v===null||v===undefined) return {label:'—',color:'#64748b'};
+  if(v<=20)  return {label:'İyi 😊',color:'#22c55e'};
+  if(v<=40)  return {label:'Orta 🙂',color:'#84cc16'};
+  if(v<=60)  return {label:'Hassas ⚠️',color:'#eab308'};
+  if(v<=80)  return {label:'Sağlıksız 😷',color:'#f97316'};
+  if(v<=100) return {label:'Çok Sağlıksız 🚫',color:'#ef4444'};
+  return            {label:'Tehlikeli ☠️',color:'#8b5cf6'};
+}
+
+/* ---------------------------------------------------------------
+   PARTICLES
+--------------------------------------------------------------- */
+(()=>{
+  const c=document.getElementById('particles');
+  for(let i=0;i<22;i++){
+    const d=document.createElement('div'),s=Math.random()*4+2;
+    d.className='particle';
+    Object.assign(d.style,{width:s+'px',height:s+'px',left:Math.random()*100+'%',top:Math.random()*100+'%',background:`rgba(56,189,248,${Math.random()*.25+.05})`,animationDuration:(Math.random()*8+5)+'s',animationDelay:(Math.random()*6)+'s'});
+    c.appendChild(d);
+  }
+})();
+
+/* Scroll reveal */
+const ro=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('visible');ro.unobserve(e.target);}}),{threshold:.1});
+document.querySelectorAll('.reveal').forEach(el=>ro.observe(el));
+
+window.addEventListener('scroll',()=>document.getElementById('navbar').classList.toggle('scrolled',scrollY>40));
+
+/* ---------------------------------------------------------------
+   MASTER LOAD
+--------------------------------------------------------------- */
+let isLoading=false;
+async function loadAll(lat, lon, opts={}) {
+  if(isLoading){ toast('Önceki yükleme sürüyor…','warn'); return; }
+  isLoading=true;
+
+  /* Konumu URL'de sakla: sayfa yenilenince/paylaşılınca aynı nokta açılır */
+  history.replaceState(null,'',`#${lat.toFixed(4)},${lon.toFixed(4)}`);
+
+  toast('Veriler yükleniyor…','info');
+  document.getElementById('hero-weather').classList.remove('hidden');
+  document.getElementById('hw-loader').style.display='block';
+
+  const hint=document.getElementById('map-hint');
+  if(hint){hint.style.opacity='0';hint.style.pointerEvents='none';}
+  document.getElementById('map-coords-text').textContent =
+    `${lat.toFixed(5)}°N  ${lon.toFixed(5)}°E`;
+
+  const results = await Promise.allSettled([
+    fetchForecast(lat,lon),
+    fetchAirQuality(lat,lon),
+    fetchMarine(lat,lon),
+    fetchPlaceName(lat,lon),
+  ]);
+
+  const failed = results.filter(r=>r.status==='rejected').length;
+  if(failed===0) toast('Tüm veriler yüklendi ✓','success');
+  else           toast(`${4-failed}/4 kaynak yüklendi`,'warn');
+
+  if(!opts.noScroll) document.getElementById('dashboard').scrollIntoView({behavior:'smooth',block:'start'});
+  isLoading=false;
+}
+
+/* ---------------------------------------------------------------
+   1. FORECAST  (Open-Meteo Forecast API)
+--------------------------------------------------------------- */
+async function fetchForecast(lat, lon) {
+  const p = new URLSearchParams({
+    latitude:lat, longitude:lon, timezone:'auto',
+    current:[
+      'temperature_2m','apparent_temperature','relative_humidity_2m',
+      'pressure_msl','wind_speed_10m','wind_direction_10m','wind_gusts_10m',
+      'cloud_cover','visibility','precipitation','uv_index','shortwave_radiation',
+      'weather_code',
+    ].join(','),
+    hourly:[
+      'temperature_2m','relative_humidity_2m','pressure_msl',
+      'wind_speed_10m','cloud_cover','precipitation','precipitation_probability',
+    ].join(','),
+    daily:[
+      'weather_code','temperature_2m_max','temperature_2m_min',
+      'precipitation_probability_max','wind_speed_10m_max',
+      'sunrise','sunset','uv_index_max',
+    ].join(','),
+  });
+  const d = await gFetch(`${OM_FORECAST}?${p}`);
+  const c = d.current||{};
+
+  document.getElementById('hw-loader').style.display='none';
+  document.getElementById('hw-temp').textContent  = c.temperature_2m!==null  ? c.temperature_2m.toFixed(1)  : '—';
+  document.getElementById('hw-hum').textContent   = c.relative_humidity_2m??'—';
+  document.getElementById('hw-pres').textContent  = c.pressure_msl ? Math.round(c.pressure_msl) : '—';
+  document.getElementById('hw-wind').textContent  = c.wind_speed_10m!==null  ? c.wind_speed_10m.toFixed(1)  : '—';
+  document.getElementById('hw-dir').textContent   = c.wind_direction_10m!==null ? c.wind_direction_10m+'°' : '—';
+  document.getElementById('wind-arrow').style.transform = `rotate(${c.wind_direction_10m||0}deg)`;
+  document.getElementById('hw-time').textContent  = c.time ? new Date(c.time).toLocaleString('tr-TR') : '';
+
+  const [ci,ct]=wmo(c.weather_code);
+  document.getElementById('hw-cond').textContent = `${ci} ${ct}`;
+
+  // Extended grid (10 metrics)
+  const items=[
+    {icon:'🌡',lbl:'Hissedilen',     val:c.apparent_temperature!==null   ? c.apparent_temperature.toFixed(1)+'°C'  : '—', col:'text-sky-300'},
+    {icon:'💧',lbl:'Nem',            val:(c.relative_humidity_2m??'—')+'%',                                              col:'text-emerald-400'},
+    {icon:'📊',lbl:'Basınç',         val:c.pressure_msl ? Math.round(c.pressure_msl)+' hPa' : '—',                      col:'text-indigo-400'},
+    {icon:'💨',lbl:'Rüzgar',         val:c.wind_speed_10m!==null          ? c.wind_speed_10m.toFixed(1)+' m/s'  : '—',  col:'text-amber-400'},
+    {icon:'🌪',lbl:'Rüzgar Atışı',  val:c.wind_gusts_10m!==null          ? c.wind_gusts_10m.toFixed(1)+' m/s'  : '—',  col:'text-rose-400'},
+    {icon:'☁️',lbl:'Bulut',          val:c.cloud_cover!==null             ? c.cloud_cover+'%'                    : '—',  col:'text-slate-300'},
+    {icon:'👁', lbl:'Görüş',         val:c.visibility!==null              ? (c.visibility/1000).toFixed(1)+' km' : '—',  col:'text-cyan-400'},
+    {icon:'🌧',lbl:'Yağış',          val:c.precipitation!==null           ? c.precipitation.toFixed(1)+' mm'     : '—',  col:'text-blue-400'},
+    {icon:'🔆',lbl:'UV İndeksi',     val:c.uv_index!==null                ? c.uv_index.toFixed(1)                : '—',  col:'text-yellow-400'},
+    {icon:'⚡',lbl:'Güneş Rad.',     val:c.shortwave_radiation!==null     ? Math.round(c.shortwave_radiation)+' W/m²':'—',col:'text-orange-400'},
+  ];
+  document.getElementById('detail-grid').innerHTML = items.map(i=>`
+    <div class="stat-card glass rounded-2xl p-5 flex flex-col gap-2">
+      <span class="text-xl">${i.icon}</span>
+      <p class="text-slate-500 text-xs uppercase tracking-widest leading-tight">${i.lbl}</p>
+      <p class="font-display text-2xl font-700 ${i.col}">${i.val}</p>
+    </div>`).join('');
+
+  const h=d.hourly||{};
+  hourlyData={
+    time:          h.time||[],
+    temperature_c: h.temperature_2m||[],
+    humidity_pct:  h.relative_humidity_2m||[],
+    pressure_hpa:  h.pressure_msl||[],
+    wind_speed_ms: h.wind_speed_10m||[],
+    cloud_cover:   h.cloud_cover||[],
+    precipitation: h.precipitation||[],
+    precip_prob:   h.precipitation_probability||[],
+  };
+  document.getElementById('chart-empty').style.display='none';
+  renderForecastChart();
+
+  renderDaily(d.daily||{});
+}
+
+/* ---------------------------------------------------------------
+   7 GÜNLÜK TAHMİN
+--------------------------------------------------------------- */
+function renderDaily(dl){
+  const grid=document.getElementById('daily-grid');
+  if(!dl.time||!dl.time.length){ grid.innerHTML=''; return; }
+
+  const days=dl.time.length;
+  const allMin=Math.min(...dl.temperature_2m_min), allMax=Math.max(...dl.temperature_2m_max);
+  const span=Math.max(allMax-allMin,1);
+  const dayNames=['Pazar','Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi'];
+
+  let html='';
+  for(let i=0;i<days;i++){
+    const dt=new Date(dl.time[i]);
+    const [icon,txt]=wmo(dl.weather_code[i]);
+    const tmax=dl.temperature_2m_max[i], tmin=dl.temperature_2m_min[i];
+    const pp=dl.precipitation_probability_max?.[i];
+    const wmax=dl.wind_speed_10m_max?.[i];
+    const left=((tmin-allMin)/span*100).toFixed(0);
+    const width=Math.max(((tmax-tmin)/span*100),4).toFixed(0);
+
+    html+=`
+      <div class="day-card stat-card glass rounded-2xl p-4 flex flex-col gap-2 ${i===0?'today':''}">
+        <p class="text-slate-400 text-xs font-600">${i===0?'Bugün':dayNames[dt.getDay()]}</p>
+        <p class="text-slate-600 text-xs">${dt.getDate()}.${dt.getMonth()+1}</p>
+        <p class="text-3xl my-1" title="${txt}">${icon}</p>
+        <p class="text-slate-500 text-xs leading-tight min-h-[2em]">${txt}</p>
+        <div class="flex items-baseline gap-1.5">
+          <span class="font-display text-lg font-700 text-white">${tmax!=null?Math.round(tmax)+'°':'—'}</span>
+          <span class="text-slate-500 text-sm">${tmin!=null?Math.round(tmin)+'°':'—'}</span>
+        </div>
+        <div class="temp-range"><span style="left:${left}%;width:${width}%"></span></div>
+        <p class="text-blue-400 text-xs mt-1">🌧 %${pp??'—'}</p>
+        <p class="text-slate-500 text-xs">💨 ${wmax!=null?wmax.toFixed(0)+' m/s':'—'}</p>
+      </div>`;
+  }
+  grid.innerHTML=html;
+
+  /* Bugünün gün doğumu/batımı + maks UV */
+  const strip=document.getElementById('sun-strip');
+  strip.classList.remove('hidden');
+  const fmtHM=s=>s?new Date(s).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'}):'—';
+  document.getElementById('sun-rise').textContent=fmtHM(dl.sunrise?.[0]);
+  document.getElementById('sun-set').textContent =fmtHM(dl.sunset?.[0]);
+  document.getElementById('sun-uv').textContent  =dl.uv_index_max?.[0]!=null?dl.uv_index_max[0].toFixed(1):'—';
+}
+
+/* ---------------------------------------------------------------
+   2. AIR QUALITY  (Open-Meteo Air Quality API)
+--------------------------------------------------------------- */
+async function fetchAirQuality(lat, lon) {
+  document.getElementById('aqi-loader').style.display='block';
+  try {
+    const p = new URLSearchParams({
+      latitude:lat, longitude:lon, timezone:'auto',
+      current:['european_aqi','pm10','pm2_5','carbon_monoxide','nitrogen_dioxide','ozone','uv_index'].join(','),
+      hourly:'european_aqi',
+    });
+    const d = await gFetch(`${OM_AIR}?${p}`);
+    const c = d.current||{};
+    document.getElementById('aqi-loader').style.display='none';
+
+    const aqi=c.european_aqi, meta=aqiMeta(aqi);
+    document.getElementById('aqi-value').textContent = aqi!==null&&aqi!==undefined ? aqi : '—';
+    document.getElementById('aqi-value').style.color = meta.color;
+    document.getElementById('aqi-label').textContent = meta.label;
+    document.getElementById('aqi-label').style.color = meta.color;
+    const pct = aqi ? Math.min(aqi/200*100,100) : 0;
+    document.getElementById('aqi-needle').style.left = `calc(${pct}% - 7px)`;
+
+    const pollutants=[
+      {icon:'🔶',lbl:'PM2.5',  val:c.pm2_5!==null            ? c.pm2_5.toFixed(1)+' µg/m³'            : '—', col:'text-yellow-400'},
+      {icon:'🟠',lbl:'PM10',   val:c.pm10!==null             ? c.pm10.toFixed(1)+' µg/m³'             : '—', col:'text-orange-400'},
+      {icon:'🔵',lbl:'Ozon O₃',val:c.ozone!==null            ? c.ozone.toFixed(1)+' µg/m³'            : '—', col:'text-blue-400'},
+      {icon:'🔴',lbl:'NO₂',    val:c.nitrogen_dioxide!==null ? c.nitrogen_dioxide.toFixed(1)+' µg/m³' : '—', col:'text-red-400'},
+      {icon:'⬜',lbl:'CO',     val:c.carbon_monoxide!==null  ? c.carbon_monoxide.toFixed(0)+' µg/m³'  : '—', col:'text-slate-400'},
+      {icon:'🌞',lbl:'UV',     val:c.uv_index!==null         ? c.uv_index.toFixed(1)                  : '—', col:'text-amber-400'},
+    ];
+    document.getElementById('pollutant-grid').innerHTML = pollutants.map(p=>`
+      <div class="stat-card glass rounded-xl p-4 flex flex-col gap-1">
+        <span class="text-lg">${p.icon}</span>
+        <p class="text-slate-500 text-xs uppercase tracking-widest">${p.lbl}</p>
+        <p class="font-display text-xl font-700 ${p.col}">${p.val}</p>
+      </div>`).join('');
+
+    const h=d.hourly||{};
+    aqiHourly={time:h.time||[], aqi:h.european_aqi||[]};
+    document.getElementById('aqi-chart-empty').style.display='none';
+    renderAqiChart();
+  } catch(e) {
+    document.getElementById('aqi-loader').style.display='none';
+    document.getElementById('pollutant-grid').innerHTML=
+      `<p class="col-span-full text-slate-500 text-sm py-4 text-center">Bu konum için hava kalitesi verisi mevcut değil veya alınamadı.</p>`;
+    throw e;
+  }
+}
+
+/* ---------------------------------------------------------------
+   3. MARINE  (Open-Meteo Marine API)
+--------------------------------------------------------------- */
+async function fetchMarine(lat, lon) {
+  try {
+    const p = new URLSearchParams({
+      latitude:lat, longitude:lon, timezone:'auto',
+      current:['wave_height','wave_direction','wave_period','wind_wave_height','swell_wave_height','swell_wave_direction','swell_wave_period'].join(','),
+      hourly:'wave_height,wind_wave_height,swell_wave_height',
+    });
+    const d = await gFetch(`${OM_MARINE}?${p}`);
+    const c = d.current||{};
+    const allNull = Object.values(c).every(v=>v===null||v===undefined);
+
+    if(allNull) {
+      document.getElementById('marine-grid').innerHTML=`
+        <div class="col-span-full glass rounded-2xl p-10 text-center">
+          <p class="text-4xl mb-3">🏔️</p>
+          <p class="text-slate-400 font-600">Bu konum denizden uzakta</p>
+          <p class="text-slate-600 text-sm mt-2">Deniz veya kıyı yakını bir nokta seçin.</p>
+        </div>`;
+      return;
+    }
+
+    const cards=[
+      {icon:'🌊',lbl:'Dalga Yüksekliği',val:c.wave_height!==null           ? c.wave_height.toFixed(2)+' m'            : '—', col:'text-blue-300',  sub:'Toplam'},
+      {icon:'💨',lbl:'Rüzgar Dalgası',  val:c.wind_wave_height!==null      ? c.wind_wave_height.toFixed(2)+' m'       : '—', col:'text-sky-400',   sub:'Rüzgar kaynaklı'},
+      {icon:'🏄',lbl:'Swell',           val:c.swell_wave_height!==null     ? c.swell_wave_height.toFixed(2)+' m'      : '—', col:'text-indigo-400',sub:dirStr(c.swell_wave_direction)},
+      {icon:'⏱', lbl:'Dalga Periyodu', val:c.wave_period!==null            ? c.wave_period.toFixed(1)+' s'            : '—', col:'text-emerald-400',sub:'Dalga arası süre'},
+      {icon:'🧭',lbl:'Dalga Yönü',     val:dirStr(c.wave_direction),                                                          col:'text-amber-400', sub:'Gelme yönü'},
+      {icon:'🌀',lbl:'Swell Periyodu', val:c.swell_wave_period!==null      ? c.swell_wave_period.toFixed(1)+' s'      : '—', col:'text-rose-400',  sub:dirStr(c.swell_wave_direction)},
+    ];
+    document.getElementById('marine-grid').innerHTML = cards.map(c=>`
+      <div class="stat-card glass rounded-2xl p-5 flex flex-col gap-2">
+        <span class="text-2xl">${c.icon}</span>
+        <p class="text-slate-500 text-xs uppercase tracking-widest leading-tight">${c.lbl}</p>
+        <p class="font-display text-2xl font-700 ${c.col}">${c.val}</p>
+        <p class="text-slate-600 text-xs">${c.sub}</p>
+      </div>`).join('');
+
+    const h=d.hourly||{};
+    marineHourly={
+      time:              h.time||[],
+      wave_height:       h.wave_height||[],
+      wind_wave_height:  h.wind_wave_height||[],
+      swell_wave_height: h.swell_wave_height||[],
+    };
+    document.getElementById('marine-chart-empty').style.display='none';
+    renderMarineChart();
+  } catch(e) {
+    document.getElementById('marine-grid').innerHTML=`
+      <div class="col-span-full glass rounded-2xl p-10 text-center">
+        <p class="text-4xl mb-3">⚠️</p>
+        <p class="text-slate-400">Deniz verisi alınamadı. Kara içi konum olabilir.</p>
+      </div>`;
+    throw e;
+  }
+}
+
+/* ---------------------------------------------------------------
+   4. PLACE NAME  (Backend cache → Nominatim fallback)
+--------------------------------------------------------------- */
+async function fetchPlaceName(lat, lon) {
+  let p;
+  try {
+    const r=await fetch(`${BACKEND}/place?lat=${lat}&lon=${lon}`);
+    if(r.ok) p=await r.json();
+  } catch(_){}
+
+  if(!p) {
+    try {
+      const url=`${NOMINATIM}?format=jsonv2&lat=${lat}&lon=${lon}&zoom=10&addressdetails=1`;
+      const j=await gFetch(url);
+      const a=j.address||{};
+      p={city:a.city||a.town||a.village||a.municipality,state:a.state,country:a.country,display_name:j.display_name};
+    } catch(_){}
+  }
+
+  if(p) {
+    const parts=[p.city||p.state,p.state,p.country].filter(Boolean);
+    document.getElementById('hw-location').textContent=parts.join(', ')||p.display_name||'Bilinmeyen Konum';
+  }
+}
+
+/* ---------------------------------------------------------------
+   CHART FACTORY
+--------------------------------------------------------------- */
+const METRICS={
+  temperature_c:{label:'Sıcaklık (°C)',  color:'#38bdf8',unit:'°C'},
+  humidity_pct: {label:'Nem (%)',         color:'#34d399',unit:'%'},
+  pressure_hpa: {label:'Basınç (hPa)',   color:'#a78bfa',unit:' hPa'},
+  wind_speed_ms:{label:'Rüzgar (m/s)',   color:'#fbbf24',unit:' m/s'},
+  cloud_cover:  {label:'Bulut (%)',       color:'#94a3b8',unit:'%'},
+  precipitation:{label:'Yağış (mm)',     color:'#60a5fa',unit:' mm'},
+  precip_prob:  {label:'Yağış Olasılığı (%)',color:'#818cf8',unit:'%'},
+};
+
+function buildChart(id, labels, values, color, label, unit) {
+  const ctx=document.getElementById(id).getContext('2d');
+  return new Chart(ctx,{
+    type:'line',
+    data:{labels,datasets:[{label,data:values,borderColor:color,backgroundColor:color+'18',borderWidth:2,fill:true,tension:.4,pointRadius:0,pointHoverRadius:5,pointHoverBackgroundColor:color}]},
+    options:{
+      responsive:true,interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{display:false},
+        tooltip:{backgroundColor:'rgba(4,17,31,.9)',borderColor:color,borderWidth:1,titleColor:'#94a3b8',bodyColor:'#e0f2fe',
+          callbacks:{label:ctx=>ctx.parsed.y!==null?ctx.parsed.y.toFixed(1)+unit:'—'}
+        }
+      },
+      scales:{
+        x:{ticks:{color:'#475569',maxRotation:0,autoSkip:true,maxTicksLimit:innerWidth<640?6:12,font:{family:'DM Sans',size:11}},grid:{color:'rgba(255,255,255,.04)'}},
+        y:{ticks:{color:'#475569',font:{family:'DM Sans',size:11},callback:v=>v+unit},grid:{color:'rgba(255,255,255,.06)'}},
+      }
+    }
+  });
+}
+
+function renderForecastChart(){
+  if(!hourlyData) return;
+  const m=METRICS[activeMetric];
+  const labels=hourlyData.time.map(fmtTime);
+  if(chartInst) chartInst.destroy();
+  chartInst=buildChart('hourly-chart',labels,hourlyData[activeMetric]||[],m.color,m.label,m.unit);
+}
+function renderAqiChart(){
+  if(!aqiHourly) return;
+  const labels=aqiHourly.time.map(fmtTime);
+  if(aqiInst) aqiInst.destroy();
+  aqiInst=buildChart('aqi-chart',labels,aqiHourly.aqi,'#34d399','AQI','');
+}
+function renderMarineChart(){
+  if(!marineHourly) return;
+  const labels=marineHourly.time.map(fmtTime);
+  const vals=marineHourly[activeMarineField]||[];
+  if(marineInst) marineInst.destroy();
+  marineInst=buildChart('marine-chart',labels,vals,'#60a5fa','Dalga (m)',' m');
+}
+
+/* Pill listeners */
+document.querySelectorAll('.chart-pill').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.chart-pill').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active'); activeMetric=btn.dataset.metric; renderForecastChart();
+  });
+});
+document.addEventListener('click',e=>{
+  const btn=e.target.closest('.marine-pill'); if(!btn) return;
+  document.querySelectorAll('.marine-pill').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active'); activeMarineField=btn.dataset.field; renderMarineChart();
+});
+
+/* ---------------------------------------------------------------
+   SERVICES TABS  (backend /content → static fallback)
+--------------------------------------------------------------- */
+async function loadContent() {
+  let tabs=[];
+  try {
+    const r=await fetch(`${BACKEND}/content`);
+    if(r.ok) tabs=(await r.json()).tabs||[];
+  } catch(_) {}
+
+  /* Backend yoksa veya boş döndüyse yedek içerik */
+  if(!tabs.length) {
+    tabs=[
+      {id:'energy', title:'Yenilenebilir Enerji',sections:[{p:['Rüzgar ve güneş tahminleri, üretim planlaması, saha analizi ve risk haritaları.']}]},
+      {id:'marine', title:'Denizcilik',           sections:[{p:['3 saatlik rüzgar-dalga tahminleri, marina ve balıkçı tekneleri için kritik çıktılar.']}]},
+      {id:'road',   title:'Karayolları',           sections:[{p:['Yol güvenliği ve bakım optimizasyonu için hassas meteoroloji tahminleri.']}]},
+      {id:'aviation',title:'Havacılık',            sections:[{p:['Buzlanma, türbülans, pist sıcaklığı ve rota meteorolojisi raporları.']}]},
+    ];
+  }
+
+  const btnC=document.getElementById('tab-buttons'), panelC=document.getElementById('tab-panels');
+  btnC.innerHTML=''; panelC.innerHTML='';
+
+  tabs.forEach((tab,i)=>{
+    const btn=document.createElement('button');
+    btn.className='tab-btn btn-outline text-sm px-5 py-2.5 text-slate-300'+(i===0?' active':'');
+    btn.textContent=tab.title; btn.dataset.tab=tab.id; btnC.appendChild(btn);
+
+    const panel=document.createElement('div');
+    panel.id='tab-'+tab.id;
+    panel.className='tab-panel glass rounded-2xl p-8'+(i===0?' active':'');
+    let html='';
+    (tab.sections||[]).forEach(s=>{
+      if(s.h) html+=`<h3 class="font-display text-xl font-700 text-white mb-3">${s.h}</h3>`;
+      if(s.p) s.p.forEach(pa=>{ html+=`<p class="text-slate-400 text-sm leading-relaxed mb-4">${pa}</p>`; });
+      if(s.list) html+='<ul class="space-y-2 mb-6">'+s.list.map(it=>`<li class="flex items-start gap-2 text-sm text-slate-400"><span class="text-brand mt-0.5">✓</span>${it}</li>`).join('')+'</ul>';
+      html+='<div class="section-line my-6"></div>';
+    });
+    panel.innerHTML=html; panelC.appendChild(panel);
+  });
+
+  btnC.addEventListener('click',e=>{
+    const btn=e.target.closest('.tab-btn'); if(!btn) return;
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+  });
+}
+
+/* ---------------------------------------------------------------
+   GEOLOCATION
+--------------------------------------------------------------- */
+document.getElementById('btn-locate').addEventListener('click',()=>{
+  if(!navigator.geolocation){toast('Konum desteklenmiyor','error');return;}
+  toast('Konum alınıyor…','info');
+  navigator.geolocation.getCurrentPosition(
+    p=>loadAll(p.coords.latitude,p.coords.longitude),
+    ()=>toast('Konum izni reddedildi','error')
+  );
+});
+
+/* ---------------------------------------------------------------
+   SEARCH BOX
+--------------------------------------------------------------- */
+function handleSearch(){
+  const v=document.getElementById('search-box').value.trim();
+  const pts=v.split(',').map(x=>parseFloat(x.trim()));
+  if(pts.length!==2||isNaN(pts[0])||isNaN(pts[1])){toast('Geçerli koordinat girin: 41.01, 28.97','warn');return;}
+  loadAll(pts[0],pts[1]);
+}
+document.getElementById('btn-search').addEventListener('click',handleSearch);
+document.getElementById('search-box').addEventListener('keydown',e=>{if(e.key==='Enter')handleSearch();});
+
+/* ---------------------------------------------------------------
+   LEAFLET MAP
+--------------------------------------------------------------- */
+const map=L.map('pick-map',{center:[39.0,35.0],zoom:6,zoomControl:true});
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+  maxZoom:19,subdomains:'abcd',
+  attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; CARTO',
+}).addTo(map);
+
+const mIcon=L.divIcon({
+  html:`<div style="width:28px;height:28px;background:linear-gradient(135deg,#0ea5e9,#6366f1);border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2px solid rgba(255,255,255,.3);box-shadow:0 4px 14px rgba(56,189,248,.5)"></div>`,
+  className:'',iconSize:[28,28],iconAnchor:[14,28],popupAnchor:[0,-32],
+});
+
+let marker=null;
+map.on('click',async e=>{
+  const{lat,lng}=e.latlng;
+  if(marker) marker.setLatLng(e.latlng);
+  else       marker=L.marker(e.latlng,{icon:mIcon}).addTo(map);
+
+  marker.bindPopup(`<div style="min-width:150px">
+    <p style="color:#38bdf8;font-weight:600;margin-bottom:4px">📍 Seçildi</p>
+    <p style="color:#94a3b8;font-size:.78rem">${lat.toFixed(4)}, ${lng.toFixed(4)}</p>
+    <p style="color:#64748b;font-size:.75rem;margin-top:5px">Veriler yükleniyor…</p>
+  </div>`).openPopup();
+
+  await loadAll(lat,lng);
+
+  setTimeout(()=>{
+    const loc=document.getElementById('hw-location').textContent;
+    const tmp=document.getElementById('hw-temp').textContent;
+    if(marker) marker.setPopupContent(`<div style="min-width:150px">
+      <p style="color:#38bdf8;font-weight:600;margin-bottom:4px">📍 ${loc}</p>
+      <p style="color:#e0f2fe;font-size:1.4rem;font-weight:700;margin:4px 0">${tmp}°C</p>
+      <p style="color:#64748b;font-size:.75rem">${lat.toFixed(4)}, ${lng.toFixed(4)}</p>
+    </div>`);
+  },2500);
+});
+
+/* ---------------------------------------------------------------
+   INIT
+--------------------------------------------------------------- */
+loadContent();
+
+/* Açılışta otomatik veri: URL'de konum varsa (#39.93,32.85) onu,
+   yoksa Ankara'yı yükle. Sayfa artık boş açılmıyor. */
+(function initLocation(){
+  let lat=39.9334, lon=32.8597;               // varsayılan: Ankara
+  const m=location.hash.match(/^#(-?[\d.]+),(-?[\d.]+)$/);
+  if(m){ lat=parseFloat(m[1]); lon=parseFloat(m[2]); }
+
+  marker=L.marker([lat,lon],{icon:mIcon}).addTo(map);
+  map.setView([lat,lon],7);
+  const hint=document.getElementById('map-hint');
+  if(hint){hint.style.opacity='0';hint.style.pointerEvents='none';}
+  loadAll(lat,lon,{noScroll:true});
+})();
+</script>
+</body>
+</html>
