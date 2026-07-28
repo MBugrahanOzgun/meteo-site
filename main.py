@@ -260,36 +260,38 @@ CONTENT = {
                 {
                     "h": "Enerji Sektöründe Hava Tahmininin Önemi",
                     "p": [
-                        "Yenilenebilir enerji sektörünün karakteristik olarak birincil hammaddesi meteorolojik kaynaklardır. Meteoroloji parametrelerinin alansal, noktasal, saatlik, günlük, haftalık, aylık ve mevsimlik tahminleri yapılabilir.",
-                        "Artan enerji yatırımları üretim planlamasını gerekli kılmıştır. Önümüzdeki günlerde üretilebilecek enerji miktarını önceden değerlendirmek büyük önem taşır. Tahmin edilen meteorolojik parametreler enerji üretim tahmini için birincil parametredir."
+                        "Yenilenebilir enerji sektörünün birincil hammaddesi meteorolojik kaynaklardır. Dolayısıyla bu sektör büyük oranda tahmin edilebilir bir özellik taşır. Tahminler alansal, noktasal, saatlik, günlük, haftalık, aylık ve mevsimlik olmak üzere hem zamansal hem alansal olarak farklı şekillerde yapılabilir. Genel hava tahmininin yanında tesisinizin mevcut istasyonu kullanılarak yapılacak değerlendirmelerle en doğru sonuçları sunabiliriz.",
+                        "Son yıllarda artan enerji yatırımları üretim planlamasını da gerekli kılmıştır. İleriye yönelik üretilebilecek enerji miktarının birkaç gün öncesinden değerlendirilmesi önem arz eder. Tahmin edilen meteorolojik parametreler, enerji üretim tahmini için birincil parametredir. Yapacağımız tahminlerle hem kârlılığınızı hem üretim verimliliğinizi artırabilirsiniz."
                     ]
                 },
                 {
                     "h": "Yenilenebilir Enerji Tesisleri için Saha Analizi",
                     "p": [
-                        "Deneyimli ekip ile yatırım yapılması planlanan sahalar için kapsamlı saha analizi yapılabilir. Meteorolojik veri arşivinin temini, analizi, öngörü imkanı ve risk haritalarının oluşturulması ile kurulum ve işletme stratejileri belirlenebilir.",
-                        "Tesisin sağlıklı kurulumu, işletmesi ve en verimli çalışması için gerekli meteorolojik veri analizleri değerlendirilerek raporlanır."
+                        "Deneyimli ekibimizle enerji piyasası yatırımlarınız için kapsamlı saha analizleri yapıyoruz. Enerji piyasası, yenilenebilir enerji, mevzuat, meteorolojik veri analizleri ve sektör hakkında bilmek istediğiniz tüm konularda kapsamlı raporlar hazırlayabiliriz.",
+                        "Muhtemel sahalarınız için meteorolojik veri arşivinin temini ve analizi ile hem öngörü yapabilme imkânı hem de risk haritalarınızın oluşturulmasını sağlıyor; kurulum ve işletme aşamalarınızda strateji belirlemenize destek oluyoruz."
                     ]
                 },
                 {
                     "h": "Sizlere Hangi Meteorolojik Bilgileri Sunuyoruz",
                     "list": [
-                        "Bölgenin iklim ve meteorolojik verileri",
+                        "Bölgenin iklim ve meteoroloji verileri",
                         "Tekerrür haritaları",
                         "Risk haritaları ve bilgileri",
-                        "Don / kar örtüsü başlangıç-bitiş ve belirli gün tarihleri",
+                        "Don / kar örtüsü başlangıç ve bitiş tarihleri, belirli gün tarihleri",
                         "Yağış tür ve şiddeti için uydu ve radar görüntüleri",
-                        "Yıldırım / dolu izleme ve muhtemel gelişme sahaları",
-                        "Hub yüksekliği için rüzgar tahminleri",
-                        "Yer seviyesi rüzgar, nem, sıcaklık ve bulut örtüsü tahmini",
-                        "İlk 48 saat için saatlik tahmin, 7 günlük tahmin",
-                        "Aylık ve mevsimlik değerlendirmeler"
+                        "Yıldırım, dolu izleme ve muhtemel gelişme sahaları",
+                        "Hub yüksekliği ve yer seviyesi için rüzgar, nem, sıcaklık, güneş radyasyonu ve bulutluluk çıktısı",
+                        "RES ve GES için tüm parametreleri içeren sayısal model çıktıları",
+                        "İlk 48 saat için saatlik hava tahmini",
+                        "15 günlük hava tahmini",
+                        "Sıcaklık, basınç ve yağış parametreleri için aylık tahmin",
+                        "Mevsimsel değerlendirmeler"
                     ]
                 },
                 {
                     "h": "Danışmanlık",
                     "p": [
-                        "Raporlar e-mail, SMS, telefon vb. iletişim araçları ile sunulabilir; ayrıca meteoroloji uzmanları ile mevcut durum değerlendirmesi yapılabilir."
+                        "Size özel hazırladığımız raporları seçeceğiniz iletişim araçlarıyla (e-posta, SMS, telefon vb.) sunabildiğimiz gibi, istediğiniz zaman ulaşabileceğiniz meteoroloji uzmanlarımızla mevcut durumu birlikte değerlendirebilirsiniz."
                     ]
                 }
             ]
@@ -299,44 +301,79 @@ CONTENT = {
             "title": "Denizcilik",
             "sections": [
                 {
+                    "h": "Denizde Doğru Tahmin, Güvenli Planlama",
                     "p": [
-                        "Denizcilik hava şartları ile doğrudan ilişkilidir. Kıyı tahminleri, kara ile etkileşimin fazla olduğu bölgelerde açık deniz tahminlerinden daha kritik olabilir.",
-                        "3 saatlik periyotlarda rüzgar yön-hız, dalga yüksekliği ve genel hava tahmini ile destek sağlanabilir. Marinalar ve balıkçı tekneleri için önemli çıktılar verir.",
-                        "10 güne kadar periyotlarda ortalama/maksimum rüzgar ve yönü, hadise ve genel hava tahmini; 11–30 gün arası sinoptik değerlendirmeler sunulabilir."
+                        "Üç tarafı denizlerle çevrili ülkemizde denizcilik, önemi gün geçtikçe artan bir sektördür ve hava şartlarıyla doğrudan ilişkilidir. Uzun kıyı şeridimiz boyunca uzman tahmincilerimizle 3'er saatlik periyotlarda rüzgar yön ve hızı, dalga yüksekliği ve hava tahmini desteği sunuyoruz.",
+                        "Kötü hava şartları planlarınızı tamamen aksatabilir; ancak önceden haberdar olacağınız meteorolojik şartlara göre yapacağınız planlar size kazanç, tasarruf ve daha keyifli bir seyir olarak geri döner."
+                    ]
+                },
+                {
+                    "h": "Neden Yüksek Çözünürlüklü Kıyı Tahmini?",
+                    "p": [
+                        "İnternet taramalarında karşınıza çıkan tahminler genellikle açık deniz tahminleridir ve çok sayıda koy barındıran ülkemiz denizlerini temsil etmeleri güçtür. Kıyılarımızı daha iyi temsil eden, daha yüksek çözünürlüklü modeller çalıştırarak ve bunları tecrübeli tahmincilerle değerlendirerek en doğru raporları hazırlıyoruz.",
+                        "Tahminlerimiz içerisinde 10 güne kadar belirli periyotlarla ortalama ve maksimum rüzgar, hadise ve genel hava tahmini; 11-30 gün arasında ise genel meteorolojik durum bilgileri yer alır. Ülkemiz genelindeki marinalar için de detaylı hava tahminleri sunuyoruz."
                     ]
                 },
                 {
                     "h": "Danışmanlık",
                     "p": [
-                        "Raporlar e-mail, SMS, telefon vb. iletişim araçları ile sunulabilir; meteoroloji uzmanları ile 7/24 değerlendirme yapılabilir."
+                        "Size özel hazırladığımız raporları seçeceğiniz iletişim araçlarıyla (e-posta, SMS, telefon vb.) sunabildiğimiz gibi, istediğiniz zaman ulaşabileceğiniz meteoroloji uzmanlarımızla mevcut durumu birlikte değerlendirebilirsiniz. Rüzgar klimatolojisi araştırma çalışmalarımız rüzgar gülü olarak sunulur."
                     ]
                 }
             ]
         },
         {
-            "id": "road",
-            "title": "Karayolları",
+            "id": "construction",
+            "title": "İnşaat ve Müteahhitlik",
             "sections": [
                 {
+                    "h": "Şantiyede Her Gün Hava Şartlarına Bağlıdır",
                     "p": [
-                        "Kamu güvenliği ve bakım faaliyetlerinin optimizasyonu için doğru ve ayrıntılı hava tahminleri temel önem taşır.",
-                        "Kışın doğru tahminler gereksiz ve maliyetli tuzlama çalışmalarını azaltır. Güvenilir uyarılar zaman ve para israfını önler."
+                        "Meteorolojik şartlar inşaat projelerinin her aşamasında belirleyici rol oynar. Büyük oranda açık havada çalışılan sektörde hem çalışma şartları hem de üretim kalitesi meteorolojik parametrelerden etkilenir. İnşaat sezonunun başlangıç ve bitiş tarihlerinde 1 haftalık bir değişikliğin dahi şantiye maliyetlerine yansıması önemlidir.",
+                        "Sağlıklı ve doğru meteorolojik destekle, şantiye başlangıç ve bitiş tarihlerinin yanı sıra inşaat süresi boyunca kazanacağınız zaman sektörde öne geçmenizi sağlar. Bu verimlilik artışı, planlı ve kazançlı işgücü ile işyeri güvenliğinde etkinlik olarak geri döner."
+                    ]
+                },
+                {
+                    "h": "Hangi Parametreler, Hangi Vadede?",
+                    "p": [
+                        "Sıcaklık, yağış, rüzgar tahminleri ve özel projeler için basınç parametresi, projelerinizin sağlıklı devamlılığı ve kârlılığı açısından kritik bilgiler sunar. Bu bilgileri, birlikte belirleyeceğimiz eşik değerlerini de değerlendirerek en fazla fayda sağlayacak formatta ve zamanda kullanımınıza sunuyoruz.",
+                        "Çok kısa vadeli tahminlerle gününüzü planlayabilir; kısa, orta ve uzun vadeli tahminlerle aylık iş takviminizi oluşturabilirsiniz. İsteğiniz doğrultusunda hazırlayacağımız geriye dönük klimatolojik çalışmalarla sahalarınızın risk dönemlerini ve önemli meteorolojik sınır değerlerini belirleyebiliriz."
                     ]
                 }
             ]
         },
         {
-            "id": "aviation",
-            "title": "Havacılık",
+            "id": "agriculture",
+            "title": "Tarım",
             "sections": [
                 {
+                    "h": "Ekimden Hasada, Depodan Pazara",
                     "p": [
-                        "Havayolları ve havaalanları için doğru ve ayrıntılı hava tahminleri operasyonel verimlilik ve güvenlik açısından kritik öneme sahiptir.",
-                        "Buzlanma, pist sıcaklığı, rota/varış meteorolojisi, türbülans haritaları gibi kapsamlı bilgiler sağlanabilir."
+                        "Zirai üretim faaliyetleri ister açık alanda ister sera gibi kapalı alanlarda yapılsın hava durumuyla doğrudan ilişkilidir. Tarımsal faaliyetlerin her aşamasını etkileyen meteorolojik parametreler tahmin edilebilir sınıftadır. Bu parametreleri hizmetinize sunarak birkaç gün öncesinden önlem almanızı veya ticari şartlarınızı planlamanızı sağlıyoruz.",
+                        "Havanın etkisini ekimden hasada, hatta depolama ve pazarlamaya kadar her alanda görebiliriz. Zirai don, kuraklık, yağış ve sıcaklık gibi parametrelerin tahmini; üretim miktarı ve kalitesi kadar pazar şartlarının nasıl olabileceğine dair de ipuçları verir.",
+                        "Seracılık, hayvancılık ve özel üretim çiftlikleriniz için ısıtma-soğutma faaliyetlerinizde kullanılmak üzere hassas noktasal tahminler yaparak diğer üreticilerin önüne geçmenizi sağlayabiliriz."
+                    ]
+                },
+                {
+                    "h": "Sunduğumuz Tahmin Ürünleri",
+                    "list": [
+                        "Günlük, 15 günlük, 3 aylık ve mevsimlik tahminler",
+                        "15 günlük tahmin: min/maks sıcaklık, yağış miktarı ve cinsi, rüzgar hızı, nem, zirai don",
+                        "3 aylık tahmin: aylık ortalama sıcaklık, toplam yağış ve normallere göre beklenti",
+                        "Mevsimlik değerlendirme: sistem konumları ve muhtemel riskler (kuraklık, ani soğuma/ısınma, fazla yağış)",
+                        "İlk 10 günlük dönem için kuvvetli hadiselere yönelik risk haritaları",
+                        "Tüm il ve ilçe merkezleri ile verilecek koordinatlara göre noktasal tahminler",
+                        "Faaliyetiniz özelinde meteorolojik bilgilerin yorumlanması"
+                    ]
+                },
+                {
+                    "h": "Danışmanlık",
+                    "p": [
+                        "Size özel hazırladığımız raporları seçeceğiniz iletişim araçlarıyla (e-posta, SMS, telefon vb.) sunabildiğimiz gibi, istediğiniz zaman ulaşabileceğiniz meteoroloji uzmanlarımızla mevcut durumu birlikte değerlendirebilirsiniz."
                     ]
                 }
             ]
-        },
+        }
     ]
 }
 
