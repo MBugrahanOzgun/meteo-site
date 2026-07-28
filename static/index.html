@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MeteoSite — Meteoroloji Danışmanlık</title>
+  <title>Forecaster — Meteoroloji Danışmanlık</title>
   <meta name="description" content="Yenilenebilir enerji, denizcilik, inşaat ve tarım sektörleri için meteoroloji danışmanlığı: canlı hava durumu, 7 günlük tahmin, hava kalitesi ve deniz verileri." />
   <meta name="keywords" content="hava tahmini, hava durumu, hava analizi, kısa vadeli hava tahmini, uzun vadeli hava tahmini, aylık tahmin, mevsimlik tahmin, yağış, sağanak, kar, sis, buzlanma, zirai don, zirai hava tahmini, güneş enerjisi, rüzgar enerjisi, RES, GES, rüzgar tahmini, güneşlenme süresi, maksimum rüzgar, sıcaklık tahmini, basınç, nisbi nem, risk haritası, deniz tahmini, dalga yüksekliği, bofor skalası, 10 m rüzgarı, 100 m rüzgarı, enerji atlası, havacılık meteorolojisi, metar, taf, sinoptik, uydu, radar, meteorolojik veri, fotovoltaik panel, rüzgar türbini, hub yüksekliği, kar kalınlığı, iklim değişikliği" />
-  <meta name="author" content="MeteoSite" />
-  <meta property="og:title" content="MeteoSite — Meteoroloji Danışmanlık" />
+  <meta name="author" content="Forecaster" />
+  <meta property="og:title" content="Forecaster — Meteoroloji Danışmanlık" />
   <meta property="og:description" content="Canlı hava durumu, 7 günlük tahmin, hava kalitesi ve deniz verileri; enerji, denizcilik, inşaat ve tarım sektörlerine özel meteoroloji danışmanlığı." />
   <meta property="og:type" content="website" />
   <meta name="twitter:card" content="summary_large_image" />
@@ -101,6 +101,16 @@
     /* font-600 / font-700 / font-800 Tailwind'de yok — burada tanımlıyoruz */
     .font-600{font-weight:600}.font-700{font-weight:700}.font-800{font-weight:800}.font-950{font-weight:800}
 
+    /* Konum çubuğu */
+    .loc-bar{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px}
+    .loc-field{flex:1;min-width:120px}
+    .loc-field label{display:block;font-size:.66rem;letter-spacing:.08em;text-transform:uppercase;color:#64748b;margin-bottom:5px}
+    .loc-input{width:100%;padding:9px 12px;border-radius:10px;font-size:.86rem;color:#fff;
+      background:rgba(255,255,255,.04);border:1px solid rgba(148,163,184,.18);outline:none;transition:border-color .2s}
+    .loc-input:focus{border-color:rgba(56,189,248,.55);background:rgba(56,189,248,.06)}
+    .loc-place{padding:9px 12px;border-radius:10px;font-size:.86rem;color:#e2e8f0;
+      background:rgba(255,255,255,.02);border:1px solid rgba(148,163,184,.12);min-height:38px}
+
     /* 7 günlük tahmin kartları */
     .day-card{transition:transform .15s ease,border-color .2s ease}
     .day-card:hover{transform:translateY(-3px);border-color:rgba(56,189,248,.4)}
@@ -124,11 +134,11 @@
       <path d="M7 20 Q11 11 16 15 Q21 19 25 12" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" fill="none"/>
       <circle cx="16" cy="15" r="2.5" fill="#38bdf8" opacity=".5"/>
     </svg>
-    <span class="font-display font-800 text-lg tracking-tight text-white">Meteo<span class="text-brand">Site</span></span>
+    <span class="font-display font-800 text-lg tracking-tight text-white">Fore<span class="text-brand">caster</span></span>
   </a>
   <div class="hidden md:flex items-center gap-6 text-sm text-slate-300">
     <a href="#map-picker"  class="hover:text-brand transition-colors">Harita</a>
-    <a href="#dashboard"   class="hover:text-brand transition-colors">Dashboard</a>
+    <a href="#dashboard"   class="hover:text-brand transition-colors">Veriler</a>
     <a href="#daily"       class="hover:text-brand transition-colors">7 Günlük</a>
     <a href="#airquality"  class="hover:text-brand transition-colors">Hava Kalitesi</a>
     <a href="#marine"      class="hover:text-brand transition-colors">Deniz</a>
@@ -150,7 +160,7 @@
   <div class="relative z-10 text-center px-6 max-w-4xl mx-auto">
     <div class="inline-flex items-center gap-2 text-xs font-600 uppercase tracking-widest text-brand border border-brand/30 rounded-full px-4 py-1.5 mb-8 bg-brand/5">
       <span class="w-1.5 h-1.5 rounded-full bg-brand animate-pulse"></span>
-      Canlı Meteoroloji — 4 Açık Kaynak API
+      Canlı Meteoroloji
     </div>
     <h1 class="font-display text-5xl md:text-7xl font-800 leading-[1.05] mb-6 text-white">
       Hava Durumunu<br/>
@@ -158,15 +168,15 @@
       Takip Edin
     </h1>
     <p class="text-slate-400 text-lg md:text-xl max-w-2xl mx-auto mb-8 leading-relaxed">
-      Hava tahmini · Hava kalitesi · Deniz verileri · Konum — tümü ücretsiz açık kaynaklardan.
+      Hava tahmini · Hava kalitesi · Deniz verileri · Konum analizi — tek ekranda.
     </p>
 
-    <!-- API badges -->
+    <!-- Özellik rozetleri -->
     <div class="flex flex-wrap justify-center gap-2 mb-10">
-      <span class="src-badge bg-sky-500/10   text-sky-400   border border-sky-500/20">🌤 Open-Meteo Forecast</span>
-      <span class="src-badge bg-green-500/10  text-green-400 border border-green-500/20">🍃 Open-Meteo Air Quality</span>
-      <span class="src-badge bg-blue-500/10   text-blue-400  border border-blue-500/20">🌊 Open-Meteo Marine</span>
-      <span class="src-badge bg-purple-500/10 text-purple-400 border border-purple-500/20">📍 Nominatim OSM</span>
+      <span class="src-badge bg-sky-500/10   text-sky-400   border border-sky-500/20">🌤 Hava Tahmini</span>
+      <span class="src-badge bg-green-500/10  text-green-400 border border-green-500/20">🍃 Hava Kalitesi</span>
+      <span class="src-badge bg-blue-500/10   text-blue-400  border border-blue-500/20">🌊 Deniz Verileri</span>
+      <span class="src-badge bg-purple-500/10 text-purple-400 border border-purple-500/20">📍 Konum Analizi</span>
     </div>
 
     <div class="flex flex-col sm:flex-row items-stretch gap-3 max-w-xl mx-auto">
@@ -261,10 +271,16 @@
   <div class="reveal mb-12 flex flex-col md:flex-row md:items-end justify-between gap-4">
     <div>
       <p class="text-brand text-sm font-600 uppercase tracking-widest mb-3">Anlık Veri</p>
-      <h2 class="font-display text-4xl md:text-5xl font-700 text-white">Meteoroloji Dashboard</h2>
+      <h2 class="font-display text-4xl md:text-5xl font-700 text-white">Meteorolojik Veriler</h2>
       <p class="text-slate-400 mt-4 max-w-xl">Hissedilen sıcaklık, nem, basınç, rüzgar atışı, bulut örtüsü, görüş mesafesi, UV ve güneş radyasyonu.</p>
     </div>
-    <span class="src-badge bg-sky-500/10 text-sky-400 border border-sky-500/20 self-start">🌤 Open-Meteo Forecast API</span>
+  </div>
+  <div class="loc-bar reveal glass rounded-2xl p-5 mb-8" data-loc-bar>
+    <div class="loc-field"><label>Enlem</label><input class="loc-input loc-lat" type="text" inputmode="decimal" placeholder="39.9334"></div>
+    <div class="loc-field"><label>Boylam</label><input class="loc-input loc-lon" type="text" inputmode="decimal" placeholder="32.8597"></div>
+    <div class="loc-field" style="flex:1.4"><label>Şehir</label><div class="loc-place loc-city">—</div></div>
+    <div class="loc-field" style="flex:1.4"><label>İlçe / Bölge</label><div class="loc-place loc-district">—</div></div>
+    <button class="loc-apply btn-primary text-white text-sm px-6 py-2.5 whitespace-nowrap">Uygula</button>
   </div>
   <div id="detail-grid" class="reveal grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
     <div class="skel h-28 rounded-2xl col-span-2 sm:col-span-3 lg:col-span-5"></div>
@@ -281,7 +297,13 @@
       <h2 class="font-display text-4xl md:text-5xl font-700 text-white">7 Günlük Tahmin</h2>
       <p class="text-slate-400 mt-4 max-w-xl">Günlük min/maks sıcaklık, hava durumu, yağış olasılığı, rüzgar ve gün doğumu/batımı.</p>
     </div>
-    <span class="src-badge bg-sky-500/10 text-sky-400 border border-sky-500/20 self-start">🌤 Open-Meteo Forecast API</span>
+  </div>
+  <div class="loc-bar reveal glass rounded-2xl p-5 mb-8" data-loc-bar>
+    <div class="loc-field"><label>Enlem</label><input class="loc-input loc-lat" type="text" inputmode="decimal" placeholder="39.9334"></div>
+    <div class="loc-field"><label>Boylam</label><input class="loc-input loc-lon" type="text" inputmode="decimal" placeholder="32.8597"></div>
+    <div class="loc-field" style="flex:1.4"><label>Şehir</label><div class="loc-place loc-city">—</div></div>
+    <div class="loc-field" style="flex:1.4"><label>İlçe / Bölge</label><div class="loc-place loc-district">—</div></div>
+    <button class="loc-apply btn-primary text-white text-sm px-6 py-2.5 whitespace-nowrap">Uygula</button>
   </div>
   <div id="daily-grid" class="reveal grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
     <div class="skel h-56 rounded-2xl col-span-2 sm:col-span-3 lg:col-span-7"></div>
@@ -299,19 +321,25 @@
 <section id="airquality" class="py-24 px-6 md:px-12 max-w-7xl mx-auto">
   <div class="reveal mb-12 flex flex-col md:flex-row md:items-end justify-between gap-4">
     <div>
-      <p class="text-emerald-400 text-sm font-600 uppercase tracking-widest mb-3">Açık Kaynak API</p>
+      <p class="text-emerald-400 text-sm font-600 uppercase tracking-widest mb-3">Anlık Ölçüm</p>
       <h2 class="font-display text-4xl md:text-5xl font-700 text-white">Hava Kalitesi</h2>
       <p class="text-slate-400 mt-4 max-w-xl">PM2.5, PM10, Ozon (O₃), NO₂, CO ve Avrupa Hava Kalitesi İndeksi (EU-AQI) anlık değerleri.</p>
     </div>
-    <span class="src-badge bg-green-500/10 text-green-400 border border-green-500/20 self-start">🍃 Open-Meteo Air Quality API</span>
   </div>
 
+  <div class="loc-bar reveal glass rounded-2xl p-5 mb-8" data-loc-bar>
+    <div class="loc-field"><label>Enlem</label><input class="loc-input loc-lat" type="text" inputmode="decimal" placeholder="39.9334"></div>
+    <div class="loc-field"><label>Boylam</label><input class="loc-input loc-lon" type="text" inputmode="decimal" placeholder="32.8597"></div>
+    <div class="loc-field" style="flex:1.4"><label>Şehir</label><div class="loc-place loc-city">—</div></div>
+    <div class="loc-field" style="flex:1.4"><label>İlçe / Bölge</label><div class="loc-place loc-district">—</div></div>
+    <button class="loc-apply btn-primary text-white text-sm px-6 py-2.5 whitespace-nowrap">Uygula</button>
+  </div>
   <div class="reveal">
     <!-- AQI Big Card -->
     <div class="glass rounded-2xl p-8 mb-6">
       <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-8">
         <div>
-          <p class="text-slate-500 text-xs uppercase tracking-widest mb-2">Avrupa AQI — European Air Quality Index</p>
+          <p class="text-slate-500 text-xs uppercase tracking-widest mb-2">Avrupa Hava Kalitesi İndeksi (EU-AQI)</p>
           <div class="flex items-end gap-4">
             <p id="aqi-value" class="font-display text-6xl font-800 text-white">—</p>
             <p id="aqi-label" class="text-xl font-600 text-slate-400 mb-2">Konum bekleniyor</p>
@@ -346,13 +374,19 @@
 <section id="marine" class="py-24 px-6 md:px-12 max-w-7xl mx-auto">
   <div class="reveal mb-12 flex flex-col md:flex-row md:items-end justify-between gap-4">
     <div>
-      <p class="text-blue-400 text-sm font-600 uppercase tracking-widest mb-3">Açık Kaynak API</p>
+      <p class="text-blue-400 text-sm font-600 uppercase tracking-widest mb-3">Deniz Durumu</p>
       <h2 class="font-display text-4xl md:text-5xl font-700 text-white">Deniz Verileri</h2>
       <p class="text-slate-400 mt-4 max-w-xl">Dalga yüksekliği, yönü, periyodu ve swell verileri. Kıyı ve açık deniz konumları için optimize edilmiştir.</p>
     </div>
-    <span class="src-badge bg-blue-500/10 text-blue-400 border border-blue-500/20 self-start">🌊 Open-Meteo Marine API</span>
   </div>
 
+  <div class="loc-bar reveal glass rounded-2xl p-5 mb-8" data-loc-bar>
+    <div class="loc-field"><label>Enlem</label><input class="loc-input loc-lat" type="text" inputmode="decimal" placeholder="39.9334"></div>
+    <div class="loc-field"><label>Boylam</label><input class="loc-input loc-lon" type="text" inputmode="decimal" placeholder="32.8597"></div>
+    <div class="loc-field" style="flex:1.4"><label>Şehir</label><div class="loc-place loc-city">—</div></div>
+    <div class="loc-field" style="flex:1.4"><label>İlçe / Bölge</label><div class="loc-place loc-district">—</div></div>
+    <button class="loc-apply btn-primary text-white text-sm px-6 py-2.5 whitespace-nowrap">Uygula</button>
+  </div>
   <div class="reveal">
     <div id="marine-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
       <div class="skel h-36 rounded-2xl col-span-2 sm:col-span-3 lg:col-span-6"></div>
@@ -382,7 +416,6 @@
       <h2 class="font-display text-4xl md:text-5xl font-700 text-white">168 Saatlik Grafik</h2>
       <p class="text-slate-400 mt-4 max-w-xl">Sıcaklık, nem, basınç, rüzgar, bulut örtüsü ve yağış miktarı.</p>
     </div>
-    <span class="src-badge bg-sky-500/10 text-sky-400 border border-sky-500/20 self-start">🌤 Open-Meteo Forecast API</span>
   </div>
   <div class="flex flex-wrap gap-2 mb-8 reveal">
     <button class="chart-pill active" data-metric="temperature_c">🌡 Sıcaklık</button>
@@ -417,7 +450,7 @@
 <!-- ======== FEATURES BENTO ======== -->
 <section class="py-24 px-6 md:px-12 max-w-7xl mx-auto">
   <div class="reveal mb-16 text-center">
-    <p class="text-brand text-sm font-600 uppercase tracking-widest mb-3">Neden MeteoSite?</p>
+    <p class="text-brand text-sm font-600 uppercase tracking-widest mb-3">Neden Forecaster?</p>
     <h2 class="font-display text-4xl md:text-5xl font-700 text-white max-w-2xl mx-auto">Doğru verilerle doğru kararlar alın</h2>
   </div>
   <div class="reveal grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -425,8 +458,8 @@
       <div class="w-10 h-10 rounded-xl bg-brand/10 flex items-center justify-center mb-5">
         <svg class="w-5 h-5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
       </div>
-      <h3 class="font-display text-xl font-700 text-white mb-3">4 Açık Kaynak API — Sıfır Maliyet</h3>
-      <p class="text-slate-400 text-sm leading-relaxed">Open-Meteo Forecast, Air Quality, Marine + Nominatim OSM. Tümü ücretsiz, CORS destekli, API anahtarı gerektirmiyor. CC BY 4.0 lisansı.</p>
+      <h3 class="font-display text-xl font-700 text-white mb-3">Dört Veri Katmanı Tek Ekranda</h3>
+      <p class="text-slate-400 text-sm leading-relaxed">Hava tahmini, hava kalitesi, deniz durumu ve konum bilgisi tek sayfada birleşir. Sekmeler arasında gezinmeden, aynı koordinat için bütüncül bir tablo görürsünüz.</p>
     </div>
     <div class="stat-card glass rounded-2xl p-7">
       <div class="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center mb-5">
@@ -478,10 +511,8 @@
   <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6 text-slate-600 text-sm">
     <span class="font-display font-700 text-slate-400">Meteo<span class="text-brand">Site</span></span>
     <div class="flex flex-wrap justify-center gap-2">
-      <span class="src-badge bg-sky-900/20 text-slate-600 border border-slate-800">Open-Meteo CC BY 4.0</span>
-      <span class="src-badge bg-sky-900/20 text-slate-600 border border-slate-800">Nominatim ODbL</span>
     </div>
-    <span>© 2025 MeteoSite. Tüm hakları saklıdır.</span>
+    <span>© 2026 Forecaster. Tüm hakları saklıdır.</span>
   </div>
 </footer>
 
@@ -588,6 +619,45 @@ document.querySelectorAll('.reveal').forEach(el=>ro.observe(el));
 window.addEventListener('scroll',()=>document.getElementById('navbar').classList.toggle('scrolled',scrollY>40));
 
 /* ---------------------------------------------------------------
+   KONUM ÇUBUKLARI  (her bölümde enlem/boylam + şehir/ilçe)
+--------------------------------------------------------------- */
+/* Haritadan veya "Konumum"dan gelen koordinatı tüm çubuklara yazar */
+function syncLocBars(lat, lon){
+  document.querySelectorAll('[data-loc-bar]').forEach(b=>{
+    b.querySelector('.loc-lat').value = Number(lat).toFixed(4);
+    b.querySelector('.loc-lon').value = Number(lon).toFixed(4);
+  });
+}
+/* Ters coğrafi kodlamadan gelen şehir/ilçe bilgisini yazar */
+function syncLocPlace(city, district){
+  document.querySelectorAll('[data-loc-bar]').forEach(b=>{
+    b.querySelector('.loc-city').textContent     = city     || '—';
+    b.querySelector('.loc-district').textContent = district || '—';
+  });
+}
+/* Elle girip "Uygula"ya basınca tüm veriler o koordinat için yeniden yüklenir */
+document.addEventListener('click', e=>{
+  const btn = e.target.closest('.loc-apply');
+  if(!btn) return;
+  const bar = btn.closest('[data-loc-bar]');
+  const lat = parseFloat((bar.querySelector('.loc-lat').value||'').replace(',','.'));
+  const lon = parseFloat((bar.querySelector('.loc-lon').value||'').replace(',','.'));
+  if(!isFinite(lat)||!isFinite(lon)||lat<-90||lat>90||lon<-180||lon>180){
+    toast('Geçerli enlem (-90…90) ve boylam (-180…180) girin','error');
+    return;
+  }
+  if(marker) marker.setLatLng([lat,lon]); else marker=L.marker([lat,lon],{icon:mIcon}).addTo(map);
+  map.setView([lat,lon], Math.max(map.getZoom(),8));
+  loadAll(lat,lon,{noScroll:true});
+});
+/* Enter tuşu da Uygula gibi çalışsın */
+document.addEventListener('keydown', e=>{
+  if(e.key!=='Enter') return;
+  const inp = e.target.closest('.loc-lat, .loc-lon');
+  if(inp) inp.closest('[data-loc-bar]').querySelector('.loc-apply').click();
+});
+
+/* ---------------------------------------------------------------
    MASTER LOAD
 --------------------------------------------------------------- */
 let isLoading=false;
@@ -606,6 +676,8 @@ async function loadAll(lat, lon, opts={}) {
   if(hint){hint.style.opacity='0';hint.style.pointerEvents='none';}
   document.getElementById('map-coords-text').textContent =
     `${lat.toFixed(5)}°N  ${lon.toFixed(5)}°E`;
+  syncLocBars(lat, lon);
+  syncLocPlace(null, null);
 
   const results = await Promise.allSettled([
     fetchForecast(lat,lon),
@@ -868,13 +940,16 @@ async function fetchPlaceName(lat, lon) {
       const url=`${NOMINATIM}?format=jsonv2&lat=${lat}&lon=${lon}&zoom=10&addressdetails=1`;
       const j=await gFetch(url);
       const a=j.address||{};
-      p={city:a.city||a.town||a.village||a.municipality,state:a.state,country:a.country,display_name:j.display_name};
+      p={city:a.city||a.town||a.village||a.municipality,district:a.suburb||a.city_district||a.district||a.county,state:a.state,country:a.country,display_name:j.display_name};
     } catch(_){}
   }
 
   if(p) {
     const parts=[p.city||p.state,p.state,p.country].filter(Boolean);
     document.getElementById('hw-location').textContent=parts.join(', ')||p.display_name||'Bilinmeyen Konum';
+    syncLocPlace(p.city||p.state||'—', p.district||p.state||'—');
+  } else {
+    syncLocPlace('—','—');
   }
 }
 
@@ -1141,10 +1216,14 @@ document.getElementById('search-box').addEventListener('keydown',e=>{if(e.key===
    LEAFLET MAP
 --------------------------------------------------------------- */
 const map=L.map('pick-map',{center:[39.0,35.0],zoom:6,zoomControl:true});
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
-  maxZoom:19,subdomains:'abcd',
+/* Renkli harita (Voyager teması) — koyu tema yerine */
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{
+  maxZoom:19, subdomains:'abcd',
   attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; CARTO',
 }).addTo(map);
+/* Kart görünür olduğunda boyutu tazele (gizli konteynerde gri kalmasın) */
+setTimeout(()=>map.invalidateSize(), 300);
+window.addEventListener('load', ()=>map.invalidateSize());
 
 const mIcon=L.divIcon({
   html:`<div style="width:28px;height:28px;background:linear-gradient(135deg,#0ea5e9,#6366f1);border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2px solid rgba(255,255,255,.3);box-shadow:0 4px 14px rgba(56,189,248,.5)"></div>`,
