@@ -525,9 +525,13 @@
 
 <!-- Enerji paneli şablonu -->
 <template id="energy-template">
-  <p class="text-slate-400 text-sm leading-relaxed mb-8">Güneş ve rüzgar enerjisi santralleriniz (GES/RES) için anlık ve saatlik meteorolojik eşik analizleri. Beklenen radyasyon, sıcaklık kayıpları ve türbin çalışma aralıklarını aşağıdan takip edebilirsiniz.</p>
+  <div class="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-8">
+    <p class="text-slate-400 text-sm leading-relaxed max-w-2xl">
+      Güneş ve rüzgar enerjisi santralleriniz (GES/RES) için anlık ve saatlik meteorolojik eşik analizleri. Beklenen radyasyon, sıcaklık kayıpları ve türbin çalışma aralıklarını aşağıdan takip edebilirsiniz.
+    </p>
+  </div>
 
-  <div class="loc-bar glass rounded-2xl p-5 mb-10" data-loc-bar>
+  <div class="loc-bar glass rounded-2xl p-5 mb-8" data-loc-bar>
     <div class="loc-field" style="flex:2;position:relative">
       <label>Şehir / İlçe / Santral Yeri ara</label>
       <input class="loc-input loc-search" type="text" placeholder="Örn: Karapınar, Konya…" autocomplete="off">
@@ -539,10 +543,35 @@
     <div class="loc-current w-full text-xs text-slate-500 pt-1">Seçili konum: <span class="loc-current-text text-slate-300">—</span></div>
   </div>
 
+  <!-- BİLGİLENDİRME PANOSU (YENİ EKLENEN KISIM) -->
+  <div class="mb-10 p-5 rounded-2xl border border-slate-700 bg-slate-800/40 flex flex-col md:flex-row gap-6 shadow-inner">
+    <div class="flex-1">
+       <h4 class="text-brand font-600 mb-3 text-[0.7rem] uppercase tracking-widest flex items-center gap-2">
+         <span class="text-lg">☀️</span> GES Referans Aralıkları
+       </h4>
+       <ul class="text-xs text-slate-400 space-y-2">
+          <li class="flex items-start gap-2"><span class="text-slate-500 mt-0.5">▪</span> <span><b class="text-slate-300">Işıma &lt; 200 W/m²:</b> Düşük Üretim (Yetersiz güneşlenme)</span></li>
+          <li class="flex items-start gap-2"><span class="text-amber-400 mt-0.5">▪</span> <span><b class="text-amber-400">Sıcaklık &gt; 25°C:</b> Isınma Etkisi (Panellerde kısmi verim kaybı)</span></li>
+          <li class="flex items-start gap-2"><span class="text-orange-500 mt-0.5">▪</span> <span><b class="text-orange-500">Sıcaklık &gt; 30°C:</b> Termal Kayıp (İnverter ve panelde yüksek kayıp)</span></li>
+       </ul>
+    </div>
+    <div class="w-px bg-slate-700/50 hidden md:block"></div>
+    <div class="flex-1">
+       <h4 class="text-brand font-600 mb-3 text-[0.7rem] uppercase tracking-widest flex items-center gap-2">
+         <span class="text-lg">🌬️</span> RES (100m) Referans Aralıkları
+       </h4>
+       <ul class="text-xs text-slate-400 space-y-2">
+          <li class="flex items-start gap-2"><span class="text-slate-500 mt-0.5">▪</span> <span><b class="text-slate-300">&lt; 3 m/s:</b> Ölü Rüzgar (Türbin dönmesi için yetersiz)</span></li>
+          <li class="flex items-start gap-2"><span class="text-sky-400 mt-0.5">▪</span> <span><b class="text-sky-400">3 - 10 m/s:</b> Kısmi Üretim (Cut-in eşiği aşıldı)</span></li>
+          <li class="flex items-start gap-2"><span class="text-emerald-400 mt-0.5">▪</span> <span><b class="text-emerald-400">10 - 25 m/s:</b> Tam Kapasite (Nominal güç üretimi)</span></li>
+          <li class="flex items-start gap-2"><span class="text-red-400 mt-0.5">▪</span> <span><b class="text-red-400">&gt; 25 m/s:</b> Fırtına Koruması (Cut-out / Frenleme sınırı)</span></li>
+       </ul>
+    </div>
+  </div>
+
   <!-- GES Bölümü -->
   <div class="mb-12">
-    <h3 class="font-display text-2xl font-700 text-white mb-1">☀️ Güneş Enerjisi Santrali (GES)</h3>
-    <p class="text-slate-500 text-sm mb-5">Hava sıcaklığının 25°C'yi aşması durumunda panellerde ve inverterlerde ısınmaya bağlı verim düşüklüğü (termal kayıp) başlar.</p>
+    <h3 class="font-display text-2xl font-700 text-white mb-3">☀️ Güneş Enerjisi Santrali (GES)</h3>
     <div id="ges-list" class="space-y-2">
        <div class="skel h-16 rounded-2xl"></div>
     </div>
@@ -550,8 +579,7 @@
 
   <!-- RES Bölümü -->
   <div class="mb-12">
-    <h3 class="font-display text-2xl font-700 text-white mb-1">🌬️ Rüzgar Enerjisi Santrali (RES)</h3>
-    <p class="text-slate-500 text-sm mb-5">Veriler yer seviyesine göre değil, türbin kanat yüksekliği olan <b>100 metre</b> rüzgar hızlarına göre hesaplanmaktadır. (Cut-in: ~3 m/s, Nominal: ~10 m/s, Cut-out: 25 m/s)</p>
+    <h3 class="font-display text-2xl font-700 text-white mb-3">🌬️ Rüzgar Enerjisi Santrali (RES)</h3>
     <div id="res-list" class="space-y-2">
        <div class="skel h-16 rounded-2xl"></div>
     </div>
