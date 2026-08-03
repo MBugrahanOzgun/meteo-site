@@ -98,7 +98,6 @@
     /* Source badge */
     .src-badge{display:inline-flex;align-items:center;gap:5px;font-size:.68rem;padding:3px 9px;border-radius:9999px;font-weight:600;letter-spacing:.04em}
 
-    /* font-600 / font-700 / font-800 Tailwind'de yok — burada tanımlıyoruz */
     .font-600{font-weight:600}.font-700{font-weight:700}.font-800{font-weight:800}.font-950{font-weight:800}
 
     /* Konum çubuğu */
@@ -293,6 +292,9 @@
     <button class="loc-apply btn-primary text-white text-sm px-6 py-2.5 whitespace-nowrap">Uygula</button>
     <div class="loc-current w-full text-xs text-slate-500 pt-1">Seçili konum: <span class="loc-current-text text-slate-300">—</span></div>
   </div>
+  <div id="detail-grid" class="reveal grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+    <div class="skel h-28 rounded-2xl col-span-2 sm:col-span-3 lg:col-span-5"></div>
+  </div>
 </section>
 
 <div class="section-line"></div>
@@ -317,6 +319,11 @@
     <button class="loc-apply btn-primary text-white text-sm px-6 py-2.5 whitespace-nowrap">Uygula</button>
     <div class="loc-current w-full text-xs text-slate-500 pt-1">Seçili konum: <span class="loc-current-text text-slate-300">—</span></div>
   </div>
+  
+  <div id="daily-grid" class="reveal grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
+    <div class="skel h-56 rounded-2xl col-span-2 sm:col-span-3 lg:col-span-7"></div>
+  </div>
+  
   <div id="sun-strip" class="reveal hidden mt-6 glass rounded-2xl p-5 flex flex-wrap items-center justify-center gap-x-10 gap-y-3 text-sm">
     <span class="flex items-center gap-2 text-slate-300">🌅 Gün doğumu: <b id="sun-rise" class="text-amber-300 font-600">—</b></span>
     <span class="flex items-center gap-2 text-slate-300">🌇 Gün batımı: <b id="sun-set" class="text-orange-400 font-600">—</b></span>
@@ -348,6 +355,39 @@
     <button class="loc-apply btn-primary text-white text-sm px-6 py-2.5 whitespace-nowrap">Uygula</button>
     <div class="loc-current w-full text-xs text-slate-500 pt-1">Seçili konum: <span class="loc-current-text text-slate-300">—</span></div>
   </div>
+  
+  <div class="reveal">
+    <!-- AQI Big Card -->
+    <div class="glass rounded-2xl p-8 mb-6">
+      <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-8">
+        <div>
+          <p class="text-slate-500 text-xs uppercase tracking-widest mb-2">Avrupa Hava Kalitesi İndeksi (EU-AQI)</p>
+          <div class="flex items-end gap-4">
+            <p id="aqi-value" class="font-display text-6xl font-800 text-white">—</p>
+            <p id="aqi-label" class="text-xl font-600 text-slate-400 mb-2">Konum bekleniyor</p>
+          </div>
+        </div>
+        <div id="aqi-loader" class="spinner"></div>
+      </div>
+      <!-- Gauge -->
+      <div class="aqi-bar w-full mb-1">
+        <div id="aqi-needle" class="aqi-needle" style="left:0%"></div>
+      </div>
+      <div class="flex justify-between text-xs text-slate-600 mt-4 mb-8">
+        <span>🟢 İyi</span><span>🟡 Orta</span><span>🟠 Hassas</span><span>🔴 Sağlıksız</span><span>🟣 Tehlikeli</span>
+      </div>
+      <!-- Pollutants -->
+      <div id="pollutant-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div class="skel h-24 rounded-xl col-span-2 sm:col-span-3 lg:col-span-6"></div>
+      </div>
+    </div>
+    <!-- AQI chart -->
+    <div class="glass rounded-2xl p-6">
+      <p class="text-slate-400 text-sm font-600 mb-4">Saatlik AQI Trendi (168 saat)</p>
+      <canvas id="aqi-chart" height="80"></canvas>
+      <p id="aqi-chart-empty" class="text-center text-slate-500 py-8 text-sm">Konum seçildiğinde grafik yüklenecek.</p>
+    </div>
+  </div>
 </section>
 
 <div class="section-line"></div>
@@ -372,6 +412,24 @@
     <div class="loc-field"><label>Boylam</label><input class="loc-input loc-lon" type="text" inputmode="decimal" placeholder="37.8833"></div>
     <button class="loc-apply btn-primary text-white text-sm px-6 py-2.5 whitespace-nowrap">Uygula</button>
     <div class="loc-current w-full text-xs text-slate-500 pt-1">Seçili konum: <span class="loc-current-text text-slate-300">—</span></div>
+  </div>
+  
+  <div class="reveal">
+    <div id="marine-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+      <div class="skel h-36 rounded-2xl col-span-2 sm:col-span-3 lg:col-span-6"></div>
+    </div>
+    <div class="glass rounded-2xl p-6">
+      <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <p class="text-slate-400 text-sm font-600">Saatlik Dalga Grafiği</p>
+        <div class="flex gap-2 flex-wrap">
+          <button class="marine-pill active" data-field="wave_height">🌊 Toplam</button>
+          <button class="marine-pill" data-field="wind_wave_height">💨 Rüzgar</button>
+          <button class="marine-pill" data-field="swell_wave_height">🏄 Swell</button>
+        </div>
+      </div>
+      <canvas id="marine-chart" height="80"></canvas>
+      <p id="marine-chart-empty" class="text-center text-slate-500 py-8 text-sm">Konum seçildiğinde grafik yüklenecek.</p>
+    </div>
   </div>
 </section>
 
@@ -688,7 +746,7 @@ function sugKapat(){ document.querySelectorAll('.loc-sug').forEach(s=>s.classLis
 document.addEventListener('input', e=>{
   const inp=e.target.closest('.loc-search'); if(!inp) return;
   
-  // DÜZELTME: Kullanıcı şehir aramaya başladığında enlem/boylamı temizle
+  // DÜZELTME 1: Kullanıcı şehir aramaya başladığında enlem/boylamı temizle
   const bar = inp.closest('[data-loc-bar]');
   bar.querySelector('.loc-lat').value = '';
   bar.querySelector('.loc-lon').value = '';
@@ -748,7 +806,7 @@ document.addEventListener('click', async e=>{
     return;
   }
   
-  // DÜZELTME: Eğer yukarıdaki if bloğu çalışmadıysa ve latS/lonS boşsa hata vermesini engelle
+  // Eğer enlem/boylam ve arama kutusu da boşsa hata fırlatmayı engelle
   if (!latS || !lonS) {
     toast('Şehir adı yazın ya da geçerli enlem/boylam girin','error'); 
     return;
@@ -826,7 +884,9 @@ async function fetchForecast(lat, lon) {
     hourly:[
       'temperature_2m','relative_humidity_2m','pressure_msl',
       'wind_speed_10m','cloud_cover','precipitation','precipitation_probability',
-      'dew_point_2m','soil_temperature_6cm',
+      // DÜZELTME 2: Open-Meteo'da parametrenin doğru adı 'dewpoint_2m'dir.
+      // 'dew_point_2m' yazılırsa API 400 Bad Request fırlatır ve kod kilitlenir.
+      'dewpoint_2m','soil_temperature_6cm',
     ].join(','),
     daily:[
       'weather_code','temperature_2m_max','temperature_2m_min',
@@ -879,7 +939,7 @@ async function fetchForecast(lat, lon) {
     cloud_cover:   h.cloud_cover||[],
     precipitation: h.precipitation||[],
     precip_prob:   h.precipitation_probability||[],
-    dew_point:     h.dew_point_2m||[],
+    dew_point:     h.dewpoint_2m||[], // DÜZELTME 2 (parametre ismi güncellemesi)
     soil_temp:     h.soil_temperature_6cm||[],
   };
   document.getElementById('chart-empty').style.display='none';
