@@ -687,6 +687,12 @@ function sugKapat(){ document.querySelectorAll('.loc-sug').forEach(s=>s.classLis
 
 document.addEventListener('input', e=>{
   const inp=e.target.closest('.loc-search'); if(!inp) return;
+  
+  // DÜZELTME: Kullanıcı şehir aramaya başladığında enlem/boylamı temizle
+  const bar = inp.closest('[data-loc-bar]');
+  bar.querySelector('.loc-lat').value = '';
+  bar.querySelector('.loc-lon').value = '';
+
   const box=inp.closest('.loc-field').querySelector('.loc-sug');
   const q=inp.value.trim();
   clearTimeout(sugTimer);
@@ -739,6 +745,12 @@ document.addEventListener('click', async e=>{
     if(marker) marker.setLatLng([r.latitude,r.longitude]); else marker=L.marker([r.latitude,r.longitude],{icon:mIcon}).addTo(map);
     map.setView([r.latitude,r.longitude], Math.max(map.getZoom(),9));
     loadAll(r.latitude,r.longitude,{noScroll:true});
+    return;
+  }
+  
+  // DÜZELTME: Eğer yukarıdaki if bloğu çalışmadıysa ve latS/lonS boşsa hata vermesini engelle
+  if (!latS || !lonS) {
+    toast('Şehir adı yazın ya da geçerli enlem/boylam girin','error'); 
     return;
   }
 
