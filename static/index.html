@@ -291,7 +291,6 @@
     <button class="loc-apply btn-primary text-white text-sm px-6 py-2.5 whitespace-nowrap">Uygula</button>
     <div class="loc-current w-full text-xs text-slate-500 pt-1">Seçili konum: <span class="loc-current-text text-slate-300">—</span></div>
   </div>
-  <!-- RECOVERED: detail-grid -->
   <div id="detail-grid" class="reveal grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
     <div class="skel h-28 rounded-2xl col-span-2 sm:col-span-3 lg:col-span-5"></div>
   </div>
@@ -320,7 +319,6 @@
     <div class="loc-current w-full text-xs text-slate-500 pt-1">Seçili konum: <span class="loc-current-text text-slate-300">—</span></div>
   </div>
   
-  <!-- RECOVERED: daily-grid -->
   <div id="daily-grid" class="reveal grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
     <div class="skel h-56 rounded-2xl col-span-2 sm:col-span-3 lg:col-span-7"></div>
   </div>
@@ -356,7 +354,6 @@
     <div class="loc-current w-full text-xs text-slate-500 pt-1">Seçili konum: <span class="loc-current-text text-slate-300">—</span></div>
   </div>
 
-  <!-- RECOVERED: AQI big card and pollutant grid -->
   <div class="reveal">
     <div class="glass rounded-2xl p-8 mb-6">
       <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-8">
@@ -410,8 +407,7 @@
     <button class="loc-apply btn-primary text-white text-sm px-6 py-2.5 whitespace-nowrap">Uygula</button>
     <div class="loc-current w-full text-xs text-slate-500 pt-1">Seçili konum: <span class="loc-current-text text-slate-300">—</span></div>
   </div>
-
-  <!-- RECOVERED: marine-grid & chart -->
+  
   <div class="reveal">
     <div id="marine-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
       <div class="skel h-36 rounded-2xl col-span-2 sm:col-span-3 lg:col-span-6"></div>
@@ -464,7 +460,7 @@
   <div class="reveal mb-12">
     <p class="text-brand text-sm font-600 uppercase tracking-widest mb-3">Sektörel Çözümler</p>
     <h2 class="font-display text-4xl md:text-5xl font-700 text-white">Hizmetlerimiz</h2>
-    <p class="text-slate-400 mt-4 max-w-2xl">Her sektörün hava koşullarından etkilenme biçimi farklıdır. Sekmelerden alanınızı seçin; fındık için canlı karar paneli de burada.</p>
+    <p class="text-slate-400 mt-4 max-w-2xl">Her sektörün hava koşullarından etkilenme biçimi farklıdır. Sekmelerden alanınızı seçin; canlı karar panelleri de burada.</p>
   </div>
   <div id="tab-buttons" class="flex flex-wrap gap-3 mb-10 reveal"><div class="spinner"></div></div>
   <div id="tab-panels" class="reveal"></div>
@@ -527,7 +523,42 @@
   </div>
 </section>
 
-<!-- Fındık paneli şablonu (Hizmetler sekmesine klonlanır) -->
+<!-- Enerji paneli şablonu -->
+<template id="energy-template">
+  <p class="text-slate-400 text-sm leading-relaxed mb-8">Güneş ve rüzgar enerjisi santralleriniz (GES/RES) için anlık ve saatlik meteorolojik eşik analizleri. Beklenen radyasyon, sıcaklık kayıpları ve türbin çalışma aralıklarını aşağıdan takip edebilirsiniz.</p>
+
+  <div class="loc-bar glass rounded-2xl p-5 mb-10" data-loc-bar>
+    <div class="loc-field" style="flex:2;position:relative">
+      <label>Şehir / İlçe / Santral Yeri ara</label>
+      <input class="loc-input loc-search" type="text" placeholder="Örn: Karapınar, Konya…" autocomplete="off">
+      <div class="loc-sug hidden"></div>
+    </div>
+    <div class="loc-field"><label>Enlem</label><input class="loc-input loc-lat" type="text" inputmode="decimal" placeholder="37.7167"></div>
+    <div class="loc-field"><label>Boylam</label><input class="loc-input loc-lon" type="text" inputmode="decimal" placeholder="33.5500"></div>
+    <button class="loc-apply btn-primary text-white text-sm px-6 py-2.5 whitespace-nowrap">Uygula</button>
+    <div class="loc-current w-full text-xs text-slate-500 pt-1">Seçili konum: <span class="loc-current-text text-slate-300">—</span></div>
+  </div>
+
+  <!-- GES Bölümü -->
+  <div class="mb-12">
+    <h3 class="font-display text-2xl font-700 text-white mb-1">☀️ Güneş Enerjisi Santrali (GES)</h3>
+    <p class="text-slate-500 text-sm mb-5">Hava sıcaklığının 25°C'yi aşması durumunda panellerde ve inverterlerde ısınmaya bağlı verim düşüklüğü (termal kayıp) başlar.</p>
+    <div id="ges-list" class="space-y-2">
+       <div class="skel h-16 rounded-2xl"></div>
+    </div>
+  </div>
+
+  <!-- RES Bölümü -->
+  <div class="mb-12">
+    <h3 class="font-display text-2xl font-700 text-white mb-1">🌬️ Rüzgar Enerjisi Santrali (RES)</h3>
+    <p class="text-slate-500 text-sm mb-5">Veriler yer seviyesine göre değil, türbin kanat yüksekliği olan <b>100 metre</b> rüzgar hızlarına göre hesaplanmaktadır. (Cut-in: ~3 m/s, Nominal: ~10 m/s, Cut-out: 25 m/s)</p>
+    <div id="res-list" class="space-y-2">
+       <div class="skel h-16 rounded-2xl"></div>
+    </div>
+  </div>
+</template>
+
+<!-- Fındık paneli şablonu -->
 <template id="hazelnut-template">
   <p class="text-slate-400 text-sm leading-relaxed mb-8">Fındığın fenolojik dönemine göre değişen don eşikleri, ilaçlama pencereleri, harman-kurutma uygunluğu ve külleme riski. Aşağıdan bahçenizin bulunduğu yeri seçin.</p>
 
@@ -858,7 +889,7 @@ async function fetchForecast(lat, lon) {
     hourly:[
       'temperature_2m','relative_humidity_2m','pressure_msl',
       'wind_speed_10m','cloud_cover','precipitation','precipitation_probability',
-      'dewpoint_2m','soil_temperature_6cm',
+      'dewpoint_2m','soil_temperature_6cm','shortwave_radiation','wind_speed_100m',
     ].join(','),
     daily:[
       'weather_code','temperature_2m_max','temperature_2m_min',
@@ -915,12 +946,15 @@ async function fetchForecast(lat, lon) {
     precip_prob:   h.precipitation_probability||[],
     dew_point:     h.dewpoint_2m||[],
     soil_temp:     h.soil_temperature_6cm||[],
+    shortwave_radiation: h.shortwave_radiation||[],
+    wind_speed_100m:     h.wind_speed_100m||[],
   };
   document.getElementById('chart-empty').style.display='none';
   renderForecastChart();
 
   renderDaily(d.daily||{});
   renderAgri(d.daily||{}, hourlyData);
+  renderEnergy(d.daily||{}, hourlyData);
 }
 
 /* ---------------------------------------------------------------
@@ -1283,6 +1317,65 @@ function renderAgri(dl, hourly){
 }
 
 /* ---------------------------------------------------------------
+   ENERJİ KARAR PANELİ
+--------------------------------------------------------------- */
+let lastEnergyDaily={};
+function renderEnergy(dl, hourly){
+  lastEnergyDaily = dl;
+  const gl = document.getElementById('ges-list');
+  if(!gl) return; 
+
+  if(!dl||!dl.time||!dl.time.length) return;
+
+  let gesHtml='', resHtml='';
+  for(let i=0; i<dl.time.length; i++){
+    const dayStr = dl.time[i];
+    const dt = new Date(dayStr);
+    const labelGun = i===0 ? 'Bugün' : AGRI_DAYS[dt.getDay()];
+    const labelTarih = `${dt.getDate()}.${dt.getMonth()+1}`;
+    
+    const hIdx = hourly.time.map((t, idx) => t.slice(0,10) === dayStr ? idx : -1).filter(idx => idx !== -1);
+    
+    // --- GES (Güneş) Mantığı ---
+    const tmax = dl.temperature_2m_max?.[i];
+    const rads = hIdx.map(idx => hourly.shortwave_radiation?.[idx]).filter(v => v!=null);
+    const maxRad = rads.length ? Math.max(...rads) : 0;
+    
+    let gesCls, gesDurum, gesNot;
+    if(tmax > 30 && maxRad > 600) {
+      gesCls = AGRI_CLS.orange; gesDurum = 'Termal Kayıp'; gesNot = `Sıcaklık ${tmax.toFixed(1)}°C, yüksek ışıma (${Math.round(maxRad)} W/m²). İnverter veriminde düşüş.`;
+    } else if (tmax > 25 && maxRad > 400) {
+      gesCls = AGRI_CLS.amber; gesDurum = 'Isınma Etkisi'; gesNot = `Sıcaklık ${tmax.toFixed(1)}°C. Panellerde ısınmaya bağlı kısmi kayıp.`;
+    } else if (maxRad < 200) {
+      gesCls = AGRI_CLS.slate; gesDurum = 'Düşük Üretim'; gesNot = `Maksimum ışıma: ${Math.round(maxRad)} W/m². Yetersiz güneşlenme.`;
+    } else {
+      gesCls = AGRI_CLS.emerald; gesDurum = 'Optimum Üretim'; gesNot = `Sıcaklık ${tmax.toFixed(1)}°C, maks ışıma: ${Math.round(maxRad)} W/m². İdeal koşullar.`;
+    }
+    gesHtml += row(`${labelGun} ${labelTarih}`, gesDurum, gesCls, gesNot);
+
+    // --- RES (Rüzgar) Mantığı ---
+    const winds = hIdx.map(idx => hourly.wind_speed_100m?.[idx]).filter(v => v!=null);
+    const avgW = winds.length ? (winds.reduce((a,b)=>a+b,0)/winds.length) : 0;
+    const maxW = winds.length ? Math.max(...winds) : 0;
+    
+    let resCls, resDurum, resNot;
+    if(maxW >= 25) {
+      resCls = AGRI_CLS.red; resDurum = 'Fırtına (Cut-out)'; resNot = `Maks rüzgar: ${maxW.toFixed(1)} m/s (100m). Türbin frenleme/kapatma riski.`;
+    } else if(avgW >= 10 && maxW < 25) {
+      resCls = AGRI_CLS.emerald; resDurum = 'Tam Kapasite'; resNot = `Ortalama: ${avgW.toFixed(1)} m/s, Maks: ${maxW.toFixed(1)} m/s. Türbinler nominal güçte.`;
+    } else if(avgW >= 3 && avgW < 10) {
+      resCls = AGRI_CLS.sky; resDurum = 'Kısmi Üretim'; resNot = `Ortalama: ${avgW.toFixed(1)} m/s. Cut-in aşıldı, üretim aktif.`;
+    } else {
+      resCls = AGRI_CLS.slate; resDurum = 'Ölü Rüzgar'; resNot = `Ortalama: ${avgW.toFixed(1)} m/s. Türbinlerin devreye girmesi için yetersiz rüzgar.`;
+    }
+    resHtml += row(`${labelGun} ${labelTarih}`, resDurum, resCls, resNot);
+  }
+  
+  document.getElementById('ges-list').innerHTML = gesHtml;
+  document.getElementById('res-list').innerHTML = resHtml;
+}
+
+/* ---------------------------------------------------------------
    2. AIR QUALITY
 --------------------------------------------------------------- */
 async function fetchAirQuality(lat, lon) {
@@ -1515,19 +1608,6 @@ async function loadContent() {
   if(!tabs.length) {
     tabs=[
       {
-            "id": "energy",
-            "title": "Yenilenebilir Enerji",
-            "sections": [
-                  {
-                        "h": "Enerji Sektöründe Hava Tahmininin Önemi",
-                        "p": [
-                              "Yenilenebilir enerji sektörünün birincil hammaddesi meteorolojik kaynaklardır. Dolayısıyla bu sektör büyük oranda tahmin edilebilir bir özellik taşır. Tahminler alansal, noktasal, saatlik, günlük, haftalık, aylık ve mevsimlik olmak üzere hem zamansal hem alansal olarak farklı şekillerde yapılabilir. Genel hava tahmininin yanında tesisinizin mevcut istasyonu kullanılarak yapılacak değerlendirmelerle en doğru sonuçları sunabiliriz.",
-                              "Son yıllarda artan enerji yatırımları üretim planlamasını da gerekli kılmıştır. İleriye yönelik üretilebilecek enerji miktarının birkaç gün öncesinden değerlendirilmesi önem arz eder. Tahmin edilen meteorolojik parametreler, enerji üretim tahmini için birincil parametredir. Yapacağımız tahminlerle hem kârlılığınızı hem üretim verimliliğinizi artırabilirsiniz."
-                        ]
-                  }
-            ]
-      },
-      {
             "id": "marine",
             "title": "Denizcilik",
             "sections": [
@@ -1547,18 +1627,6 @@ async function loadContent() {
                         "h": "Şantiyede Her Gün Hava Şartlarına Bağlıdır",
                         "p": [
                               "Meteorolojik şartlar inşaat projelerinin her aşamasında belirleyici rol oynar."
-                        ]
-                  }
-            ]
-      },
-      {
-            "id": "agriculture",
-            "title": "Tarım",
-            "sections": [
-                  {
-                        "h": "Ekimden Hasada, Depodan Pazara",
-                        "p": [
-                              "Zirai üretim faaliyetleri ister açık alanda ister sera gibi kapalı alanlarda yapılsın hava durumuyla doğrudan ilişkilidir."
                         ]
                   }
             ]
@@ -1588,6 +1656,20 @@ async function loadContent() {
     panel.innerHTML=html; panelC.appendChild(panel);
   });
 
+  /* Enerji: Canlı Karar Paneli */
+  const eBtn=document.createElement('button');
+  eBtn.className='tab-btn btn-outline text-sm px-5 py-2.5 text-slate-300'; 
+  eBtn.textContent='⚡ Enerji (Canlı Panel)'; 
+  eBtn.dataset.tab='energy-live';
+  btnC.appendChild(eBtn);
+
+  const ePanel=document.createElement('div');
+  ePanel.id='tab-energy-live'; ePanel.className='tab-panel glass rounded-2xl p-8';
+  const eTmpl = document.getElementById('energy-template');
+  if(eTmpl) ePanel.innerHTML=eTmpl.innerHTML;
+  panelC.appendChild(ePanel);
+
+  /* Fındık: Canlı Karar Paneli */
   const fBtn=document.createElement('button');
   fBtn.className='tab-btn btn-outline text-sm px-5 py-2.5 text-slate-300'; 
   fBtn.textContent='🌰 Fındık (Canlı Panel)'; 
@@ -1600,7 +1682,10 @@ async function loadContent() {
   if(tmpl) fPanel.innerHTML=tmpl.innerHTML;
   panelC.appendChild(fPanel);
 
-  if(lastDaily && lastDaily.time) renderAgri(lastDaily, hourlyData);
+  if(lastDaily && lastDaily.time) {
+    renderAgri(lastDaily, hourlyData);
+    if(typeof renderEnergy === 'function') renderEnergy(lastDaily, hourlyData);
+  }
 
   btnC.addEventListener('click',e=>{
     const btn=e.target.closest('.tab-btn'); if(!btn) return;
@@ -1612,6 +1697,9 @@ async function loadContent() {
 
     if(btn.dataset.tab==='hazelnut' && lastDaily && lastDaily.time) {
       renderAgri(lastDaily, hourlyData);
+    }
+    if(btn.dataset.tab==='energy-live' && lastEnergyDaily && lastEnergyDaily.time) {
+      renderEnergy(lastEnergyDaily, hourlyData);
     }
   });
 }
