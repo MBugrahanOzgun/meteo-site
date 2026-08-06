@@ -98,28 +98,26 @@
     /* Source badge */
     .src-badge{display:inline-flex;align-items:center;gap:5px;font-size:.68rem;padding:3px 9px;border-radius:9999px;font-weight:600;letter-spacing:.04em}
 
-    /* font-600 / font-700 / font-800 Tailwind'de yok — burada tanımlıyoruz */
     .font-600{font-weight:600}.font-700{font-weight:700}.font-800{font-weight:800}.font-950{font-weight:800}
 
-    /* Konum çubuğu */
-    .loc-bar{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px}
+    /* Konum çubuğu ve Dropdown z-index ayarı */
+    .loc-bar{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px; position:relative; z-index:10;}
+    .loc-bar:focus-within{z-index:99;} /* Arama yaparken diğer sekmelerin üstüne çıkması için */
+    
     .loc-field{flex:1;min-width:120px}
     .loc-field label{display:block;font-size:.66rem;letter-spacing:.08em;text-transform:uppercase;color:#64748b;margin-bottom:5px}
     .loc-input{width:100%;padding:9px 12px;border-radius:10px;font-size:.86rem;color:#fff;
       background:rgba(255,255,255,.04);border:1px solid rgba(148,163,184,.18);outline:none;transition:border-color .2s}
     .loc-input:focus{border-color:rgba(56,189,248,.55);background:rgba(56,189,248,.06)}
-    /* Öneri kutusu: kart içinde değil, sabit konumlu tek ortak kutu.
-       Kart .glass{backdrop-filter} kendi katmanını oluşturduğu için
-       kart içine gömülü bir öneri kutusu, sonraki bölümlerin ALTINDA
-       kalıyordu. Sabit konumlandırma bu sorunu tamamen bypass eder. */
-    #loc-sug-global{position:fixed;z-index:9999;max-height:280px;overflow:auto;
-      background:#0f172a;border:1px solid rgba(148,163,184,.3);border-radius:12px;
-      box-shadow:0 20px 50px rgba(0,0,0,.6);display:none}
-    #loc-sug-global button{display:block;width:100%;text-align:left;padding:10px 14px;font-size:.85rem;color:#e2e8f0;
+    
+    .loc-sug{position:absolute;top:100%;left:0;right:0;z-index:100;margin-top:4px;max-height:260px;overflow:auto;
+      background:#0f172a;border:1px solid rgba(148,163,184,.25);border-radius:12px;box-shadow:0 18px 40px rgba(0,0,0,.5)}
+    .loc-sug.hidden{display:none}
+    .loc-sug button{display:block;width:100%;text-align:left;padding:9px 12px;font-size:.84rem;color:#e2e8f0;
       background:none;border:none;cursor:pointer;border-bottom:1px solid rgba(148,163,184,.08)}
-    #loc-sug-global button:last-child{border-bottom:none}
-    #loc-sug-global button:hover{background:rgba(56,189,248,.14)}
-    #loc-sug-global .sub{display:block;font-size:.72rem;color:#64748b;margin-top:2px}
+    .loc-sug button:last-child{border-bottom:none}
+    .loc-sug button:hover{background:rgba(56,189,248,.12)}
+    .loc-sug .sub{display:block;font-size:.72rem;color:#64748b;margin-top:2px}
 
     /* 7 günlük tahmin kartları */
     .day-card{transition:transform .15s ease,border-color .2s ease}
@@ -150,7 +148,6 @@
     <a href="#map-picker"  class="hover:text-brand transition-colors">Harita</a>
     <a href="#dashboard"   class="hover:text-brand transition-colors">Veriler</a>
     <a href="#daily"       class="hover:text-brand transition-colors">7 Günlük</a>
-    <a href="#services"    class="hover:text-brand transition-colors">Sektörler</a>
     <a href="#airquality"  class="hover:text-brand transition-colors">Hava Kalitesi</a>
     <a href="#marine"      class="hover:text-brand transition-colors">Deniz</a>
     <a href="#hourly"      class="hover:text-brand transition-colors">Grafik</a>
@@ -290,7 +287,7 @@
     <div class="loc-field" style="flex:2;position:relative">
       <label>Şehir / İlçe ara</label>
       <input class="loc-input loc-search" type="text" placeholder="Örn: Ordu, Ünye, Giresun…" autocomplete="off">
-      
+      <div class="loc-sug hidden"></div>
     </div>
     <div class="loc-field"><label>Enlem</label><input class="loc-input loc-lat" type="text" inputmode="decimal" placeholder="40.9833"></div>
     <div class="loc-field"><label>Boylam</label><input class="loc-input loc-lon" type="text" inputmode="decimal" placeholder="37.8833"></div>
@@ -317,16 +314,18 @@
     <div class="loc-field" style="flex:2;position:relative">
       <label>Şehir / İlçe ara</label>
       <input class="loc-input loc-search" type="text" placeholder="Örn: Ordu, Ünye, Giresun…" autocomplete="off">
-      
+      <div class="loc-sug hidden"></div>
     </div>
     <div class="loc-field"><label>Enlem</label><input class="loc-input loc-lat" type="text" inputmode="decimal" placeholder="40.9833"></div>
     <div class="loc-field"><label>Boylam</label><input class="loc-input loc-lon" type="text" inputmode="decimal" placeholder="37.8833"></div>
     <button class="loc-apply btn-primary text-white text-sm px-6 py-2.5 whitespace-nowrap">Uygula</button>
     <div class="loc-current w-full text-xs text-slate-500 pt-1">Seçili konum: <span class="loc-current-text text-slate-300">—</span></div>
   </div>
+  
   <div id="daily-grid" class="reveal grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
     <div class="skel h-56 rounded-2xl col-span-2 sm:col-span-3 lg:col-span-7"></div>
   </div>
+
   <div id="sun-strip" class="reveal hidden mt-6 glass rounded-2xl p-5 flex flex-wrap items-center justify-center gap-x-10 gap-y-3 text-sm">
     <span class="flex items-center gap-2 text-slate-300">🌅 Gün doğumu: <b id="sun-rise" class="text-amber-300 font-600">—</b></span>
     <span class="flex items-center gap-2 text-slate-300">🌇 Gün batımı: <b id="sun-set" class="text-orange-400 font-600">—</b></span>
@@ -335,7 +334,6 @@
 </section>
 
 <div class="section-line"></div>
-
 
 <!-- ======== AIR QUALITY ======== -->
 <section id="airquality" class="py-24 px-6 md:px-12 max-w-7xl mx-auto">
@@ -351,7 +349,7 @@
     <div class="loc-field" style="flex:2;position:relative">
       <label>Şehir / İlçe ara</label>
       <input class="loc-input loc-search" type="text" placeholder="Örn: Ordu, Ünye, Giresun…" autocomplete="off">
-      
+      <div class="loc-sug hidden"></div>
     </div>
     <div class="loc-field"><label>Enlem</label><input class="loc-input loc-lat" type="text" inputmode="decimal" placeholder="40.9833"></div>
     <div class="loc-field"><label>Boylam</label><input class="loc-input loc-lon" type="text" inputmode="decimal" placeholder="37.8833"></div>
@@ -360,7 +358,6 @@
   </div>
 
   <div class="reveal">
-    <!-- AQI büyük kart -->
     <div class="glass rounded-2xl p-8 mb-6">
       <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-8">
         <div>
@@ -406,14 +403,14 @@
     <div class="loc-field" style="flex:2;position:relative">
       <label>Şehir / İlçe ara</label>
       <input class="loc-input loc-search" type="text" placeholder="Örn: Ordu, Ünye, Giresun…" autocomplete="off">
-      
+      <div class="loc-sug hidden"></div>
     </div>
     <div class="loc-field"><label>Enlem</label><input class="loc-input loc-lat" type="text" inputmode="decimal" placeholder="40.9833"></div>
     <div class="loc-field"><label>Boylam</label><input class="loc-input loc-lon" type="text" inputmode="decimal" placeholder="37.8833"></div>
     <button class="loc-apply btn-primary text-white text-sm px-6 py-2.5 whitespace-nowrap">Uygula</button>
     <div class="loc-current w-full text-xs text-slate-500 pt-1">Seçili konum: <span class="loc-current-text text-slate-300">—</span></div>
   </div>
-
+  
   <div class="reveal">
     <div id="marine-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
       <div class="skel h-36 rounded-2xl col-span-2 sm:col-span-3 lg:col-span-6"></div>
@@ -466,7 +463,7 @@
   <div class="reveal mb-12">
     <p class="text-brand text-sm font-600 uppercase tracking-widest mb-3">Sektörel Çözümler</p>
     <h2 class="font-display text-4xl md:text-5xl font-700 text-white">Hizmetlerimiz</h2>
-    <p class="text-slate-400 mt-4 max-w-2xl">Her sektörün hava koşullarından etkilenme biçimi farklıdır. Sekmelerden alanınızı seçin; fındık için canlı karar paneli de burada.</p>
+    <p class="text-slate-400 mt-4 max-w-2xl">Her sektörün hava koşullarından etkilenme biçimi farklıdır. Sekmelerden alanınızı seçin; canlı karar panelleri de burada.</p>
   </div>
   <div id="tab-buttons" class="flex flex-wrap gap-3 mb-10 reveal"><div class="spinner"></div></div>
   <div id="tab-panels" class="reveal"></div>
@@ -529,21 +526,79 @@
   </div>
 </section>
 
-<!-- Fındık paneli şablonu (Hizmetler sekmesine klonlanır) -->
-<template id="hazelnut-template">
+<!-- Enerji paneli şablonu -->
+<template id="energy-template">
+  <div class="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-8">
+    <p class="text-slate-400 text-sm leading-relaxed max-w-2xl">
+      Güneş ve rüzgar enerjisi santralleriniz (GES/RES) için anlık ve saatlik meteorolojik eşik analizleri. Beklenen radyasyon, sıcaklık kayıpları ve türbin çalışma aralıklarını aşağıdan takip edebilirsiniz.
+    </p>
+  </div>
 
+  <div class="loc-bar glass rounded-2xl p-5 mb-8" data-loc-bar>
+    <div class="loc-field" style="flex:2;position:relative">
+      <label>Şehir / İlçe / Santral Yeri ara</label>
+      <input class="loc-input loc-search" type="text" placeholder="Örn: Karapınar, Konya…" autocomplete="off">
+      <div class="loc-sug hidden"></div>
+    </div>
+    <div class="loc-field"><label>Enlem</label><input class="loc-input loc-lat" type="text" inputmode="decimal" placeholder="37.7167"></div>
+    <div class="loc-field"><label>Boylam</label><input class="loc-input loc-lon" type="text" inputmode="decimal" placeholder="33.5500"></div>
+    <button class="loc-apply btn-primary text-white text-sm px-6 py-2.5 whitespace-nowrap">Uygula</button>
+    <div class="loc-current w-full text-xs text-slate-500 pt-1">Seçili konum: <span class="loc-current-text text-slate-300">—</span></div>
+  </div>
+
+  <div class="mb-10 p-5 rounded-2xl border border-slate-700 bg-slate-800/40 flex flex-col md:flex-row gap-6 shadow-inner">
+    <div class="flex-1">
+       <h4 class="text-brand font-600 mb-3 text-[0.7rem] uppercase tracking-widest flex items-center gap-2">
+         <span class="text-lg">☀️</span> GES Referans Aralıkları
+       </h4>
+       <ul class="text-xs text-slate-400 space-y-2">
+          <li class="flex items-start gap-2"><span class="text-slate-500 mt-0.5">▪</span> <span><b class="text-slate-300">Işıma &lt; 200 W/m²:</b> Düşük Üretim (Yetersiz güneşlenme)</span></li>
+          <li class="flex items-start gap-2"><span class="text-amber-400 mt-0.5">▪</span> <span><b class="text-amber-400">Sıcaklık &gt; 25°C:</b> Isınma Etkisi (Panellerde kısmi verim kaybı)</span></li>
+          <li class="flex items-start gap-2"><span class="text-orange-500 mt-0.5">▪</span> <span><b class="text-orange-500">Sıcaklık &gt; 30°C:</b> Termal Kayıp (İnverter ve panelde yüksek kayıp)</span></li>
+       </ul>
+    </div>
+    <div class="w-px bg-slate-700/50 hidden md:block"></div>
+    <div class="flex-1">
+       <h4 class="text-brand font-600 mb-3 text-[0.7rem] uppercase tracking-widest flex items-center gap-2">
+         <span class="text-lg">🌬️</span> RES (100m) Referans Aralıkları
+       </h4>
+       <ul class="text-xs text-slate-400 space-y-2">
+          <li class="flex items-start gap-2"><span class="text-slate-500 mt-0.5">▪</span> <span><b class="text-slate-300">&lt; 3 m/s:</b> Ölü Rüzgar (Türbin dönmesi için yetersiz)</span></li>
+          <li class="flex items-start gap-2"><span class="text-sky-400 mt-0.5">▪</span> <span><b class="text-sky-400">3 - 10 m/s:</b> Kısmi Üretim (Cut-in eşiği aşıldı)</span></li>
+          <li class="flex items-start gap-2"><span class="text-emerald-400 mt-0.5">▪</span> <span><b class="text-emerald-400">10 - 25 m/s:</b> Tam Kapasite (Nominal güç üretimi)</span></li>
+          <li class="flex items-start gap-2"><span class="text-red-400 mt-0.5">▪</span> <span><b class="text-red-400">&gt; 25 m/s:</b> Fırtına Koruması (Cut-out / Frenleme sınırı)</span></li>
+       </ul>
+    </div>
+  </div>
+
+  <div class="mb-12">
+    <h3 class="font-display text-2xl font-700 text-white mb-3">☀️ Güneş Enerjisi Santrali (GES)</h3>
+    <div id="ges-list" class="space-y-2">
+       <div class="skel h-16 rounded-2xl"></div>
+    </div>
+  </div>
+
+  <div class="mb-12">
+    <h3 class="font-display text-2xl font-700 text-white mb-3">🌬️ Rüzgar Enerjisi Santrali (RES)</h3>
+    <div id="res-list" class="space-y-2">
+       <div class="skel h-16 rounded-2xl"></div>
+    </div>
+  </div>
+</template>
+
+<!-- Fındık paneli şablonu -->
+<template id="hazelnut-template">
   <p class="text-slate-400 text-sm leading-relaxed mb-8">Fındığın fenolojik dönemine göre değişen don eşikleri, ilaçlama pencereleri, harman-kurutma uygunluğu ve külleme riski. Aşağıdan bahçenizin bulunduğu yeri seçin.</p>
 
-  <!-- Fenolojik dönem şeridi -->
-  <div id="pheno-bar" class="reveal glass rounded-2xl p-5 mb-8 flex flex-wrap items-center gap-x-8 gap-y-3">
+  <div id="pheno-bar" class="glass rounded-2xl p-5 mb-8 flex flex-wrap items-center gap-x-8 gap-y-3">
     <div class="skel h-10 rounded-xl w-full"></div>
   </div>
 
-  <div class="loc-bar reveal glass rounded-2xl p-5 mb-10" data-loc-bar>
+  <div class="loc-bar glass rounded-2xl p-5 mb-10" data-loc-bar>
     <div class="loc-field" style="flex:2;position:relative">
       <label>Şehir / İlçe ara</label>
       <input class="loc-input loc-search" type="text" placeholder="Örn: Ordu, Ünye, Giresun…" autocomplete="off">
-      
+      <div class="loc-sug hidden"></div>
     </div>
     <div class="loc-field"><label>Enlem</label><input class="loc-input loc-lat" type="text" inputmode="decimal" placeholder="40.9833"></div>
     <div class="loc-field"><label>Boylam</label><input class="loc-input loc-lon" type="text" inputmode="decimal" placeholder="37.8833"></div>
@@ -551,8 +606,7 @@
     <div class="loc-current w-full text-xs text-slate-500 pt-1">Seçili konum: <span class="loc-current-text text-slate-300">—</span></div>
   </div>
 
-  <!-- Don riski -->
-  <div class="reveal mb-12">
+  <div class="mb-12">
     <h3 class="font-display text-2xl font-700 text-white mb-1">❄️ Zirai Don Riski</h3>
     <p id="frost-note" class="text-slate-500 text-sm mb-5">—</p>
     <div id="frost-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
@@ -560,15 +614,13 @@
     </div>
   </div>
 
-  <!-- Harman / kurutma -->
-  <div id="harvest-block" class="reveal mb-12 hidden">
+  <div id="harvest-block" class="mb-12 hidden">
     <h3 class="font-display text-2xl font-700 text-white mb-1">☀️ Harman ve Kurutma</h3>
     <p class="text-slate-500 text-sm mb-5">Hasat sonrası fındık harmanda kurutulurken yağış ve yüksek nem küflenmeye, dolayısıyla aflatoksin riskine yol açar. Kurutma için güneşli, düşük nemli ve yağışsız günler gerekir.</p>
     <div id="harvest-list" class="space-y-2"></div>
   </div>
 
-  <!-- İlaçlama -->
-  <div class="reveal mb-12">
+  <div class="mb-12">
     <h3 class="font-display text-2xl font-700 text-white mb-1">💧 İlaçlama Penceresi</h3>
     <p id="spray-season" class="text-slate-400 text-sm mb-2">—</p>
     <p class="text-slate-500 text-sm mb-5">Rüzgar 3 m/s altında, sıcaklık 8–25 °C arasında, yağışsız ve sonraki 6 saatte yağış beklenmeyen saatler uygun kabul edilir.</p>
@@ -577,15 +629,13 @@
     </div>
   </div>
 
-  <!-- Külleme -->
-  <div class="reveal mb-12">
+  <div class="mb-12">
     <h3 class="font-display text-2xl font-700 text-white mb-1">🍄 Külleme Riski</h3>
     <p class="text-slate-500 text-sm mb-5">Külleme (<i>Erysiphe corylacearum</i>) ılık ve nemli, ancak yaprağı ıslatmayan koşullarda hızla yayılır. 18–28 °C ile %60 üzeri nem birleşimi riskli kabul edilir.</p>
     <div id="mildew-list" class="space-y-2"></div>
   </div>
 
-  <!-- Bahçe işleri -->
-  <div class="reveal">
+  <div>
     <h3 class="font-display text-2xl font-700 text-white mb-1">🚜 Bahçe Çalışma Takvimi</h3>
     <p class="text-slate-500 text-sm mb-5">Budama, gübreleme, çapalama ve genel bahçe faaliyetleri için günlük uygunluk.</p>
     <div id="fieldwork-list" class="space-y-2"></div>
@@ -603,16 +653,11 @@
 <footer class="border-t border-white/5 py-10 px-6 md:px-12">
   <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6 text-slate-600 text-sm">
     <span class="font-display font-700 text-slate-400">Fore<span class="text-brand">caster</span></span>
-    <div class="flex flex-wrap justify-center gap-2">
-    </div>
     <span>© 2026 Forecaster. Tüm hakları saklıdır.</span>
   </div>
 </footer>
 
 <!-- TOAST -->
-<!-- Konum arama önerileri: tek ortak kutu, tüm arama alanları bunu paylaşır -->
-<div id="loc-sug-global"></div>
-
 <div id="toast" class="fixed bottom-6 right-6 z-50 glass rounded-xl px-5 py-3.5 text-sm text-white flex items-center gap-3 shadow-2xl transition-all duration-300 opacity-0 translate-y-4 pointer-events-none max-w-xs">
   <span id="toast-icon" class="text-lg">ℹ️</span>
   <span id="toast-msg">Mesaj</span>
@@ -622,14 +667,8 @@
      JAVASCRIPT
 ================================================================ -->
 <script>
-/* ---------------------------------------------------------------
-   ENDPOINTS
---------------------------------------------------------------- */
-/* Sayfa FastAPI'den servis ediliyorsa aynı origin'i kullan (deploy'da da çalışır);
-   dosya olarak açıldıysa localhost'a düş. */
 const BACKEND     = location.protocol === 'file:' ? 'http://localhost:8000' : '';
 
-/* WMO hava durumu kodları → Türkçe açıklama + ikon */
 const WMO = {
   0:['☀️','Açık'],1:['🌤','Az bulutlu'],2:['⛅','Parçalı bulutlu'],3:['☁️','Kapalı'],
   45:['🌫','Sisli'],48:['🌫','Kırağılı sis'],
@@ -648,16 +687,10 @@ const OM_AIR      = 'https://air-quality-api.open-meteo.com/v1/air-quality';
 const OM_MARINE   = 'https://marine-api.open-meteo.com/v1/marine';
 const NOMINATIM   = 'https://nominatim.openstreetmap.org/reverse';
 
-/* ---------------------------------------------------------------
-   STATE
---------------------------------------------------------------- */
 let hourlyData = null, aqiHourly = null, marineHourly = null;
 let activeMetric = 'temperature_c', activeMarineField = 'wave_height';
 let chartInst = null, aqiInst = null, marineInst = null;
 
-/* ---------------------------------------------------------------
-   HELPERS
---------------------------------------------------------------- */
 function toast(msg, type='info') {
   const icons={info:'ℹ️',success:'✅',error:'❌',warn:'⚠️'};
   document.getElementById('toast-icon').textContent = icons[type]||'ℹ️';
@@ -684,7 +717,6 @@ function dirStr(deg) {
   return n[Math.round(deg/45)%8]+' ('+deg+'°)';
 }
 
-/* AQI color/label */
 function aqiMeta(v) {
   if(v===null||v===undefined) return {label:'—',color:'#64748b'};
   if(v<=20)  return {label:'İyi 😊',color:'#22c55e'};
@@ -695,9 +727,6 @@ function aqiMeta(v) {
   return            {label:'Tehlikeli ☠️',color:'#8b5cf6'};
 }
 
-/* ---------------------------------------------------------------
-   PARTICLES
---------------------------------------------------------------- */
 (()=>{
   const c=document.getElementById('particles');
   for(let i=0;i<22;i++){
@@ -708,7 +737,6 @@ function aqiMeta(v) {
   }
 })();
 
-/* Scroll reveal */
 const ro=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('visible');ro.unobserve(e.target);}}),{threshold:.1});
 document.querySelectorAll('.reveal').forEach(el=>ro.observe(el));
 
@@ -716,23 +744,22 @@ window.addEventListener('scroll',()=>document.getElementById('navbar').classList
 
 /* ---------------------------------------------------------------
    KONUM ÇUBUKLARI
-   Şehir/ilçe adıyla arama (ileri coğrafi kodlama) + koordinat girişi.
-   Sayfadaki tüm çubuklar birbiriyle senkron çalışır.
 --------------------------------------------------------------- */
 const GEOCODE_URL='https://geocoding-api.open-meteo.com/v1/search';
 
 function syncLocBars(lat, lon){
   document.querySelectorAll('[data-loc-bar]').forEach(b=>{
-    b.querySelector('.loc-lat').value = Number(lat).toFixed(4);
-    b.querySelector('.loc-lon').value = Number(lon).toFixed(4);
+    const latInp = b.querySelector('.loc-lat');
+    const lonInp = b.querySelector('.loc-lon');
+    if(latInp) latInp.value = Number(lat).toFixed(4);
+    if(lonInp) lonInp.value = Number(lon).toFixed(4);
   });
 }
-/* Ters coğrafi kodlamadan gelen yer adını çubuklara yazar */
+
 function syncLocPlace(ad){
   document.querySelectorAll('.loc-current-text').forEach(el=>{ el.textContent = ad || '—'; });
 }
 
-/* --- Şehir/ilçe arama --- */
 let sugTimer=null;
 async function aramaYap(q){
   const p=new URLSearchParams({name:q,count:'8',language:'tr',format:'json'});
@@ -740,54 +767,44 @@ async function aramaYap(q){
     const r=await fetch(`${GEOCODE_URL}?${p}`);
     if(!r.ok) return [];
     const j=await r.json();
-    /* Türkiye sonuçlarını başa al */
     return (j.results||[]).sort((a,b)=>(b.country_code==='TR')-(a.country_code==='TR'));
   }catch(_){ return []; }
 }
-const sugBox = ()=>document.getElementById('loc-sug-global');
-let sugAktifInput = null;   /* önerinin ait olduğu input, hangi çubuğa yazılacağını bilmek için */
 
-function sugKapat(){ const b=sugBox(); if(b){ b.style.display='none'; b.innerHTML=''; } sugAktifInput=null; }
-
-/* Öneri kutusunu, yazılan input'un tam altına konumlar */
-function sugKonumla(input){
-  const r=input.getBoundingClientRect();
-  const b=sugBox();
-  b.style.left  = r.left + 'px';
-  b.style.top   = (r.bottom + 4) + 'px';
-  b.style.width = r.width + 'px';
-}
+function sugKapat(){ document.querySelectorAll('.loc-sug').forEach(s=>s.classList.add('hidden')); }
 
 document.addEventListener('input', e=>{
   const inp=e.target.closest('.loc-search'); if(!inp) return;
-  sugAktifInput=inp;
+  
+  const bar = inp.closest('[data-loc-bar]');
+  if(bar) {
+    const latInp = bar.querySelector('.loc-lat');
+    const lonInp = bar.querySelector('.loc-lon');
+    if(latInp) latInp.value = '';
+    if(lonInp) lonInp.value = '';
+  }
+
+  const box=inp.closest('.loc-field').querySelector('.loc-sug');
   const q=inp.value.trim();
   clearTimeout(sugTimer);
-  if(q.length<2){ sugKapat(); return; }
+  if(q.length<2){ box.classList.add('hidden'); return; }
   sugTimer=setTimeout(async ()=>{
     const rs=await aramaYap(q);
-    const b=sugBox();
     if(!rs.length){
-      b.innerHTML='<button disabled style="color:#64748b;cursor:default">Sonuç bulunamadı</button>';
-    } else {
-      b.innerHTML=rs.map(r=>{
-        const alt=[r.admin2,r.admin1,r.country].filter(Boolean).join(' · ');
-        return `<button data-lat="${r.latitude}" data-lon="${r.longitude}" data-ad="${r.name}${r.admin1?', '+r.admin1:''}">
-                  ${r.name}<span class="sub">${alt}</span></button>`;
-      }).join('');
+      box.innerHTML='<button disabled style="color:#64748b;cursor:default">Sonuç bulunamadı</button>';
+      box.classList.remove('hidden'); return;
     }
-    sugKonumla(inp);
-    b.style.display='block';
+    box.innerHTML=rs.map(r=>{
+      const alt=[r.admin2,r.admin1,r.country].filter(Boolean).join(' · ');
+      return `<button data-lat="${r.latitude}" data-lon="${r.longitude}" data-ad="${r.name}${r.admin1?', '+r.admin1:''}">
+                ${r.name}<span class="sub">${alt}</span></button>`;
+    }).join('');
+    box.classList.remove('hidden');
   }, 350);
 });
 
-/* Pencere kaydırılırsa/yeniden boyutlanırsa açık kutuyu input'a yeniden hizala */
-window.addEventListener('scroll', ()=>{ if(sugAktifInput) sugKonumla(sugAktifInput); }, true);
-window.addEventListener('resize', ()=>{ if(sugAktifInput) sugKonumla(sugAktifInput); });
-
-/* Öneriye tıklanınca konumu uygula */
 document.addEventListener('click', e=>{
-  const b=e.target.closest('#loc-sug-global button[data-lat]');
+  const b=e.target.closest('.loc-sug button[data-lat]');
   if(b){
     const lat=parseFloat(b.dataset.lat), lon=parseFloat(b.dataset.lon);
     sugKapat();
@@ -797,10 +814,43 @@ document.addEventListener('click', e=>{
     loadAll(lat,lon,{noScroll:true});
     return;
   }
-  if(!e.target.closest('.loc-field') && !e.target.closest('#loc-sug-global')) sugKapat();
+  if(!e.target.closest('.loc-field')) sugKapat();
 });
 
-/* Enter tuşu */
+document.addEventListener('click', async e=>{
+  const btn=e.target.closest('.loc-apply'); if(!btn) return;
+  const bar=btn.closest('[data-loc-bar]');
+  const latS=(bar.querySelector('.loc-lat')?.value||'').trim();
+  const lonS=(bar.querySelector('.loc-lon')?.value||'').trim();
+  const ara =(bar.querySelector('.loc-search')?.value||'').trim();
+
+  if((!latS||!lonS) && ara.length>=2){
+    const rs=await aramaYap(ara);
+    if(!rs.length){ toast('Bu isimde bir yer bulunamadı','warn'); return; }
+    sugKapat();
+    const r=rs[0];
+    document.querySelectorAll('.loc-search').forEach(i=>{ i.value=r.name+(r.admin1?', '+r.admin1:''); });
+    if(marker) marker.setLatLng([r.latitude,r.longitude]); else marker=L.marker([r.latitude,r.longitude],{icon:mIcon}).addTo(map);
+    map.setView([r.latitude,r.longitude], Math.max(map.getZoom(),9));
+    loadAll(r.latitude,r.longitude,{noScroll:true});
+    return;
+  }
+  
+  if (!latS || !lonS) {
+    toast('Şehir adı yazın ya da geçerli enlem/boylam girin','error'); 
+    return;
+  }
+
+  const lat=parseFloat(latS.replace(',','.')), lon=parseFloat(lonS.replace(',','.'));
+  if(!isFinite(lat)||!isFinite(lon)||lat<-90||lat>90||lon<-180||lon>180){
+    toast('Şehir adı yazın ya da geçerli enlem/boylam girin','error'); return;
+  }
+  sugKapat();
+  if(marker) marker.setLatLng([lat,lon]); else marker=L.marker([lat,lon],{icon:mIcon}).addTo(map);
+  map.setView([lat,lon], Math.max(map.getZoom(),8));
+  loadAll(lat,lon,{noScroll:true});
+});
+
 document.addEventListener('keydown', e=>{
   if(e.key==='Escape'){ sugKapat(); return; }
   if(e.key!=='Enter') return;
@@ -812,13 +862,12 @@ document.addEventListener('keydown', e=>{
    MASTER LOAD
 --------------------------------------------------------------- */
 let isLoading=false;
-let lastCoords=null, lastPlaceAd=null, lastPlaceCity=null;
+let lastCoords=null;
 async function loadAll(lat, lon, opts={}) {
   lastCoords={lat,lon};
   if(isLoading){ toast('Önceki yükleme sürüyor…','warn'); return; }
   isLoading=true;
 
-  /* Konumu URL'de sakla: sayfa yenilenince/paylaşılınca aynı nokta açılır */
   history.replaceState(null,'',`#${lat.toFixed(4)},${lon.toFixed(4)}`);
 
   toast('Veriler yükleniyor…','info');
@@ -848,7 +897,7 @@ async function loadAll(lat, lon, opts={}) {
 }
 
 /* ---------------------------------------------------------------
-   1. FORECAST  (Open-Meteo Forecast API)
+   1. FORECAST
 --------------------------------------------------------------- */
 async function fetchForecast(lat, lon) {
   const p = new URLSearchParams({
@@ -862,7 +911,7 @@ async function fetchForecast(lat, lon) {
     hourly:[
       'temperature_2m','relative_humidity_2m','pressure_msl',
       'wind_speed_10m','cloud_cover','precipitation','precipitation_probability',
-      'dew_point_2m','soil_temperature_6cm',
+      'dewpoint_2m','soil_temperature_6cm','shortwave_radiation','wind_speed_100m',
     ].join(','),
     daily:[
       'weather_code','temperature_2m_max','temperature_2m_min',
@@ -874,36 +923,38 @@ async function fetchForecast(lat, lon) {
   const c = d.current||{};
 
   document.getElementById('hw-loader').style.display='none';
-  document.getElementById('hw-temp').textContent  = c.temperature_2m!=null  ? c.temperature_2m.toFixed(1)  : '—';
+  document.getElementById('hw-temp').textContent  = c.temperature_2m!==null  ? c.temperature_2m.toFixed(1)  : '—';
   document.getElementById('hw-hum').textContent   = c.relative_humidity_2m??'—';
   document.getElementById('hw-pres').textContent  = c.pressure_msl ? Math.round(c.pressure_msl) : '—';
-  document.getElementById('hw-wind').textContent  = c.wind_speed_10m!=null  ? c.wind_speed_10m.toFixed(1)  : '—';
-  document.getElementById('hw-dir').textContent   = c.wind_direction_10m!=null ? c.wind_direction_10m+'°' : '—';
+  document.getElementById('hw-wind').textContent  = c.wind_speed_10m!==null  ? c.wind_speed_10m.toFixed(1)  : '—';
+  document.getElementById('hw-dir').textContent   = c.wind_direction_10m!==null ? c.wind_direction_10m+'°' : '—';
   document.getElementById('wind-arrow').style.transform = `rotate(${c.wind_direction_10m||0}deg)`;
   document.getElementById('hw-time').textContent  = c.time ? new Date(c.time).toLocaleString('tr-TR') : '';
 
   const [ci,ct]=wmo(c.weather_code);
   document.getElementById('hw-cond').textContent = `${ci} ${ct}`;
 
-  // Extended grid (10 metrics)
   const items=[
-    {icon:'🌡',lbl:'Hissedilen',     val:c.apparent_temperature!=null   ? c.apparent_temperature.toFixed(1)+'°C'  : '—', col:'text-sky-300'},
+    {icon:'🌡',lbl:'Hissedilen',     val:c.apparent_temperature!==null   ? c.apparent_temperature.toFixed(1)+'°C'  : '—', col:'text-sky-300'},
     {icon:'💧',lbl:'Nem',            val:(c.relative_humidity_2m??'—')+'%',                                              col:'text-emerald-400'},
     {icon:'📊',lbl:'Basınç',         val:c.pressure_msl ? Math.round(c.pressure_msl)+' hPa' : '—',                      col:'text-indigo-400'},
-    {icon:'💨',lbl:'Rüzgar',         val:c.wind_speed_10m!=null          ? c.wind_speed_10m.toFixed(1)+' m/s'  : '—',  col:'text-amber-400'},
-    {icon:'🌪',lbl:'Rüzgar Atışı',  val:c.wind_gusts_10m!=null          ? c.wind_gusts_10m.toFixed(1)+' m/s'  : '—',  col:'text-rose-400'},
-    {icon:'☁️',lbl:'Bulut',          val:c.cloud_cover!=null             ? c.cloud_cover+'%'                    : '—',  col:'text-slate-300'},
-    {icon:'👁', lbl:'Görüş',         val:c.visibility!=null              ? (c.visibility/1000).toFixed(1)+' km' : '—',  col:'text-cyan-400'},
-    {icon:'🌧',lbl:'Yağış',          val:c.precipitation!=null           ? c.precipitation.toFixed(1)+' mm'     : '—',  col:'text-blue-400'},
-    {icon:'🔆',lbl:'UV İndeksi',     val:c.uv_index!=null                ? c.uv_index.toFixed(1)                : '—',  col:'text-yellow-400'},
-    {icon:'⚡',lbl:'Güneş Rad.',     val:c.shortwave_radiation!=null     ? Math.round(c.shortwave_radiation)+' W/m²':'—',col:'text-orange-400'},
+    {icon:'💨',lbl:'Rüzgar',         val:c.wind_speed_10m!==null          ? c.wind_speed_10m.toFixed(1)+' m/s'  : '—',  col:'text-amber-400'},
+    {icon:'🌪',lbl:'Rüzgar Atışı',  val:c.wind_gusts_10m!==null          ? c.wind_gusts_10m.toFixed(1)+' m/s'  : '—',  col:'text-rose-400'},
+    {icon:'☁️',lbl:'Bulut',          val:c.cloud_cover!==null             ? c.cloud_cover+'%'                    : '—',  col:'text-slate-300'},
+    {icon:'👁', lbl:'Görüş',         val:c.visibility!==null              ? (c.visibility/1000).toFixed(1)+' km' : '—',  col:'text-cyan-400'},
+    {icon:'🌧',lbl:'Yağış',          val:c.precipitation!==null           ? c.precipitation.toFixed(1)+' mm'     : '—',  col:'text-blue-400'},
+    {icon:'🔆',lbl:'UV İndeksi',     val:c.uv_index!==null                ? c.uv_index.toFixed(1)                : '—',  col:'text-yellow-400'},
+    {icon:'⚡',lbl:'Güneş Rad.',     val:c.shortwave_radiation!==null     ? Math.round(c.shortwave_radiation)+' W/m²':'—',col:'text-orange-400'},
   ];
-  document.getElementById('detail-grid').innerHTML = items.map(i=>`
-    <div class="stat-card glass rounded-2xl p-5 flex flex-col gap-2">
-      <span class="text-xl">${i.icon}</span>
-      <p class="text-slate-500 text-xs uppercase tracking-widest leading-tight">${i.lbl}</p>
-      <p class="font-display text-2xl font-700 ${i.col}">${i.val}</p>
-    </div>`).join('');
+  const dg = document.getElementById('detail-grid');
+  if(dg) {
+    dg.innerHTML = items.map(i=>`
+      <div class="stat-card glass rounded-2xl p-5 flex flex-col gap-2">
+        <span class="text-xl">${i.icon}</span>
+        <p class="text-slate-500 text-xs uppercase tracking-widest leading-tight">${i.lbl}</p>
+        <p class="font-display text-2xl font-700 ${i.col}">${i.val}</p>
+      </div>`).join('');
+  }
 
   const h=d.hourly||{};
   hourlyData={
@@ -915,14 +966,17 @@ async function fetchForecast(lat, lon) {
     cloud_cover:   h.cloud_cover||[],
     precipitation: h.precipitation||[],
     precip_prob:   h.precipitation_probability||[],
-    dew_point:     h.dew_point_2m||[],
+    dew_point:     h.dewpoint_2m||[],
     soil_temp:     h.soil_temperature_6cm||[],
+    shortwave_radiation: h.shortwave_radiation||[],
+    wind_speed_100m:     h.wind_speed_100m||[],
   };
   document.getElementById('chart-empty').style.display='none';
   renderForecastChart();
 
   renderDaily(d.daily||{});
   renderAgri(d.daily||{}, hourlyData);
+  renderEnergy(d.daily||{}, hourlyData);
 }
 
 /* ---------------------------------------------------------------
@@ -941,6 +995,7 @@ function renderDaily(dl){
   let html='';
   for(let i=0;i<days;i++){
     const dt=new Date(dl.time[i]);
+    const formatliTarih = `${String(dt.getDate()).padStart(2,'0')}.${String(dt.getMonth()+1).padStart(2,'0')}.${dt.getFullYear()}`;
     const [icon,txt]=wmo(dl.weather_code[i]);
     const tmax=dl.temperature_2m_max[i], tmin=dl.temperature_2m_min[i];
     const pp=dl.precipitation_probability_max?.[i];
@@ -951,7 +1006,7 @@ function renderDaily(dl){
     html+=`
       <div class="day-card stat-card glass rounded-2xl p-4 flex flex-col gap-2 ${i===0?'today':''}">
         <p class="text-slate-400 text-xs font-600">${i===0?'Bugün':dayNames[dt.getDay()]}</p>
-        <p class="text-slate-600 text-xs">${String(dt.getDate()).padStart(2,'0')}.${String(dt.getMonth()+1).padStart(2,'0')}.${dt.getFullYear()}</p>
+        <p class="text-slate-600 text-xs">${formatliTarih}</p>
         <p class="text-3xl my-1" title="${txt}">${icon}</p>
         <p class="text-slate-500 text-xs leading-tight min-h-[2em]">${txt}</p>
         <div class="flex items-baseline gap-1.5">
@@ -965,9 +1020,8 @@ function renderDaily(dl){
   }
   grid.innerHTML=html;
 
-  /* Bugünün gün doğumu/batımı + maks UV */
   const strip=document.getElementById('sun-strip');
-  if(strip){
+  if(strip) {
     strip.classList.remove('hidden');
     const fmtHM=s=>s?new Date(s).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'}):'—';
     document.getElementById('sun-rise').textContent=fmtHM(dl.sunrise?.[0]);
@@ -978,15 +1032,9 @@ function renderDaily(dl){
 
 /* ---------------------------------------------------------------
    FINDIK KARAR PANELİ
-   Fındığın dona dayanımı fenolojik döneme göre çok değişir:
-   kışın dişi çiçek -8 °C'ye kadar dayanırken, gözler sürdükten
-   sonra -1…-2 °C bile sürgünleri kavurur. Bu yüzden eşikler
-   tarihe göre dinamik seçilir.
-   Kaynak: Fındık Araştırma Enstitüsü / İl Tarım Müdürlüğü yayınları
 --------------------------------------------------------------- */
 const AGRI_DAYS=['Pazar','Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi'];
 
-/* Fenolojik dönemler — [başlangıç ay/gün, bitiş ay/gün] */
 const PHENO=[
   {id:'dorm',  ad:'Kış dinlenmesi ve çiçeklenme', ay:'Aralık – Şubat ortası',
    kritik:-8,  agir:-14,
@@ -1018,7 +1066,6 @@ function currentPheno(dt=new Date()){
   return PHENO.find(p=>p.test(m,d)) || PHENO[0];
 }
 
-/* Fındık ilaçlama takvimi (bilgilendirme amaçlı) */
 const SPRAY_CAL=[
   {m:[3],      baslik:'Virgül koşnili ve dalkıran',
    not:'Tomurcuklar patlamadan önce koşnil mücadelesi. Dalkıran için hava 18–20 °C\'ye ulaştığında yeni galeriler kontrol edilmeli.'},
@@ -1043,7 +1090,6 @@ function nightSlice(hourly, dayStr, nextDayStr){
   return idx;
 }
 
-/* --- DON RİSKİ (fenolojik eşiklerle) --- */
 function frostRisk(tmin, night, hourly, ph){
   if(tmin==null) return {cls:'slate',label:'Veri yok',note:''};
   const avg=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
@@ -1051,7 +1097,6 @@ function frostRisk(tmin, night, hourly, ph){
   const wind =avg(night.map(i=>hourly.wind_speed_ms?.[i]).filter(v=>v!=null));
   const dew  =avg(night.map(i=>hourly.dew_point?.[i]).filter(v=>v!=null));
 
-  /* Açık ve durgun gecede yüzey, hava sıcaklığının altına iner */
   let bonus=0;
   if(cloud!=null && cloud<30) bonus+=1.5;
   if(wind !=null && wind <2)  bonus+=1.0;
@@ -1072,7 +1117,6 @@ function frostRisk(tmin, night, hourly, ph){
   return {cls,label,note:parts.join(' · '),tmin,etkin};
 }
 
-/* --- İLAÇLAMA PENCERESİ --- */
 function sprayWindows(hourly){
   const t=hourly.time||[], now=Date.now(), ok=[];
   for(let i=0;i<t.length;i++){
@@ -1094,7 +1138,6 @@ function sprayWindows(hourly){
   return blocks.filter(b=>b.items.length>=2);
 }
 
-/* --- HARMAN / KURUTMA UYGUNLUĞU --- */
 function dryingScore(psum,pp,tmax,humAvg,uv){
   const engel=[];
   if(psum!=null && psum>1)   engel.push(`${psum.toFixed(1)} mm yağış`);
@@ -1114,7 +1157,6 @@ function dryingScore(psum,pp,tmax,humAvg,uv){
   return {cls:'emerald',label:'Kurutmaya uygun',note:iyi.join(' · ')};
 }
 
-/* --- KÜLLEME RİSKİ --- */
 function mildewRisk(tmax,tmin,humAvg,psum){
   if(tmax==null||humAvg==null) return {cls:'slate',label:'Veri yok',note:''};
   const tOrt=(tmax+(tmin??tmax))/2;
@@ -1126,7 +1168,6 @@ function mildewRisk(tmax,tmin,humAvg,psum){
   return {cls:'emerald',label:'Düşük',note:`${tOrt.toFixed(0)}° · %${humAvg.toFixed(0)} nem`};
 }
 
-/* --- BAHÇE ÇALIŞMA --- */
 function fieldwork(tmax,tmin,pp,psum,wmax){
   const engel=[];
   if(psum!=null && psum>5)   engel.push(`${psum.toFixed(1)} mm yağış`);
@@ -1157,7 +1198,6 @@ const row=(sol,etiket,c,not)=>`
     <span class="text-slate-500 text-xs flex-1">${not}</span>
   </div>`;
 
-/* Bir günün ortalama nemini hourly'den hesapla */
 function dayHumidity(hourly, dayStr){
   const v=[];
   (hourly.time||[]).forEach((t,i)=>{
@@ -1166,16 +1206,14 @@ function dayHumidity(hourly, dayStr){
   return v.length? v.reduce((a,b)=>a+b,0)/v.length : null;
 }
 
-let lastDaily={};          /* sekme sonradan açılırsa yeniden çizebilmek için */
+let lastDaily={};          
 function renderAgri(dl, hourly){
   lastDaily = dl;
   const ph=currentPheno();
 
-  /* Panel henüz DOM'da değilse (sekme açılmamışsa) sessizce çık */
   const phenoBar=document.getElementById('pheno-bar');
   if(!phenoBar) return;
 
-  /* ---- Fenolojik dönem şeridi ---- */
   phenoBar.innerHTML=`
     <div class="flex items-center gap-3">
       <span class="text-2xl">🌰</span>
@@ -1190,108 +1228,186 @@ function renderAgri(dl, hourly){
       <p class="text-amber-300 font-display text-2xl font-700">${ph.kritik} °C</p>
       <p class="text-slate-500 text-xs mt-1">ağır zarar: ${ph.agir} °C</p>
     </div>`;
-  document.getElementById('frost-note').innerHTML=ph.not;
+  
+  const fn = document.getElementById('frost-note');
+  if(fn) fn.innerHTML=ph.not;
 
-  if(!dl.time||!dl.time.length) return;
+  if(!dl||!dl.time||!dl.time.length) return;
 
-  /* ---- Don riski ---- */
   const fg=document.getElementById('frost-grid');
-  let html='', ilkUyari=null;
-  for(let i=0;i<dl.time.length;i++){
-    const night=nightSlice(hourly, dl.time[i], dl.time[i+1]||'');
-    const r=frostRisk(dl.temperature_2m_min?.[i], night, hourly, ph);
-    const c=AGRI_CLS[r.cls], dt=new Date(dl.time[i]);
-    if(!ilkUyari && (r.cls==='red'||r.cls==='orange')) ilkUyari={i,dt,r};
-    html+=`
-      <div class="rounded-2xl p-4 border ${c.bg} ${c.br} flex flex-col gap-1.5">
-        <p class="text-slate-400 text-xs font-600">${i===0?'Bu gece':AGRI_DAYS[dt.getDay()]}</p>
-        <p class="text-slate-600 text-xs">${dt.getDate()}.${dt.getMonth()+1}</p>
-        <p class="font-display text-2xl font-700 text-white mt-1">${r.tmin!=null?Math.round(r.tmin)+'°':'—'}</p>
-        <p class="${c.tx} text-xs font-600 leading-tight min-h-[2.4em]">${r.label}</p>
-        <p class="text-slate-500 text-[11px] leading-snug">${r.note}</p>
-      </div>`;
-  }
-  fg.innerHTML=html;
+  if(fg) {
+    let html='', ilkUyari=null;
+    for(let i=0;i<dl.time.length;i++){
+      const night=nightSlice(hourly, dl.time[i], dl.time[i+1]||'');
+      const r=frostRisk(dl.temperature_2m_min?.[i], night, hourly, ph);
+      const c=AGRI_CLS[r.cls], dt=new Date(dl.time[i]);
+      const formatliTarih = `${String(dt.getDate()).padStart(2,'0')}.${String(dt.getMonth()+1).padStart(2,'0')}.${dt.getFullYear()}`;
+      if(!ilkUyari && (r.cls==='red'||r.cls==='orange')) ilkUyari={i,dt,r};
+      html+=`
+        <div class="rounded-2xl p-4 border ${c.bg} ${c.br} flex flex-col gap-1.5">
+          <p class="text-slate-400 text-xs font-600">${i===0?'Bu gece':AGRI_DAYS[dt.getDay()]}</p>
+          <p class="text-slate-600 text-xs">${formatliTarih}</p>
+          <p class="font-display text-2xl font-700 text-white mt-1">${r.tmin!=null?Math.round(r.tmin)+'°':'—'}</p>
+          <p class="${c.tx} text-xs font-600 leading-tight min-h-[2.4em]">${r.label}</p>
+          <p class="text-slate-500 text-[11px] leading-snug">${r.note}</p>
+        </div>`;
+    }
+    fg.innerHTML=html;
 
-  if(ilkUyari){
-    const g=ilkUyari.i===0?'bu gece':`${AGRI_DAYS[ilkUyari.dt.getDay()]} gecesi`;
-    fg.insertAdjacentHTML('beforebegin',
-      `<div class="rounded-2xl px-5 py-4 mb-4 border ${AGRI_CLS.orange.bg} ${AGRI_CLS.orange.br} flex items-start gap-3">
-         <span class="text-xl leading-none">⚠️</span>
-         <p class="text-orange-300 text-sm leading-relaxed"><b>Don uyarısı:</b> ${g} sıcaklığın
-         ${Math.round(ilkUyari.r.tmin)}° seviyesine inmesi bekleniyor; bu, mevcut fenolojik dönemin
-         ${ph.kritik}° eşiğine göre riskli. Duman yakma, don fanı veya sulama gibi koruyucu önlemleri
-         akşamdan hazırlayın.</p>
-       </div>`);
+    if(ilkUyari){
+      const g=ilkUyari.i===0?'bu gece':`${AGRI_DAYS[ilkUyari.dt.getDay()]} gecesi`;
+      fg.insertAdjacentHTML('beforebegin',
+        `<div class="rounded-2xl px-5 py-4 mb-4 border ${AGRI_CLS.orange.bg} ${AGRI_CLS.orange.br} flex items-start gap-3">
+           <span class="text-xl leading-none">⚠️</span>
+           <p class="text-orange-300 text-sm leading-relaxed"><b>Don uyarısı:</b> ${g} sıcaklığın
+           ${Math.round(ilkUyari.r.tmin)}° seviyesine inmesi bekleniyor; bu, mevcut fenolojik dönemin
+           ${ph.kritik}° eşiğine göre riskli. Duman yakma, don fanı veya sulama gibi koruyucu önlemleri
+           akşamdan hazırlayın.</p>
+         </div>`);
+    }
   }
 
-  /* ---- Harman / kurutma (sadece hasat döneminde) ---- */
   const hb=document.getElementById('harvest-block');
-  if(ph.id==='hasat'){
-    hb.classList.remove('hidden');
-    document.getElementById('harvest-list').innerHTML=dl.time.map((t,i)=>{
-      const humAvg=dayHumidity(hourly,t);
-      const r=dryingScore(dl.precipitation_sum?.[i], dl.precipitation_probability_max?.[i],
-                          dl.temperature_2m_max?.[i], humAvg, dl.uv_index_max?.[i]);
-      const dt=new Date(t);
-      return row(`${i===0?'Bugün':AGRI_DAYS[dt.getDay()]} ${dt.getDate()}.${dt.getMonth()+1}`,
-                 r.label, AGRI_CLS[r.cls], r.note);
-    }).join('');
-  } else hb.classList.add('hidden');
+  if(hb) {
+    if(ph.id==='hasat'){
+      hb.classList.remove('hidden');
+      const hl = document.getElementById('harvest-list');
+      if(hl) {
+        hl.innerHTML=dl.time.map((t,i)=>{
+          const humAvg=dayHumidity(hourly,t);
+          const r=dryingScore(dl.precipitation_sum?.[i], dl.precipitation_probability_max?.[i],
+                              dl.temperature_2m_max?.[i], humAvg, dl.uv_index_max?.[i]);
+          const dt=new Date(t);
+          const formatliTarih = `${String(dt.getDate()).padStart(2,'0')}.${String(dt.getMonth()+1).padStart(2,'0')}.${dt.getFullYear()}`;
+          return row(`${i===0?'Bugün':AGRI_DAYS[dt.getDay()]} ${formatliTarih}`,
+                     r.label, AGRI_CLS[r.cls], r.note);
+        }).join('');
+      }
+    } else hb.classList.add('hidden');
+  }
 
-  /* ---- İlaçlama ---- */
   const ay=new Date().getMonth()+1;
   const cal=SPRAY_CAL.find(s=>s.m.includes(ay));
-  document.getElementById('spray-season').innerHTML=
-    cal?`<b class="text-lime-400">Dönem odağı — ${cal.baslik}:</b> ${cal.not}`:'';
+  const ss = document.getElementById('spray-season');
+  if(ss) {
+    ss.innerHTML=cal?`<b class="text-lime-400">Dönem odağı — ${cal.baslik}:</b> ${cal.not}`:'';
+  }
 
   const sl=document.getElementById('spray-list');
-  const blocks=sprayWindows(hourly);
-  sl.innerHTML = !blocks.length
-    ? `<div class="glass rounded-2xl p-5 text-slate-400 text-sm">Önümüzdeki 72 saatte kriterlere uyan ilaçlama penceresi bulunamadı. Rüzgar, sıcaklık veya yağış koşulları elverişli değil.</div>`
-    : blocks.slice(0,6).map(b=>{
-        const s=new Date(b.start), e=new Date(b.end);
-        const hh=x=>x.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'});
-        const gun=s.toDateString()===new Date().toDateString()?'Bugün':AGRI_DAYS[s.getDay()];
-        const avgW=(b.items.reduce((a,x)=>a+x.w,0)/b.items.length).toFixed(1);
-        const avgT=(b.items.reduce((a,x)=>a+x.tc,0)/b.items.length).toFixed(0);
-        return `
-          <div class="rounded-2xl p-4 border ${AGRI_CLS.emerald.bg} ${AGRI_CLS.emerald.br} flex flex-wrap items-center gap-x-6 gap-y-2">
-            <div class="flex-1 min-w-[170px]">
-              <p class="text-emerald-400 font-600 text-sm">${gun} · ${hh(s)}–${hh(e)}</p>
-              <p class="text-slate-500 text-xs mt-0.5">${b.items.length} saatlik pencere</p>
-            </div>
-            <span class="text-slate-300 text-sm">💨 ort. ${avgW} m/s</span>
-            <span class="text-slate-300 text-sm">🌡 ort. ${avgT}°</span>
-            <span class="text-slate-500 text-sm">🌧 yağış yok</span>
-          </div>`;
-      }).join('');
+  if(sl) {
+    const blocks=sprayWindows(hourly);
+    sl.innerHTML = !blocks.length
+      ? `<div class="glass rounded-2xl p-5 text-slate-400 text-sm">Önümüzdeki 72 saatte kriterlere uyan ilaçlama penceresi bulunamadı. Rüzgar, sıcaklık veya yağış koşulları elverişli değil.</div>`
+      : blocks.slice(0,6).map(b=>{
+          const s=new Date(b.start), e=new Date(b.end);
+          const hh=x=>x.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'});
+          const gun=s.toDateString()===new Date().toDateString()?'Bugün':AGRI_DAYS[s.getDay()];
+          const avgW=(b.items.reduce((a,x)=>a+x.w,0)/b.items.length).toFixed(1);
+          const avgT=(b.items.reduce((a,x)=>a+x.tc,0)/b.items.length).toFixed(0);
+          return `
+            <div class="rounded-2xl p-4 border ${AGRI_CLS.emerald.bg} ${AGRI_CLS.emerald.br} flex flex-wrap items-center gap-x-6 gap-y-2">
+              <div class="flex-1 min-w-[170px]">
+                <p class="text-emerald-400 font-600 text-sm">${gun} · ${hh(s)}–${hh(e)}</p>
+                <p class="text-slate-500 text-xs mt-0.5">${b.items.length} saatlik pencere</p>
+              </div>
+              <span class="text-slate-300 text-sm">💨 ort. ${avgW} m/s</span>
+              <span class="text-slate-300 text-sm">🌡 ort. ${avgT}°</span>
+              <span class="text-slate-500 text-sm">🌧 yağış yok</span>
+            </div>`;
+        }).join('');
+  }
 
-  /* ---- Külleme ---- */
-  document.getElementById('mildew-list').innerHTML=dl.time.map((t,i)=>{
-    const r=mildewRisk(dl.temperature_2m_max?.[i], dl.temperature_2m_min?.[i],
-                       dayHumidity(hourly,t), dl.precipitation_sum?.[i]);
-    const dt=new Date(t);
-    return row(`${i===0?'Bugün':AGRI_DAYS[dt.getDay()]} ${dt.getDate()}.${dt.getMonth()+1}`,
-               r.label, AGRI_CLS[r.cls], r.note);
-  }).join('');
+  const ml = document.getElementById('mildew-list');
+  if(ml) {
+    ml.innerHTML=dl.time.map((t,i)=>{
+      const r=mildewRisk(dl.temperature_2m_max?.[i], dl.temperature_2m_min?.[i],
+                         dayHumidity(hourly,t), dl.precipitation_sum?.[i]);
+      const dt=new Date(t);
+      const formatliTarih = `${String(dt.getDate()).padStart(2,'0')}.${String(dt.getMonth()+1).padStart(2,'0')}.${dt.getFullYear()}`;
+      return row(`${i===0?'Bugün':AGRI_DAYS[dt.getDay()]} ${formatliTarih}`,
+                 r.label, AGRI_CLS[r.cls], r.note);
+    }).join('');
+  }
 
-  /* ---- Bahçe çalışma ---- */
-  document.getElementById('fieldwork-list').innerHTML=dl.time.map((t,i)=>{
-    const r=fieldwork(dl.temperature_2m_max?.[i], dl.temperature_2m_min?.[i],
-                      dl.precipitation_probability_max?.[i], dl.precipitation_sum?.[i],
-                      dl.wind_speed_10m_max?.[i]);
-    const dt=new Date(t);
-    return row(`${i===0?'Bugün':AGRI_DAYS[dt.getDay()]} ${dt.getDate()}.${dt.getMonth()+1}`,
-               r.label, AGRI_CLS[r.cls], r.note);
-  }).join('');
+  const fl = document.getElementById('fieldwork-list');
+  if(fl) {
+    fl.innerHTML=dl.time.map((t,i)=>{
+      const r=fieldwork(dl.temperature_2m_max?.[i], dl.temperature_2m_min?.[i],
+                        dl.precipitation_probability_max?.[i], dl.precipitation_sum?.[i],
+                        dl.wind_speed_10m_max?.[i]);
+      const dt=new Date(t);
+      const formatliTarih = `${String(dt.getDate()).padStart(2,'0')}.${String(dt.getMonth()+1).padStart(2,'0')}.${dt.getFullYear()}`;
+      return row(`${i===0?'Bugün':AGRI_DAYS[dt.getDay()]} ${formatliTarih}`,
+                 r.label, AGRI_CLS[r.cls], r.note);
+    }).join('');
+  }
 }
 
 /* ---------------------------------------------------------------
-   2. AIR QUALITY  (Open-Meteo Air Quality API)
+   ENERJİ KARAR PANELİ
+--------------------------------------------------------------- */
+let lastEnergyDaily={};
+function renderEnergy(dl, hourly){
+  lastEnergyDaily = dl;
+  const gl = document.getElementById('ges-list');
+  if(!gl) return; 
+
+  if(!dl||!dl.time||!dl.time.length) return;
+
+  let gesHtml='', resHtml='';
+  for(let i=0; i<dl.time.length; i++){
+    const dayStr = dl.time[i];
+    const dt = new Date(dayStr);
+    const labelGun = i===0 ? 'Bugün' : AGRI_DAYS[dt.getDay()];
+    const labelTarih = `${String(dt.getDate()).padStart(2,'0')}.${String(dt.getMonth()+1).padStart(2,'0')}.${dt.getFullYear()}`;
+    
+    const hIdx = hourly.time.map((t, idx) => t.slice(0,10) === dayStr ? idx : -1).filter(idx => idx !== -1);
+    
+    // --- GES (Güneş) Mantığı ---
+    const tmax = dl.temperature_2m_max?.[i];
+    const rads = hIdx.map(idx => hourly.shortwave_radiation?.[idx]).filter(v => v!=null);
+    const maxRad = rads.length ? Math.max(...rads) : 0;
+    
+    let gesCls, gesDurum, gesNot;
+    if(tmax > 30 && maxRad > 600) {
+      gesCls = AGRI_CLS.orange; gesDurum = 'Termal Kayıp'; gesNot = `Sıcaklık ${tmax.toFixed(1)}°C, yüksek ışıma (${Math.round(maxRad)} W/m²). İnverter veriminde düşüş.`;
+    } else if (tmax > 25 && maxRad > 400) {
+      gesCls = AGRI_CLS.amber; gesDurum = 'Isınma Etkisi'; gesNot = `Sıcaklık ${tmax.toFixed(1)}°C. Panellerde ısınmaya bağlı kısmi kayıp.`;
+    } else if (maxRad < 200) {
+      gesCls = AGRI_CLS.slate; gesDurum = 'Düşük Üretim'; gesNot = `Maksimum ışıma: ${Math.round(maxRad)} W/m². Yetersiz güneşlenme.`;
+    } else {
+      gesCls = AGRI_CLS.emerald; gesDurum = 'Optimum Üretim'; gesNot = `Sıcaklık ${tmax.toFixed(1)}°C, maks ışıma: ${Math.round(maxRad)} W/m². İdeal koşullar.`;
+    }
+    gesHtml += row(`${labelGun} ${labelTarih}`, gesDurum, gesCls, gesNot);
+
+    // --- RES (Rüzgar) Mantığı ---
+    const winds = hIdx.map(idx => hourly.wind_speed_100m?.[idx]).filter(v => v!=null);
+    const avgW = winds.length ? (winds.reduce((a,b)=>a+b,0)/winds.length) : 0;
+    const maxW = winds.length ? Math.max(...winds) : 0;
+    
+    let resCls, resDurum, resNot;
+    if(maxW >= 25) {
+      resCls = AGRI_CLS.red; resDurum = 'Fırtına (Cut-out)'; resNot = `Maks rüzgar: ${maxW.toFixed(1)} m/s (100m). Türbin frenleme/kapatma riski.`;
+    } else if(avgW >= 10 && maxW < 25) {
+      resCls = AGRI_CLS.emerald; resDurum = 'Tam Kapasite'; resNot = `Ortalama: ${avgW.toFixed(1)} m/s, Maks: ${maxW.toFixed(1)} m/s. Türbinler nominal güçte.`;
+    } else if(avgW >= 3 && avgW < 10) {
+      resCls = AGRI_CLS.sky; resDurum = 'Kısmi Üretim'; resNot = `Ortalama: ${avgW.toFixed(1)} m/s. Cut-in aşıldı, üretim aktif.`;
+    } else {
+      resCls = AGRI_CLS.slate; resDurum = 'Ölü Rüzgar'; resNot = `Ortalama: ${avgW.toFixed(1)} m/s. Türbinlerin devreye girmesi için yetersiz rüzgar.`;
+    }
+    resHtml += row(`${labelGun} ${labelTarih}`, resDurum, resCls, resNot);
+  }
+  
+  document.getElementById('ges-list').innerHTML = gesHtml;
+  document.getElementById('res-list').innerHTML = resHtml;
+}
+
+/* ---------------------------------------------------------------
+   2. AIR QUALITY
 --------------------------------------------------------------- */
 async function fetchAirQuality(lat, lon) {
-  document.getElementById('aqi-loader').style.display='block';
+  const loader = document.getElementById('aqi-loader');
+  if(loader) loader.style.display='block';
   try {
     const p = new URLSearchParams({
       latitude:lat, longitude:lon, timezone:'auto',
@@ -1300,45 +1416,49 @@ async function fetchAirQuality(lat, lon) {
     });
     const d = await gFetch(`${OM_AIR}?${p}`);
     const c = d.current||{};
-    document.getElementById('aqi-loader').style.display='none';
+    if(loader) loader.style.display='none';
 
     const aqi=c.european_aqi, meta=aqiMeta(aqi);
-    document.getElementById('aqi-value').textContent = aqi!=null ? aqi : '—';
-    document.getElementById('aqi-value').style.color = meta.color;
-    document.getElementById('aqi-label').textContent = meta.label;
-    document.getElementById('aqi-label').style.color = meta.color;
+    const av = document.getElementById('aqi-value');
+    if(av) { av.textContent = aqi!==null&&aqi!==undefined ? aqi : '—'; av.style.color = meta.color; }
+    const al = document.getElementById('aqi-label');
+    if(al) { al.textContent = meta.label; al.style.color = meta.color; }
     const pct = aqi ? Math.min(aqi/200*100,100) : 0;
-    document.getElementById('aqi-needle').style.left = `calc(${pct}% - 7px)`;
+    const an = document.getElementById('aqi-needle');
+    if(an) an.style.left = `calc(${pct}% - 7px)`;
 
     const pollutants=[
-      {icon:'🔶',lbl:'PM2.5',  val:c.pm2_5!=null            ? c.pm2_5.toFixed(1)+' µg/m³'            : '—', col:'text-yellow-400'},
-      {icon:'🟠',lbl:'PM10',   val:c.pm10!=null             ? c.pm10.toFixed(1)+' µg/m³'             : '—', col:'text-orange-400'},
-      {icon:'🔵',lbl:'Ozon O₃',val:c.ozone!=null            ? c.ozone.toFixed(1)+' µg/m³'            : '—', col:'text-blue-400'},
-      {icon:'🔴',lbl:'NO₂',    val:c.nitrogen_dioxide!=null ? c.nitrogen_dioxide.toFixed(1)+' µg/m³' : '—', col:'text-red-400'},
-      {icon:'⬜',lbl:'CO',     val:c.carbon_monoxide!=null  ? c.carbon_monoxide.toFixed(0)+' µg/m³'  : '—', col:'text-slate-400'},
-      {icon:'🌞',lbl:'UV',     val:c.uv_index!=null         ? c.uv_index.toFixed(1)                  : '—', col:'text-amber-400'},
+      {icon:'🔶',lbl:'PM2.5',  val:c.pm2_5!==null            ? c.pm2_5.toFixed(1)+' µg/m³'            : '—', col:'text-yellow-400'},
+      {icon:'🟠',lbl:'PM10',   val:c.pm10!==null             ? c.pm10.toFixed(1)+' µg/m³'             : '—', col:'text-orange-400'},
+      {icon:'🔵',lbl:'Ozon O₃',val:c.ozone!==null            ? c.ozone.toFixed(1)+' µg/m³'            : '—', col:'text-blue-400'},
+      {icon:'🔴',lbl:'NO₂',    val:c.nitrogen_dioxide!==null ? c.nitrogen_dioxide.toFixed(1)+' µg/m³' : '—', col:'text-red-400'},
+      {icon:'⬜',lbl:'CO',     val:c.carbon_monoxide!==null  ? c.carbon_monoxide.toFixed(0)+' µg/m³'  : '—', col:'text-slate-400'},
+      {icon:'🌞',lbl:'UV',     val:c.uv_index!==null         ? c.uv_index.toFixed(1)                  : '—', col:'text-amber-400'},
     ];
-    document.getElementById('pollutant-grid').innerHTML = pollutants.map(p=>`
-      <div class="stat-card glass rounded-xl p-4 flex flex-col gap-1">
-        <span class="text-lg">${p.icon}</span>
-        <p class="text-slate-500 text-xs uppercase tracking-widest">${p.lbl}</p>
-        <p class="font-display text-xl font-700 ${p.col}">${p.val}</p>
-      </div>`).join('');
+    const pg = document.getElementById('pollutant-grid');
+    if(pg) {
+      pg.innerHTML = pollutants.map(p=>`
+        <div class="stat-card glass rounded-xl p-4 flex flex-col gap-1">
+          <span class="text-lg">${p.icon}</span>
+          <p class="text-slate-500 text-xs uppercase tracking-widest">${p.lbl}</p>
+          <p class="font-display text-xl font-700 ${p.col}">${p.val}</p>
+        </div>`).join('');
+    }
 
     const h=d.hourly||{};
     aqiHourly={time:h.time||[], aqi:h.european_aqi||[]};
-    document.getElementById('aqi-chart-empty').style.display='none';
+    const ace = document.getElementById('aqi-chart-empty');
+    if(ace) ace.style.display='none';
     renderAqiChart();
   } catch(e) {
-    document.getElementById('aqi-loader').style.display='none';
-    document.getElementById('pollutant-grid').innerHTML=
-      `<p class="col-span-full text-slate-500 text-sm py-4 text-center">Bu konum için hava kalitesi verisi mevcut değil veya alınamadı.</p>`;
-    throw e;
+    if(loader) loader.style.display='none';
+    const pg = document.getElementById('pollutant-grid');
+    if(pg) pg.innerHTML=`<p class="col-span-full text-slate-500 text-sm py-4 text-center">Bu konum için hava kalitesi verisi mevcut değil veya alınamadı.</p>`;
   }
 }
 
 /* ---------------------------------------------------------------
-   3. MARINE  (Open-Meteo Marine API)
+   3. MARINE
 --------------------------------------------------------------- */
 async function fetchMarine(lat, lon) {
   try {
@@ -1351,8 +1471,11 @@ async function fetchMarine(lat, lon) {
     const c = d.current||{};
     const allNull = Object.values(c).every(v=>v===null||v===undefined);
 
+    const mg = document.getElementById('marine-grid');
+    if(!mg) return;
+
     if(allNull) {
-      document.getElementById('marine-grid').innerHTML=`
+      mg.innerHTML=`
         <div class="col-span-full glass rounded-2xl p-10 text-center">
           <p class="text-4xl mb-3">🏔️</p>
           <p class="text-slate-400 font-600">Bu konum denizden uzakta</p>
@@ -1362,14 +1485,14 @@ async function fetchMarine(lat, lon) {
     }
 
     const cards=[
-      {icon:'🌊',lbl:'Dalga Yüksekliği',val:c.wave_height!=null           ? c.wave_height.toFixed(2)+' m'            : '—', col:'text-blue-300',  sub:'Toplam'},
-      {icon:'💨',lbl:'Rüzgar Dalgası',  val:c.wind_wave_height!=null      ? c.wind_wave_height.toFixed(2)+' m'       : '—', col:'text-sky-400',   sub:'Rüzgar kaynaklı'},
-      {icon:'🏄',lbl:'Swell',           val:c.swell_wave_height!=null     ? c.swell_wave_height.toFixed(2)+' m'      : '—', col:'text-indigo-400',sub:dirStr(c.swell_wave_direction)},
-      {icon:'⏱', lbl:'Dalga Periyodu', val:c.wave_period!=null            ? c.wave_period.toFixed(1)+' s'            : '—', col:'text-emerald-400',sub:'Dalga arası süre'},
+      {icon:'🌊',lbl:'Dalga Yüksekliği',val:c.wave_height!==null           ? c.wave_height.toFixed(2)+' m'            : '—', col:'text-blue-300',  sub:'Toplam'},
+      {icon:'💨',lbl:'Rüzgar Dalgası',  val:c.wind_wave_height!==null      ? c.wind_wave_height.toFixed(2)+' m'       : '—', col:'text-sky-400',   sub:'Rüzgar kaynaklı'},
+      {icon:'🏄',lbl:'Swell',           val:c.swell_wave_height!==null     ? c.swell_wave_height.toFixed(2)+' m'      : '—', col:'text-indigo-400',sub:dirStr(c.swell_wave_direction)},
+      {icon:'⏱', lbl:'Dalga Periyodu', val:c.wave_period!==null            ? c.wave_period.toFixed(1)+' s'            : '—', col:'text-emerald-400',sub:'Dalga arası süre'},
       {icon:'🧭',lbl:'Dalga Yönü',     val:dirStr(c.wave_direction),                                                          col:'text-amber-400', sub:'Gelme yönü'},
-      {icon:'🌀',lbl:'Swell Periyodu', val:c.swell_wave_period!=null      ? c.swell_wave_period.toFixed(1)+' s'      : '—', col:'text-rose-400',  sub:dirStr(c.swell_wave_direction)},
+      {icon:'🌀',lbl:'Swell Periyodu', val:c.swell_wave_period!==null      ? c.swell_wave_period.toFixed(1)+' s'      : '—', col:'text-rose-400',  sub:dirStr(c.swell_wave_direction)},
     ];
-    document.getElementById('marine-grid').innerHTML = cards.map(c=>`
+    mg.innerHTML = cards.map(c=>`
       <div class="stat-card glass rounded-2xl p-5 flex flex-col gap-2">
         <span class="text-2xl">${c.icon}</span>
         <p class="text-slate-500 text-xs uppercase tracking-widest leading-tight">${c.lbl}</p>
@@ -1384,20 +1507,23 @@ async function fetchMarine(lat, lon) {
       wind_wave_height:  h.wind_wave_height||[],
       swell_wave_height: h.swell_wave_height||[],
     };
-    document.getElementById('marine-chart-empty').style.display='none';
+    const mce = document.getElementById('marine-chart-empty');
+    if(mce) mce.style.display='none';
     renderMarineChart();
   } catch(e) {
-    document.getElementById('marine-grid').innerHTML=`
-      <div class="col-span-full glass rounded-2xl p-10 text-center">
-        <p class="text-4xl mb-3">⚠️</p>
-        <p class="text-slate-400">Deniz verisi alınamadı. Kara içi konum olabilir.</p>
-      </div>`;
-    throw e;
+    const mg = document.getElementById('marine-grid');
+    if(mg) {
+      mg.innerHTML=`
+        <div class="col-span-full glass rounded-2xl p-10 text-center">
+          <p class="text-4xl mb-3">⚠️</p>
+          <p class="text-slate-400">Deniz verisi alınamadı. Kara içi konum olabilir.</p>
+        </div>`;
+    }
   }
 }
 
 /* ---------------------------------------------------------------
-   4. PLACE NAME  (Backend cache → Nominatim fallback)
+   4. PLACE NAME
 --------------------------------------------------------------- */
 async function fetchPlaceName(lat, lon) {
   let p;
@@ -1406,9 +1532,7 @@ async function fetchPlaceName(lat, lon) {
     if(r.ok) p=await r.json();
   } catch(_){}
 
-  /* Backend boş ya da işe yaramaz cevap döndüyse yedek kaynağa geç */
-  const iseYarar=o=>o && (o.city||o.state||o.district||o.display_name);
-  if(!iseYarar(p)) {
+  if(!p) {
     try {
       const url=`${NOMINATIM}?format=jsonv2&lat=${lat}&lon=${lon}&zoom=10&addressdetails=1`;
       const j=await gFetch(url);
@@ -1420,36 +1544,32 @@ async function fetchPlaceName(lat, lon) {
   if(p) {
     const parts=[p.city||p.state,p.state,p.country].filter(Boolean);
     const ad=parts.join(', ')||p.display_name||'Bilinmeyen Konum';
-    document.getElementById('hw-location').textContent=ad;
-    lastPlaceAd=[p.district,p.city,p.state].filter(Boolean).join(' · ')||ad;
-    lastPlaceCity=p.city||p.state||(p.display_name||'').split(',')[0].trim()||'';
-    syncLocPlace(lastPlaceAd);
-    /* Arama kutuları boşsa bulunan yer adıyla doldur */
-    document.querySelectorAll('.loc-search').forEach(i=>{ if(!i.value) i.value=lastPlaceCity; });
+    const hwLoc = document.getElementById('hw-location');
+    if(hwLoc) hwLoc.textContent=ad;
+    syncLocPlace([p.district,p.city,p.state].filter(Boolean).join(' · ')||ad);
+    document.querySelectorAll('.loc-search').forEach(i=>{ if(!i.value) i.value=p.city||p.state||''; });
   } else {
     syncLocPlace(null);
   }
 }
 
 /* ---------------------------------------------------------------
-   CHART FACTORY
+   CHARTS
 --------------------------------------------------------------- */
 const METRICS={
-  temperature_c:{label:'Sıcaklık (°C)',  color:'#38bdf8',unit:'°C'},
-  humidity_pct: {label:'Nem (%)',         color:'#34d399',unit:'%'},
-  pressure_hpa: {label:'Basınç (hPa)',   color:'#a78bfa',unit:' hPa'},
-  wind_speed_ms:{label:'Rüzgar (m/s)',   color:'#fbbf24',unit:' m/s'},
-  cloud_cover:  {label:'Bulut (%)',       color:'#94a3b8',unit:'%'},
-  precipitation:{label:'Yağış (mm)',     color:'#60a5fa',unit:' mm'},
-  precip_prob:  {label:'Yağış Olasılığı (%)',color:'#818cf8',unit:'%'},
+  temperature_c:{label:'Sıcaklık (°C)',  color:'#38bdf8',unit:'°C', minZero:false},
+  humidity_pct: {label:'Nem (%)',         color:'#34d399',unit:'%', minZero:true},
+  pressure_hpa: {label:'Basınç (hPa)',   color:'#a78bfa',unit:' hPa', minZero:false},
+  wind_speed_ms:{label:'Rüzgar (m/s)',   color:'#fbbf24',unit:' m/s', minZero:true},
+  cloud_cover:  {label:'Bulut (%)',       color:'#94a3b8',unit:'%', minZero:true},
+  precipitation:{label:'Yağış (mm)',     color:'#60a5fa',unit:' mm', minZero:true},
+  precip_prob:  {label:'Yağış Olasılığı (%)',color:'#818cf8',unit:'%', minZero:true},
 };
 
-function buildChart(id, labels, values, color, label, unit) {
-  const ctx=document.getElementById(id).getContext('2d');
-  /* Tüm ölçtüğümüz büyüklükler (sıcaklık hariç) negatif olamaz;
-     Chart.js otomatik ölçeklemede yine de 0'ın altına inebiliyor,
-     bu yüzden eksen tabanını sabitliyoruz. */
-  const negatifOlabilir = /sıcaklık|temperature/i.test(label);
+function buildChart(id, labels, values, color, label, unit, minZero = false) {
+  const el = document.getElementById(id);
+  if(!el) return null;
+  const ctx=el.getContext('2d');
   return new Chart(ctx,{
     type:'line',
     data:{labels,datasets:[{label,data:values,borderColor:color,backgroundColor:color+'18',borderWidth:2,fill:true,tension:.4,pointRadius:0,pointHoverRadius:5,pointHoverBackgroundColor:color}]},
@@ -1458,12 +1578,16 @@ function buildChart(id, labels, values, color, label, unit) {
       plugins:{
         legend:{display:false},
         tooltip:{backgroundColor:'rgba(4,17,31,.9)',borderColor:color,borderWidth:1,titleColor:'#94a3b8',bodyColor:'#e0f2fe',
-          callbacks:{label:ctx=>ctx.parsed.y!=null?ctx.parsed.y.toFixed(1)+unit:'—'}
+          callbacks:{label:ctx=>ctx.parsed.y!==null?ctx.parsed.y.toFixed(1)+unit:'—'}
         }
       },
       scales:{
         x:{ticks:{color:'#475569',maxRotation:0,autoSkip:true,maxTicksLimit:innerWidth<640?6:12,font:{family:'DM Sans',size:11}},grid:{color:'rgba(255,255,255,.04)'}},
-        y:{min: negatifOlabilir?undefined:0, ticks:{color:'#475569',font:{family:'DM Sans',size:11},callback:v=>v+unit},grid:{color:'rgba(255,255,255,.06)'}},
+        y:{
+          min: minZero ? 0 : undefined,
+          ticks:{color:'#475569',font:{family:'DM Sans',size:11},callback:v=>v+unit},
+          grid:{color:'rgba(255,255,255,.06)'}
+        },
       }
     }
   });
@@ -1474,23 +1598,22 @@ function renderForecastChart(){
   const m=METRICS[activeMetric];
   const labels=hourlyData.time.map(fmtTime);
   if(chartInst) chartInst.destroy();
-  chartInst=buildChart('hourly-chart',labels,hourlyData[activeMetric]||[],m.color,m.label,m.unit);
+  chartInst=buildChart('hourly-chart',labels,hourlyData[activeMetric]||[],m.color,m.label,m.unit, m.minZero);
 }
 function renderAqiChart(){
   if(!aqiHourly) return;
   const labels=aqiHourly.time.map(fmtTime);
   if(aqiInst) aqiInst.destroy();
-  aqiInst=buildChart('aqi-chart',labels,aqiHourly.aqi,'#34d399','AQI','');
+  aqiInst=buildChart('aqi-chart',labels,aqiHourly.aqi,'#34d399','AQI','', true);
 }
 function renderMarineChart(){
   if(!marineHourly) return;
   const labels=marineHourly.time.map(fmtTime);
   const vals=marineHourly[activeMarineField]||[];
   if(marineInst) marineInst.destroy();
-  marineInst=buildChart('marine-chart',labels,vals,'#60a5fa','Dalga (m)',' m');
+  marineInst=buildChart('marine-chart',labels,vals,'#60a5fa','Dalga (m)',' m', true);
 }
 
-/* Pill listeners */
 document.querySelectorAll('.chart-pill').forEach(btn=>{
   btn.addEventListener('click',()=>{
     document.querySelectorAll('.chart-pill').forEach(b=>b.classList.remove('active'));
@@ -1504,7 +1627,7 @@ document.addEventListener('click',e=>{
 });
 
 /* ---------------------------------------------------------------
-   SERVICES TABS  (backend /content → static fallback)
+   SERVICES TABS
 --------------------------------------------------------------- */
 async function loadContent() {
   let tabs=[];
@@ -1513,52 +1636,8 @@ async function loadContent() {
     if(r.ok) tabs=(await r.json()).tabs||[];
   } catch(_) {}
 
-  /* Backend yoksa veya boş döndüyse yedek içerik */
   if(!tabs.length) {
     tabs=[
-      {
-            "id": "energy",
-            "title": "Yenilenebilir Enerji",
-            "sections": [
-                  {
-                        "h": "Enerji Sektöründe Hava Tahmininin Önemi",
-                        "p": [
-                              "Yenilenebilir enerji sektörünün birincil hammaddesi meteorolojik kaynaklardır. Dolayısıyla bu sektör büyük oranda tahmin edilebilir bir özellik taşır. Tahminler alansal, noktasal, saatlik, günlük, haftalık, aylık ve mevsimlik olmak üzere hem zamansal hem alansal olarak farklı şekillerde yapılabilir. Genel hava tahmininin yanında tesisinizin mevcut istasyonu kullanılarak yapılacak değerlendirmelerle en doğru sonuçları sunabiliriz.",
-                              "Son yıllarda artan enerji yatırımları üretim planlamasını da gerekli kılmıştır. İleriye yönelik üretilebilecek enerji miktarının birkaç gün öncesinden değerlendirilmesi önem arz eder. Tahmin edilen meteorolojik parametreler, enerji üretim tahmini için birincil parametredir. Yapacağımız tahminlerle hem kârlılığınızı hem üretim verimliliğinizi artırabilirsiniz."
-                        ]
-                  },
-                  {
-                        "h": "Yenilenebilir Enerji Tesisleri için Saha Analizi",
-                        "p": [
-                              "Deneyimli ekibimizle enerji piyasası yatırımlarınız için kapsamlı saha analizleri yapıyoruz. Enerji piyasası, yenilenebilir enerji, mevzuat, meteorolojik veri analizleri ve sektör hakkında bilmek istediğiniz tüm konularda kapsamlı raporlar hazırlayabiliriz.",
-                              "Muhtemel sahalarınız için meteorolojik veri arşivinin temini ve analizi ile hem öngörü yapabilme imkânı hem de risk haritalarınızın oluşturulmasını sağlıyor; kurulum ve işletme aşamalarınızda strateji belirlemenize destek oluyoruz."
-                        ]
-                  },
-                  {
-                        "h": "Sizlere Hangi Meteorolojik Bilgileri Sunuyoruz",
-                        "list": [
-                              "Bölgenin iklim ve meteoroloji verileri",
-                              "Tekerrür haritaları",
-                              "Risk haritaları ve bilgileri",
-                              "Don / kar örtüsü başlangıç ve bitiş tarihleri, belirli gün tarihleri",
-                              "Yağış tür ve şiddeti için uydu ve radar görüntüleri",
-                              "Yıldırım, dolu izleme ve muhtemel gelişme sahaları",
-                              "Hub yüksekliği ve yer seviyesi için rüzgar, nem, sıcaklık, güneş radyasyonu ve bulutluluk çıktısı",
-                              "RES ve GES için tüm parametreleri içeren sayısal model çıktıları",
-                              "İlk 48 saat için saatlik hava tahmini",
-                              "15 günlük hava tahmini",
-                              "Sıcaklık, basınç ve yağış parametreleri için aylık tahmin",
-                              "Mevsimsel değerlendirmeler"
-                        ]
-                  },
-                  {
-                        "h": "Danışmanlık",
-                        "p": [
-                              "Size özel hazırladığımız raporları seçeceğiniz iletişim araçlarıyla (e-posta, SMS, telefon vb.) sunabildiğimiz gibi, istediğiniz zaman ulaşabileceğiniz meteoroloji uzmanlarımızla mevcut durumu birlikte değerlendirebilirsiniz."
-                        ]
-                  }
-            ]
-      },
       {
             "id": "marine",
             "title": "Denizcilik",
@@ -1566,21 +1645,7 @@ async function loadContent() {
                   {
                         "h": "Denizde Doğru Tahmin, Güvenli Planlama",
                         "p": [
-                              "Üç tarafı denizlerle çevrili ülkemizde denizcilik, önemi gün geçtikçe artan bir sektördür ve hava şartlarıyla doğrudan ilişkilidir. Uzun kıyı şeridimiz boyunca uzman tahmincilerimizle 3'er saatlik periyotlarda rüzgar yön ve hızı, dalga yüksekliği ve hava tahmini desteği sunuyoruz.",
-                              "Kötü hava şartları planlarınızı tamamen aksatabilir; ancak önceden haberdar olacağınız meteorolojik şartlara göre yapacağınız planlar size kazanç, tasarruf ve daha keyifli bir seyir olarak geri döner."
-                        ]
-                  },
-                  {
-                        "h": "Neden Yüksek Çözünürlüklü Kıyı Tahmini?",
-                        "p": [
-                              "İnternet taramalarında karşınıza çıkan tahminler genellikle açık deniz tahminleridir ve çok sayıda koy barındıran ülkemiz denizlerini temsil etmeleri güçtür. Kıyılarımızı daha iyi temsil eden, daha yüksek çözünürlüklü modeller çalıştırarak ve bunları tecrübeli tahmincilerle değerlendirerek en doğru raporları hazırlıyoruz.",
-                              "Tahminlerimiz içerisinde 10 güne kadar belirli periyotlarla ortalama ve maksimum rüzgar, hadise ve genel hava tahmini; 11-30 gün arasında ise genel meteorolojik durum bilgileri yer alır. Ülkemiz genelindeki marinalar için de detaylı hava tahminleri sunuyoruz."
-                        ]
-                  },
-                  {
-                        "h": "Danışmanlık",
-                        "p": [
-                              "Size özel hazırladığımız raporları seçeceğiniz iletişim araçlarıyla (e-posta, SMS, telefon vb.) sunabildiğimiz gibi, istediğiniz zaman ulaşabileceğiniz meteoroloji uzmanlarımızla mevcut durumu birlikte değerlendirebilirsiniz. Rüzgar klimatolojisi araştırma çalışmalarımız rüzgar gülü olarak sunulur."
+                              "Üç tarafı denizlerle çevrili ülkemizde denizcilik, önemi gün geçtikçe artan bir sektördür ve hava şartlarıyla doğrudan ilişkilidir."
                         ]
                   }
             ]
@@ -1592,55 +1657,16 @@ async function loadContent() {
                   {
                         "h": "Şantiyede Her Gün Hava Şartlarına Bağlıdır",
                         "p": [
-                              "Meteorolojik şartlar inşaat projelerinin her aşamasında belirleyici rol oynar. Büyük oranda açık havada çalışılan sektörde hem çalışma şartları hem de üretim kalitesi meteorolojik parametrelerden etkilenir. İnşaat sezonunun başlangıç ve bitiş tarihlerinde 1 haftalık bir değişikliğin dahi şantiye maliyetlerine yansıması önemlidir.",
-                              "Sağlıklı ve doğru meteorolojik destekle, şantiye başlangıç ve bitiş tarihlerinin yanı sıra inşaat süresi boyunca kazanacağınız zaman sektörde öne geçmenizi sağlar. Bu verimlilik artışı, planlı ve kazançlı işgücü ile işyeri güvenliğinde etkinlik olarak geri döner."
-                        ]
-                  },
-                  {
-                        "h": "Hangi Parametreler, Hangi Vadede?",
-                        "p": [
-                              "Sıcaklık, yağış, rüzgar tahminleri ve özel projeler için basınç parametresi, projelerinizin sağlıklı devamlılığı ve kârlılığı açısından kritik bilgiler sunar. Bu bilgileri, birlikte belirleyeceğimiz eşik değerlerini de değerlendirerek en fazla fayda sağlayacak formatta ve zamanda kullanımınıza sunuyoruz.",
-                              "Çok kısa vadeli tahminlerle gününüzü planlayabilir; kısa, orta ve uzun vadeli tahminlerle aylık iş takviminizi oluşturabilirsiniz. İsteğiniz doğrultusunda hazırlayacağımız geriye dönük klimatolojik çalışmalarla sahalarınızın risk dönemlerini ve önemli meteorolojik sınır değerlerini belirleyebiliriz."
-                        ]
-                  }
-            ]
-      },
-      {
-            "id": "agriculture",
-            "title": "Tarım",
-            "sections": [
-                  {
-                        "h": "Ekimden Hasada, Depodan Pazara",
-                        "p": [
-                              "Zirai üretim faaliyetleri ister açık alanda ister sera gibi kapalı alanlarda yapılsın hava durumuyla doğrudan ilişkilidir. Tarımsal faaliyetlerin her aşamasını etkileyen meteorolojik parametreler tahmin edilebilir sınıftadır. Bu parametreleri hizmetinize sunarak birkaç gün öncesinden önlem almanızı veya ticari şartlarınızı planlamanızı sağlıyoruz.",
-                              "Havanın etkisini ekimden hasada, hatta depolama ve pazarlamaya kadar her alanda görebiliriz. Zirai don, kuraklık, yağış ve sıcaklık gibi parametrelerin tahmini; üretim miktarı ve kalitesi kadar pazar şartlarının nasıl olabileceğine dair de ipuçları verir.",
-                              "Seracılık, hayvancılık ve özel üretim çiftlikleriniz için ısıtma-soğutma faaliyetlerinizde kullanılmak üzere hassas noktasal tahminler yaparak diğer üreticilerin önüne geçmenizi sağlayabiliriz."
-                        ]
-                  },
-                  {
-                        "h": "Sunduğumuz Tahmin Ürünleri",
-                        "list": [
-                              "Günlük, 15 günlük, 3 aylık ve mevsimlik tahminler",
-                              "15 günlük tahmin: min/maks sıcaklık, yağış miktarı ve cinsi, rüzgar hızı, nem, zirai don",
-                              "3 aylık tahmin: aylık ortalama sıcaklık, toplam yağış ve normallere göre beklenti",
-                              "Mevsimlik değerlendirme: sistem konumları ve muhtemel riskler (kuraklık, ani soğuma/ısınma, fazla yağış)",
-                              "İlk 10 günlük dönem için kuvvetli hadiselere yönelik risk haritaları",
-                              "Tüm il ve ilçe merkezleri ile verilecek koordinatlara göre noktasal tahminler",
-                              "Faaliyetiniz özelinde meteorolojik bilgilerin yorumlanması"
-                        ]
-                  },
-                  {
-                        "h": "Danışmanlık",
-                        "p": [
-                              "Size özel hazırladığımız raporları seçeceğiniz iletişim araçlarıyla (e-posta, SMS, telefon vb.) sunabildiğimiz gibi, istediğiniz zaman ulaşabileceğiniz meteoroloji uzmanlarımızla mevcut durumu birlikte değerlendirebilirsiniz."
+                              "Meteorolojik şartlar inşaat projelerinin her aşamasında belirleyici rol oynar."
                         ]
                   }
             ]
       }
-];
+    ];
   }
 
   const btnC=document.getElementById('tab-buttons'), panelC=document.getElementById('tab-panels');
+  if(!btnC || !panelC) return;
   btnC.innerHTML=''; panelC.innerHTML='';
 
   tabs.forEach((tab,i)=>{
@@ -1661,37 +1687,51 @@ async function loadContent() {
     panel.innerHTML=html; panelC.appendChild(panel);
   });
 
-  /* Fındık: içerik yerine canlı karar paneli olan özel sekme */
+  /* Enerji: Canlı Karar Paneli */
+  const eBtn=document.createElement('button');
+  eBtn.className='tab-btn btn-outline text-sm px-5 py-2.5 text-slate-300'; 
+  eBtn.textContent='⚡ Enerji (Canlı Panel)'; 
+  eBtn.dataset.tab='energy-live';
+  btnC.appendChild(eBtn);
+
+  const ePanel=document.createElement('div');
+  ePanel.id='tab-energy-live'; ePanel.className='tab-panel glass rounded-2xl p-8';
+  const eTmpl = document.getElementById('energy-template');
+  if(eTmpl) ePanel.innerHTML=eTmpl.innerHTML;
+  panelC.appendChild(ePanel);
+
+  /* Fındık: Canlı Karar Paneli */
   const fBtn=document.createElement('button');
-  fBtn.className='tab-btn'; fBtn.textContent='🌰 Fındık (Canlı Panel)'; fBtn.dataset.tab='hazelnut';
+  fBtn.className='tab-btn btn-outline text-sm px-5 py-2.5 text-slate-300'; 
+  fBtn.textContent='🌰 Fındık (Canlı Panel)'; 
+  fBtn.dataset.tab='hazelnut';
   btnC.appendChild(fBtn);
+
   const fPanel=document.createElement('div');
   fPanel.id='tab-hazelnut'; fPanel.className='tab-panel glass rounded-2xl p-8';
-  fPanel.innerHTML=document.getElementById('hazelnut-template').innerHTML;
+  const tmpl = document.getElementById('hazelnut-template');
+  if(tmpl) fPanel.innerHTML=tmpl.innerHTML;
   panelC.appendChild(fPanel);
 
-  /* Veri sekmelerden önce yüklendiyse paneli hemen doldur */
-  if(lastCoords){
-    syncLocBars(lastCoords.lat, lastCoords.lon);
-    if(lastPlaceAd){
-      syncLocPlace(lastPlaceAd);
-      fPanel.querySelectorAll('.loc-search').forEach(i=>{ if(!i.value) i.value=lastPlaceCity||''; });
-    }
+  if(lastDaily && lastDaily.time) {
+    renderAgri(lastDaily, hourlyData);
+    if(typeof renderEnergy === 'function') renderEnergy(lastDaily, hourlyData);
   }
-  if(lastDaily && lastDaily.time) renderAgri(lastDaily, hourlyData);
-
-  /* Sekme açılınca harita/kartlar tazelensin */
-  btnC.addEventListener('click',e=>{
-    if(e.target.closest('.tab-btn')?.dataset.tab==='hazelnut' && lastCoords)
-      setTimeout(()=>renderAgri(lastDaily, hourlyData), 60);
-  });
 
   btnC.addEventListener('click',e=>{
     const btn=e.target.closest('.tab-btn'); if(!btn) return;
     document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
     document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
     btn.classList.add('active');
-    document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+    const targetPanel = document.getElementById('tab-'+btn.dataset.tab);
+    if(targetPanel) targetPanel.classList.add('active');
+
+    if(btn.dataset.tab==='hazelnut' && lastDaily && lastDaily.time) {
+      renderAgri(lastDaily, hourlyData);
+    }
+    if(btn.dataset.tab==='energy-live' && lastEnergyDaily && lastEnergyDaily.time) {
+      renderEnergy(lastEnergyDaily, hourlyData);
+    }
   });
 }
 
@@ -1714,7 +1754,6 @@ async function handleSearch(){
   const v=document.getElementById('search-box').value.trim();
   if(!v){ toast('Şehir veya ilçe adı girin','warn'); return; }
 
-  /* "41.01, 28.97" gibi koordinat da kabul edilsin */
   const pts=v.split(',').map(x=>parseFloat(x.trim()));
   if(pts.length===2 && isFinite(pts[0]) && isFinite(pts[1]) && Math.abs(pts[0])<=90 && Math.abs(pts[1])<=180){
     if(marker) marker.setLatLng([pts[0],pts[1]]); else marker=L.marker([pts[0],pts[1]],{icon:mIcon}).addTo(map);
@@ -1738,12 +1777,11 @@ document.getElementById('search-box').addEventListener('keydown',e=>{if(e.key===
    LEAFLET MAP
 --------------------------------------------------------------- */
 const map=L.map('pick-map',{center:[39.0,35.0],zoom:6,zoomControl:true});
-/* Renkli harita (Voyager teması) — koyu tema yerine */
 L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{
   maxZoom:19, subdomains:'abcd',
   attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; CARTO',
 }).addTo(map);
-/* Kart görünür olduğunda boyutu tazele (gizli konteynerde gri kalmasın) */
+
 setTimeout(()=>map.invalidateSize(), 300);
 window.addEventListener('load', ()=>map.invalidateSize());
 
@@ -1782,10 +1820,8 @@ map.on('click',async e=>{
 --------------------------------------------------------------- */
 loadContent();
 
-/* Açılışta otomatik veri: URL'de konum varsa (#39.93,32.85) onu,
-   yoksa Ankara'yı yükle. Sayfa artık boş açılmıyor. */
 (function initLocation(){
-  let lat=39.9334, lon=32.8597;               // varsayılan: Ankara
+  let lat=39.9334, lon=32.8597; 
   const m=location.hash.match(/^#(-?[\d.]+),(-?[\d.]+)$/);
   if(m){ lat=parseFloat(m[1]); lon=parseFloat(m[2]); }
 
