@@ -1,12 +1,13 @@
 import json
 import os
 import sqlite3
+import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
 import httpx
 from cachetools import TTLCache
-from fastapi import FastAPI, Header, HTTPException, Query
+from fastapi import FastAPI, File, Header, HTTPException, Query, UploadFile
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -18,6 +19,15 @@ NOMINATIM_REVERSE_URL = "https://nominatim.openstreetmap.org/reverse"
 # Arşiv veritabanı. DB_PATH env değişkeniyle konumu değiştirilebilir
 # (ör. Render'da kalıcı disk bağlarsan /data/meteo.db yaparsın).
 DB_PATH = os.environ.get("DB_PATH", "meteo.db")
+
+# Uzman notlarına eklenen resimler DB_PATH ile AYNI kalıcı disk üzerinde
+# saklanır (ör. DB_PATH=/data/meteo.db ise resimler /data/uploads'a gider) —
+# ayrı bir ortam değişkeni gerekmez, otomatik aynı diski kullanır.
+UPLOADS_DIR = os.path.join(os.path.dirname(os.path.abspath(DB_PATH)) or ".", "uploads")
+os.makedirs(UPLOADS_DIR, exist_ok=True)
+
+MAX_UPLOAD_BYTES = 6 * 1024 * 1024  # 6 MB üst sınır
+ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 
 # Admin paneli şifresi — Render'da ortam değişkeni olarak ayarlanır,
 # koda asla gömülmez. Ayarlanmamışsa admin uçları devre dışı kalır.
@@ -54,6 +64,12 @@ def init_db():
             created_at TEXT NOT NULL
         )
     """)
+    # image_url sütunu sonradan eklendi — daha önce deploy edilmiş bir
+    # veritabanında yoksa burada eklenir, zaten varsa sessizce atlanır.
+    try:
+        con.execute("ALTER TABLE expert_notes ADD COLUMN image_url TEXT")
+    except sqlite3.OperationalError:
+        pass  # sütun zaten var
 
     # Admin panelinden girilen excel-benzeri tablo — tek satır, JSON olarak tutulur
     # (başlık/sütun sayısı sabit olmadığı için esnek şema)
@@ -111,6 +127,9 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # Static dosyalar (HTML, js, css)
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Uzman notlarına eklenen resimler (kalıcı diskten servis edilir)
+app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 
 # NOT: CORS middleware kaldırıldı. Frontend'i FastAPI'nin kendisi servis
 # ettiği için (aynı origin) CORS'a gerek yok. Ayrı bir dev server (Vite vb.)
@@ -183,6 +202,7 @@ class LoginPayload(BaseModel):
 class NotePayload(BaseModel):
     title: str
     body: str
+    image_url: str | None = None
 
 
 class TablePayload(BaseModel):
@@ -315,7 +335,7 @@ def get_notes():
     con = sqlite3.connect(DB_PATH)
     con.row_factory = sqlite3.Row
     rows = con.execute(
-        "SELECT id, title, body, created_at FROM expert_notes ORDER BY created_at DESC"
+        "SELECT id, title, body, created_at, image_url FROM expert_notes ORDER BY created_at DESC"
     ).fetchall()
     con.close()
     return {"notes": [dict(r) for r in rows]}
@@ -330,8 +350,8 @@ def add_note(payload: NotePayload, authorization: str | None = Header(default=No
         raise HTTPException(status_code=400, detail="Başlık ve metin gerekli")
     con = sqlite3.connect(DB_PATH)
     con.execute(
-        "INSERT INTO expert_notes (title, body, created_at) VALUES (?,?,?)",
-        (title, body, datetime.now(timezone.utc).isoformat()),
+        "INSERT INTO expert_notes (title, body, created_at, image_url) VALUES (?,?,?,?)",
+        (title, body, datetime.now(timezone.utc).isoformat(), payload.image_url),
     )
     con.commit()
     con.close()
@@ -346,6 +366,27 @@ def delete_note(note_id: int, authorization: str | None = Header(default=None)):
     con.commit()
     con.close()
     return {"ok": True}
+
+
+@app.post("/admin/upload-image")
+async def upload_image(file: UploadFile = File(...), authorization: str | None = Header(default=None)):
+    """Uzman notlarına eklenecek resmi kalıcı diske kaydeder, erişim adresini döner."""
+    check_admin(authorization)
+
+    if file.content_type not in ALLOWED_IMAGE_TYPES:
+        raise HTTPException(status_code=400, detail="Sadece resim dosyaları kabul edilir (jpeg, png, webp, gif)")
+
+    data = await file.read()
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=400, detail="Dosya çok büyük (üst sınır 6 MB)")
+
+    ext = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp", "image/gif": ".gif"}[file.content_type]
+    filename = f"{uuid.uuid4().hex}{ext}"
+    filepath = os.path.join(UPLOADS_DIR, filename)
+    with open(filepath, "wb") as f:
+        f.write(data)
+
+    return {"ok": True, "url": f"/uploads/{filename}"}
 
 
 @app.get("/table")

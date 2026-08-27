@@ -739,7 +739,18 @@
       <div class="glass rounded-2xl p-6 space-y-3">
         <input id="admin-note-title" type="text" placeholder="Başlık (örn: Bu Hafta Doğu Karadeniz İçin Değerlendirme)" class="loc-input w-full">
         <textarea id="admin-note-body" rows="6" placeholder="Değerlendirme metni…" class="loc-input w-full" style="resize:vertical"></textarea>
-        <button onclick="adminAddNote()" class="btn-primary text-white text-sm px-5 py-2.5">Yayınla</button>
+
+        <div>
+          <label class="text-slate-500 text-xs uppercase tracking-widest block mb-2">🖼️ Resim (isteğe bağlı — harita, uydu görüntüsü vb.)</label>
+          <input id="admin-note-image-input" type="file" accept="image/jpeg,image/png,image/webp,image/gif" onchange="adminHandleImageSelect(event)" class="loc-input w-full text-xs">
+          <div id="admin-note-image-preview" class="hidden mt-3 relative inline-block">
+            <img id="admin-note-image-preview-img" class="rounded-xl max-h-40" />
+            <button onclick="adminClearImageSelection()" class="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white text-xs flex items-center justify-center">✕</button>
+          </div>
+          <p id="admin-note-image-status" class="text-slate-600 text-xs mt-1"></p>
+        </div>
+
+        <button onclick="adminAddNote()" id="admin-note-submit-btn" class="btn-primary text-white text-sm px-5 py-2.5">Yayınla</button>
       </div>
       <div id="admin-notes-list" class="space-y-2 mt-4"></div>
     </div>
@@ -2829,6 +2840,7 @@ async function loadExpertContent(){
             <h4 class="font-display text-lg font-700 text-white">${note.title}</h4>
             <span class="text-slate-500 text-xs whitespace-nowrap ml-3">${fmtNoteDate(note.created_at)}</span>
           </div>
+          ${note.image_url?`<img src="${BACKEND}${note.image_url}" class="rounded-xl w-full max-h-96 object-cover mb-4" loading="lazy">`:''}
           <p class="text-slate-400 text-sm leading-relaxed whitespace-pre-line">${note.body}</p>
         </div>`).join('');
     }
@@ -2904,16 +2916,61 @@ async function adminApi(path, method, body){
   return r.json();
 }
 
+/* --- Resim seçimi: tarayıcıda otomatik küçültme/sıkıştırma ---
+   Telefon kamerasından gelen büyük fotoğraflar 1600px'e ve JPEG %82
+   kaliteye indirilir; sunucuya yalnızca küçültülmüş dosya gider. */
+let pendingImageBlob=null;
+
+function adminHandleImageSelect(event){
+  const file=event.target.files[0];
+  if(!file) return;
+  const statusEl=document.getElementById('admin-note-image-status');
+  statusEl.textContent='İşleniyor…';
+
+  const reader=new FileReader();
+  reader.onload=(e)=>{
+    const img=new Image();
+    img.onload=()=>{
+      const MAX_DIM=1600;
+      let {width,height}=img;
+      if(width>MAX_DIM || height>MAX_DIM){
+        if(width>height){ height=Math.round(height*MAX_DIM/width); width=MAX_DIM; }
+        else{ width=Math.round(width*MAX_DIM/height); height=MAX_DIM; }
+      }
+      const canvas=document.createElement('canvas');
+      canvas.width=width; canvas.height=height;
+      canvas.getContext('2d').drawImage(img,0,0,width,height);
+      canvas.toBlob((blob)=>{
+        pendingImageBlob=blob;
+        document.getElementById('admin-note-image-preview-img').src=URL.createObjectURL(blob);
+        document.getElementById('admin-note-image-preview').classList.remove('hidden');
+        statusEl.textContent=`Hazır (${(blob.size/1024).toFixed(0)} KB)`;
+      }, 'image/jpeg', 0.82);
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+function adminClearImageSelection(){
+  pendingImageBlob=null;
+  document.getElementById('admin-note-image-input').value='';
+  document.getElementById('admin-note-image-preview').classList.add('hidden');
+  document.getElementById('admin-note-image-status').textContent='';
+}
+
 /* --- Notlar --- */
 async function adminLoadNotesList(){
   const listEl=document.getElementById('admin-notes-list');
   try{
     const n=await gFetch(`${BACKEND}/notes`);
     listEl.innerHTML=(n.notes||[]).map(note=>`
-      <div class="glass rounded-xl px-4 py-3 flex items-start justify-between gap-3">
-        <div class="min-w-0">
-          <p class="text-white text-sm font-600 truncate">${note.title}</p>
-          <p class="text-slate-500 text-xs">${fmtNoteDate(note.created_at)}</p>
+      <div class="glass rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+        <div class="flex items-center gap-3 min-w-0">
+          ${note.image_url?`<img src="${BACKEND}${note.image_url}" class="w-10 h-10 rounded-lg object-cover flex-shrink-0">`:''}
+          <div class="min-w-0">
+            <p class="text-white text-sm font-600 truncate">${note.title}</p>
+            <p class="text-slate-500 text-xs">${fmtNoteDate(note.created_at)}</p>
+          </div>
         </div>
         <button onclick="adminDeleteNote(${note.id})" class="text-red-400 text-xs hover:text-red-300 whitespace-nowrap flex-shrink-0">Sil</button>
       </div>`).join('') || '<p class="text-slate-600 text-xs">Henüz not yok.</p>';
@@ -2925,14 +2982,32 @@ async function adminAddNote(){
   const title=document.getElementById('admin-note-title').value.trim();
   const body=document.getElementById('admin-note-body').value.trim();
   if(!title||!body){ toast('Başlık ve metin gerekli','warn'); return; }
+
+  const btn=document.getElementById('admin-note-submit-btn');
+  btn.disabled=true; btn.textContent='Yayınlanıyor…';
+
   try{
-    await adminApi('/notes','POST',{title,body});
+    let imageUrl=null;
+    if(pendingImageBlob){
+      const fd=new FormData();
+      fd.append('file', pendingImageBlob, 'resim.jpg');
+      const r=await fetch(`${BACKEND}/admin/upload-image`,{
+        method:'POST', headers:{'Authorization':`Bearer ${getAdminToken()}`}, body:fd,
+      });
+      if(!r.ok) throw new Error('Resim yüklenemedi');
+      imageUrl=(await r.json()).url;
+    }
+
+    await adminApi('/notes','POST',{title,body,image_url:imageUrl});
     document.getElementById('admin-note-title').value='';
     document.getElementById('admin-note-body').value='';
+    adminClearImageSelection();
     toast('Değerlendirme yayınlandı ✓','success');
     adminLoadNotesList();
   }catch(_){
     toast('Kaydedilemedi, tekrar deneyin','error');
+  }finally{
+    btn.disabled=false; btn.textContent='Yayınla';
   }
 }
 async function adminDeleteNote(id){
