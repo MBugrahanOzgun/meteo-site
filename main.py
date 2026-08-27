@@ -1,13 +1,16 @@
+import json
 import os
 import sqlite3
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 
 import httpx
 from cachetools import TTLCache
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
 OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
 NOMINATIM_REVERSE_URL = "https://nominatim.openstreetmap.org/reverse"
@@ -15,6 +18,10 @@ NOMINATIM_REVERSE_URL = "https://nominatim.openstreetmap.org/reverse"
 # Arşiv veritabanı. DB_PATH env değişkeniyle konumu değiştirilebilir
 # (ör. Render'da kalıcı disk bağlarsan /data/meteo.db yaparsın).
 DB_PATH = os.environ.get("DB_PATH", "meteo.db")
+
+# Admin paneli şifresi — Render'da ortam değişkeni olarak ayarlanır,
+# koda asla gömülmez. Ayarlanmamışsa admin uçları devre dışı kalır.
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
 
 # 10 dk cache: Open-Meteo + Nominatim tekrar çağrılarını azaltır
 cache = TTLCache(maxsize=512, ttl=600)
@@ -37,6 +44,26 @@ def init_db():
         )
     """)
     con.execute("CREATE INDEX IF NOT EXISTS idx_arch_loc ON weather_archive(lat, lon, recorded_at)")
+
+    # Admin panelinden girilen uzman değerlendirme paragrafları (tarihli liste)
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS expert_notes (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            title      TEXT NOT NULL,
+            body       TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )
+    """)
+
+    # Admin panelinden girilen excel-benzeri tablo — tek satır, JSON olarak tutulur
+    # (başlık/sütun sayısı sabit olmadığı için esnek şema)
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS expert_table (
+            id         INTEGER PRIMARY KEY CHECK (id = 1),
+            data_json  TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+    """)
     con.commit()
     con.close()
 
@@ -148,6 +175,29 @@ async def fetch_place_name(lat: float, lon: float) -> dict:
     }
 
 
+# -------------------- ADMIN AUTH --------------------
+class LoginPayload(BaseModel):
+    password: str
+
+
+class NotePayload(BaseModel):
+    title: str
+    body: str
+
+
+class TablePayload(BaseModel):
+    headers: list[str] = []
+    rows: list[list[str]] = []
+
+
+def check_admin(authorization: str | None = Header(default=None)):
+    """Yazma uçlarını korur. 'Authorization: Bearer <ADMIN_PASSWORD>' bekler."""
+    if not ADMIN_PASSWORD:
+        raise HTTPException(status_code=500, detail="Sunucuda ADMIN_PASSWORD ayarlanmamış")
+    if authorization != f"Bearer {ADMIN_PASSWORD}":
+        raise HTTPException(status_code=401, detail="Yetkisiz")
+
+
 # -------------------- ROUTES --------------------
 @app.get("/health")
 def health():
@@ -246,6 +296,85 @@ def archive_locations():
     ).fetchall()
     con.close()
     return {"locations": [dict(r) for r in rows]}
+
+
+# -------------------- ADMIN PANELİ (Uzman Notu) --------------------
+@app.post("/admin/login")
+def admin_login(payload: LoginPayload):
+    if not ADMIN_PASSWORD:
+        raise HTTPException(status_code=500, detail="Sunucuda ADMIN_PASSWORD ayarlanmamış")
+    if payload.password != ADMIN_PASSWORD:
+        raise HTTPException(status_code=401, detail="Hatalı şifre")
+    # Basit model: şifrenin kendisi, sonraki isteklerde token gibi kullanılır.
+    return {"ok": True, "token": ADMIN_PASSWORD}
+
+
+@app.get("/notes")
+def get_notes():
+    """Herkese açık: yayınlanmış uzman değerlendirme notları, en yeni önce."""
+    con = sqlite3.connect(DB_PATH)
+    con.row_factory = sqlite3.Row
+    rows = con.execute(
+        "SELECT id, title, body, created_at FROM expert_notes ORDER BY created_at DESC"
+    ).fetchall()
+    con.close()
+    return {"notes": [dict(r) for r in rows]}
+
+
+@app.post("/notes")
+def add_note(payload: NotePayload, authorization: str | None = Header(default=None)):
+    check_admin(authorization)
+    title = payload.title.strip()
+    body = payload.body.strip()
+    if not title or not body:
+        raise HTTPException(status_code=400, detail="Başlık ve metin gerekli")
+    con = sqlite3.connect(DB_PATH)
+    con.execute(
+        "INSERT INTO expert_notes (title, body, created_at) VALUES (?,?,?)",
+        (title, body, datetime.now(timezone.utc).isoformat()),
+    )
+    con.commit()
+    con.close()
+    return {"ok": True}
+
+
+@app.delete("/notes/{note_id}")
+def delete_note(note_id: int, authorization: str | None = Header(default=None)):
+    check_admin(authorization)
+    con = sqlite3.connect(DB_PATH)
+    con.execute("DELETE FROM expert_notes WHERE id=?", (note_id,))
+    con.commit()
+    con.close()
+    return {"ok": True}
+
+
+@app.get("/table")
+def get_table():
+    """Herkese açık: admin panelinden girilen excel-benzeri tablo."""
+    con = sqlite3.connect(DB_PATH)
+    con.row_factory = sqlite3.Row
+    row = con.execute("SELECT data_json, updated_at FROM expert_table WHERE id=1").fetchone()
+    con.close()
+    if not row:
+        return {"headers": [], "rows": [], "updated_at": None}
+    data = json.loads(row["data_json"])
+    return {"headers": data.get("headers", []), "rows": data.get("rows", []), "updated_at": row["updated_at"]}
+
+
+@app.post("/table")
+def save_table(payload: TablePayload, authorization: str | None = Header(default=None)):
+    check_admin(authorization)
+    data_json = json.dumps({"headers": payload.headers, "rows": payload.rows}, ensure_ascii=False)
+    now = datetime.now(timezone.utc).isoformat()
+    con = sqlite3.connect(DB_PATH)
+    con.execute(
+        """INSERT INTO expert_table (id, data_json, updated_at) VALUES (1, ?, ?)
+           ON CONFLICT(id) DO UPDATE SET data_json=excluded.data_json, updated_at=excluded.updated_at""",
+        (data_json, now),
+    )
+    con.commit()
+    con.close()
+    return {"ok": True}
 
 
 # -------------------- CONTENT (Tabs) --------------------
