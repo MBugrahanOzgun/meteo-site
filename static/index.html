@@ -748,6 +748,15 @@
     <div>
       <h3 class="font-display text-xl font-700 text-white mb-4">📊 Veri Tablosu</h3>
       <div class="glass rounded-2xl p-6">
+
+        <!-- Excel'den kopyala-yapıştır -->
+        <div class="mb-6 pb-6 border-b border-white/10">
+          <label class="text-slate-500 text-xs uppercase tracking-widest block mb-2">📋 Excel'den Yapıştır</label>
+          <p class="text-slate-500 text-xs mb-2">Excel'de başlık satırı dahil veriyi seçip kopyalayın (Ctrl+C), aşağıya yapıştırın (Ctrl+V), sonra "Tabloya Aktar"a basın. Bu, aşağıdaki tabloyu tamamen değiştirir.</p>
+          <textarea id="admin-excel-paste" rows="4" placeholder="Buraya yapıştırın…" class="loc-input w-full mb-2" style="resize:vertical"></textarea>
+          <button onclick="adminImportExcelPaste()" class="btn-outline text-slate-300 text-xs px-3 py-1.5">Tabloya Aktar</button>
+        </div>
+
         <div class="overflow-x-auto mb-4">
           <table id="admin-table-grid" class="w-full border-collapse text-sm"></table>
         </div>
@@ -2969,6 +2978,31 @@ function renderAdminTableEditor(){
   html+='</tbody>';
   grid.innerHTML=html;
 }
+
+/* Excel'den kopyalanan veri panoya TSV (Tab ile ayrılmış) olarak düşer;
+   satırları \n, sütunları \t ile ayırıp tabloya çeviriyoruz. İlk satır
+   başlık kabul edilir. Dosya yükleme/ekstra kütüphane gerekmiyor. */
+function adminImportExcelPaste(){
+  const raw=document.getElementById('admin-excel-paste').value;
+  if(!raw.trim()){ toast('Önce Excel\'den veri kopyalayıp yapıştırın','warn'); return; }
+
+  const satirlar=raw.replace(/\r/g,'').split('\n').filter(l=>l.trim()!=='');
+  if(!satirlar.length){ toast('Geçerli veri bulunamadı','warn'); return; }
+
+  const parsed=satirlar.map(l=>l.split('\t'));
+  const headers=parsed[0].map(h=>h.trim());
+  const rows=parsed.slice(1).map(r=>{
+    const dolu=r.slice(0,headers.length).map(c=>c.trim());
+    while(dolu.length<headers.length) dolu.push('');
+    return dolu;
+  });
+
+  adminTableState={headers, rows: rows.length?rows:[headers.map(()=>'')]};
+  renderAdminTableEditor();
+  document.getElementById('admin-excel-paste').value='';
+  toast(`${rows.length} satır tabloya aktarıldı ✓ — kontrol edip "Tabloyu Kaydet"e basmayı unutmayın`,'success');
+}
+
 function adminTableAddRow(){
   adminTableState.rows.push(adminTableState.headers.map(()=>''));
   renderAdminTableEditor();
