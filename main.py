@@ -418,6 +418,47 @@ def save_table(payload: TablePayload, authorization: str | None = Header(default
     return {"ok": True}
 
 
+# -------------------- HAVACILIK (METAR / TAF) --------------------
+# FAA Aviation Weather Center'ın ücretsiz, dünya çapında kapsayan API'si.
+# Tarayıcıdan doğrudan erişimin (CORS) güvenilir olup olmadığı belirsiz
+# olduğu için backend üzerinden geçiriyoruz — böylece garantili çalışır.
+AVWX_BASE = "https://aviationweather.gov/api/data"
+
+
+@app.get("/aviation/metar")
+async def get_metar(icao: str = Query(..., min_length=3, max_length=4)):
+    icao = icao.strip().upper()
+    key = ("metar", icao)
+    if key in cache:
+        return cache[key]
+    try:
+        r = await app.state.http.get(f"{AVWX_BASE}/metar", params={"ids": icao, "format": "json"})
+        r.raise_for_status()
+        data = r.json()
+    except httpx.HTTPError as e:
+        raise HTTPException(status_code=502, detail=f"METAR alınamadı: {e}")
+    result = {"icao": icao, "metar": data[0] if data else None}
+    cache[key] = result
+    return result
+
+
+@app.get("/aviation/taf")
+async def get_taf(icao: str = Query(..., min_length=3, max_length=4)):
+    icao = icao.strip().upper()
+    key = ("taf", icao)
+    if key in cache:
+        return cache[key]
+    try:
+        r = await app.state.http.get(f"{AVWX_BASE}/taf", params={"ids": icao, "format": "json"})
+        r.raise_for_status()
+        data = r.json()
+    except httpx.HTTPError as e:
+        raise HTTPException(status_code=502, detail=f"TAF alınamadı: {e}")
+    result = {"icao": icao, "taf": data[0] if data else None}
+    cache[key] = result
+    return result
+
+
 # -------------------- CONTENT (Tabs) --------------------
 # Statik içerik: her istekte yeniden oluşturmaya ve cache'lemeye gerek yok,
 # modül seviyesinde bir kez tanımlanır.

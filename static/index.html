@@ -592,6 +592,15 @@
     <canvas id="hourly-chart" height="100"></canvas>
     <p id="chart-empty" class="text-center text-slate-500 py-12 text-sm">Konum seçildiğinde grafik yüklenecek.</p>
   </div>
+
+  <!-- Çoklu model karşılaştırması -->
+  <div class="reveal glass rounded-2xl p-6 mt-8">
+    <p class="text-slate-400 text-sm font-600">📊 Model Karşılaştırması</p>
+    <p class="text-slate-600 text-xs mt-0.5 mb-4">4 farklı meteoroloji modelinin (ECMWF, GFS, ICON, GEM) 7 günlük maksimum sıcaklık tahmini — modeller ne kadar hemfikirse tahmine o kadar güvenilir.</p>
+    <canvas id="model-compare-chart" height="90"></canvas>
+    <p id="model-compare-empty" class="text-center text-slate-500 py-8 text-sm">Konum seçildiğinde yüklenecek.</p>
+    <p id="model-compare-spread" class="text-slate-500 text-xs mt-3"></p>
+  </div>
 </section>
 
 
@@ -868,6 +877,55 @@
 
   <p class="text-slate-600 text-xs mt-10 leading-relaxed max-w-3xl">
     Eşik değerleri TS EN 206, TS 1248, TS 13515 standartları ve Türkiye'deki yaygın iş güvenliği (İSG) uygulamalarındaki genel kabullere dayanır; beton karışım tipi, kule vinç modeli, şantiye yönetmeliği ve yerel İSG kararlarına göre değişebilir. Nihai karar şantiye şefi ve iş güvenliği uzmanına aittir; bu panel bir güvenlik onayı yerine geçmez.
+  </p>
+</template>
+
+<!-- Havacılık paneli şablonu -->
+<template id="aviation-template">
+  <p class="text-slate-400 text-sm leading-relaxed mb-8">Havaalanlarının resmi anlık hava raporu (METAR) ve 24–30 saatlik tahmini (TAF) — FAA Aviation Weather Center'ın ücretsiz, dünya çapında kapsayan verisinden.</p>
+
+  <div class="glass rounded-2xl p-5 mb-8 flex flex-wrap items-end gap-3">
+    <div class="flex-1 min-w-[220px]">
+      <label class="text-slate-500 text-xs uppercase tracking-widest block mb-2">Havaalanı</label>
+      <select id="aviation-airport-select" onchange="aviationSelectChange()" class="loc-input w-full">
+        <option value="LTFM">İstanbul Havalimanı (LTFM)</option>
+        <option value="LTFJ">İstanbul Sabiha Gökçen (LTFJ)</option>
+        <option value="LTAC">Ankara Esenboğa (LTAC)</option>
+        <option value="LTBJ">İzmir Adnan Menderes (LTBJ)</option>
+        <option value="LTAI">Antalya (LTAI)</option>
+        <option value="LTCG">Trabzon (LTCG)</option>
+        <option value="LTAG">Kayseri Erkilet (LTAG)</option>
+        <option value="LTBS">Dalaman (LTBS)</option>
+        <option value="LTFE">Bodrum-Milas (LTFE)</option>
+        <option value="LTCE">Erzurum (LTCE)</option>
+        <option value="custom">Diğer (ICAO kodu gir)…</option>
+      </select>
+    </div>
+    <div id="aviation-icao-custom" class="hidden flex-1 min-w-[150px]">
+      <label class="text-slate-500 text-xs uppercase tracking-widest block mb-2">ICAO Kodu</label>
+      <input id="aviation-icao-input" type="text" maxlength="4" placeholder="Örn: EGLL" class="loc-input w-full" style="text-transform:uppercase">
+    </div>
+    <button onclick="loadAviationData()" class="btn-primary text-white text-sm px-6 py-2.5 whitespace-nowrap">Getir</button>
+  </div>
+
+  <div class="mb-10">
+    <h3 class="font-display text-2xl font-700 text-white mb-1">🛫 METAR — Anlık Rapor</h3>
+    <div id="metar-display" class="glass rounded-2xl p-6">
+      <p class="text-slate-500 text-sm">Bir havaalanı seçip "Getir"e basın.</p>
+    </div>
+  </div>
+
+  <div>
+    <h3 class="font-display text-2xl font-700 text-white mb-1">📋 TAF — 24–30 Saatlik Tahmin</h3>
+    <div id="taf-display" class="glass rounded-2xl p-6">
+      <p class="text-slate-500 text-sm">Bir havaalanı seçip "Getir"e basın.</p>
+    </div>
+  </div>
+
+  <p class="text-slate-600 text-xs mt-10 leading-relaxed max-w-3xl">
+    Veriler FAA Aviation Weather Center'dan (aviationweather.gov) alınır, dünya genelindeki havaalanları için geçerlidir.
+    METAR gözlemleri genelde saatte bir, TAF tahminleri 6 saatte bir güncellenir. Bu bilgiler resmi uçuş planlaması
+    yerine geçmez; nihai karar için resmi kaynaklara (NOTAM, AIP) başvurun.
   </p>
 </template>
 
@@ -1226,12 +1284,14 @@ async function loadAll(lat, lon, opts={}) {
   syncLocBars(lat, lon);
   syncLocPlace(null);
 
-  /* Geçmiş karşılaştırma: ana veri akışını yavaşlatmasın diye ayrı,
-     bloklamayan bir çağrı — 4/4 kaynak sayacına dahil değil. */
+  /* Geçmiş karşılaştırma + model karşılaştırması: ana veri akışını
+     yavaşlatmasın diye ayrı, bloklamayan çağrılar — 4/4 kaynak
+     sayacına dahil değil. */
   todayForecastAvgTemp = null;
   historicalNormalTemp = null;
   renderHistoricalCompare();
   fetchHistoricalNormal(lat, lon);
+  fetchModelComparison(lat, lon);
 
   const results = await Promise.allSettled([
     fetchForecast(lat,lon),
@@ -2741,6 +2801,97 @@ async function fetchPlaceName(lat, lon) {
 }
 
 /* ---------------------------------------------------------------
+   HAVACILIK (METAR / TAF)
+   FAA Aviation Weather Center — backend üzerinden geçiyor (CORS
+   garantisi olmadığı için). Ham metin her zaman gösterilir; alan
+   isimleri API'de değişse bile bu kısım hiçbir zaman bozulmaz.
+--------------------------------------------------------------- */
+function aviationSelectChange(){
+  const sel=document.getElementById('aviation-airport-select');
+  const box=document.getElementById('aviation-icao-custom');
+  if(!sel||!box) return;
+  box.classList.toggle('hidden', sel.value!=='custom');
+}
+
+async function loadAviationData(){
+  const sel=document.getElementById('aviation-airport-select');
+  if(!sel) return;
+  let icao=sel.value;
+  if(icao==='custom'){
+    icao=(document.getElementById('aviation-icao-input').value||'').trim().toUpperCase();
+    if(icao.length<3){ toast('Geçerli bir ICAO kodu girin (3-4 harf)','warn'); return; }
+  }
+
+  const metarEl=document.getElementById('metar-display');
+  const tafEl=document.getElementById('taf-display');
+  metarEl.innerHTML='<p class="text-slate-500 text-sm">Yükleniyor…</p>';
+  tafEl.innerHTML='<p class="text-slate-500 text-sm">Yükleniyor…</p>';
+
+  try{
+    const m=await gFetch(`${BACKEND}/aviation/metar?icao=${icao}`);
+    renderMetar(m.metar, icao);
+  }catch(_){
+    metarEl.innerHTML=`<p class="text-slate-500 text-sm">${icao} için METAR alınamadı.</p>`;
+  }
+  try{
+    const t=await gFetch(`${BACKEND}/aviation/taf?icao=${icao}`);
+    renderTaf(t.taf, icao);
+  }catch(_){
+    tafEl.innerHTML=`<p class="text-slate-500 text-sm">${icao} için TAF alınamadı.</p>`;
+  }
+}
+
+function renderMetar(m, icao){
+  const el=document.getElementById('metar-display');
+  if(!el) return;
+  if(!m){ el.innerHTML=`<p class="text-slate-500 text-sm">${icao} için METAR verisi bulunamadı — küçük/özel havaalanları rapor vermeyebilir.</p>`; return; }
+
+  /* API alan isimleri sürüme göre değişebilir; birden fazla olası isim denenir. */
+  const raw = m.rawOb || m.raw_text || m.rawText || m.raw || '';
+  const flightCat = m.fltCat || m.flight_category || null;
+  const temp = m.temp ?? null;
+  const wdir = m.wdir ?? null;
+  const wspd = m.wspd ?? null;
+  const visib = m.visib ?? null;
+
+  const catColors={VFR:'text-emerald-400',MVFR:'text-sky-400',IFR:'text-orange-400',LIFR:'text-red-400'};
+  let html='';
+  if(flightCat){
+    html+=`<div class="flex items-center gap-3 mb-4">
+      <span class="font-display text-2xl font-800 ${catColors[flightCat]||'text-white'}">${flightCat}</span>
+      <span class="text-slate-500 text-xs">Uçuş kategorisi</span>
+    </div>`;
+  }
+  const stats=[];
+  if(temp!=null) stats.push(['Sıcaklık', temp+'°C']);
+  if(wdir!=null && wspd!=null) stats.push(['Rüzgar', `${wdir}° / ${wspd} kt`]);
+  if(visib!=null) stats.push(['Görüş', visib+' SM']);
+  if(stats.length){
+    html+='<div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">'+stats.map(([l,v])=>`
+      <div class="stat-card glass rounded-xl p-3">
+        <p class="text-slate-500 text-xs uppercase tracking-widest">${l}</p>
+        <p class="text-white font-700 text-lg">${v}</p>
+      </div>`).join('')+'</div>';
+  }
+  if(raw){
+    html+=`<p class="text-slate-500 text-xs uppercase tracking-widest mb-1">Ham METAR</p>
+            <p class="font-mono text-xs text-slate-300 bg-black/30 rounded-lg p-3 break-all">${raw}</p>`;
+  }
+  el.innerHTML = html || '<p class="text-slate-500 text-sm">Veri formatı tanınamadı.</p>';
+}
+
+function renderTaf(t, icao){
+  const el=document.getElementById('taf-display');
+  if(!el) return;
+  if(!t){ el.innerHTML=`<p class="text-slate-500 text-sm">${icao} için TAF verisi bulunamadı — küçük havaalanlarında TAF genelde yayınlanmaz.</p>`; return; }
+  const raw = t.rawTAF || t.raw_text || t.rawText || t.raw || '';
+  el.innerHTML = raw
+    ? `<p class="font-mono text-xs text-slate-300 bg-black/30 rounded-lg p-3 whitespace-pre-wrap break-all">${raw}</p>`
+    : '<p class="text-slate-500 text-sm">Veri formatı tanınamadı.</p>';
+}
+
+
+/* ---------------------------------------------------------------
    CHARTS
 --------------------------------------------------------------- */
 const METRICS={
@@ -2799,6 +2950,89 @@ function renderMarineChart(){
   const vals=marineHourly[activeMarineField]||[];
   if(marineInst) marineInst.destroy();
   marineInst=buildChart('marine-chart',labels,vals,'#60a5fa','Dalga (m)',' m');
+}
+
+/* ---------------------------------------------------------------
+   ÇOKLU MODEL KARŞILAŞTIRMASI
+   Open-Meteo zaten birden fazla meteoroloji modelini (ECMWF, GFS,
+   ICON, GEM) barındırıyor — ayrı bir API/kaynak gerekmiyor, sadece
+   models= parametresiyle aynı anda istiyoruz. Modeller birbirine
+   yakınsa tahmine güven yüksek, uzaksa belirsizlik var demektir.
+--------------------------------------------------------------- */
+let modelCompareInst=null;
+const MODEL_LIST=['ecmwf_ifs025','gfs_seamless','icon_seamless','gem_seamless'];
+const MODEL_LABELS={ecmwf_ifs025:'ECMWF (Avrupa)',gfs_seamless:'GFS (ABD)',icon_seamless:'ICON (Almanya)',gem_seamless:'GEM (Kanada)'};
+const MODEL_COLORS={ecmwf_ifs025:'#38bdf8',gfs_seamless:'#f59e0b',icon_seamless:'#a78bfa',gem_seamless:'#34d399'};
+
+async function fetchModelComparison(lat, lon){
+  const emptyEl=document.getElementById('model-compare-empty');
+  try{
+    const p=new URLSearchParams({
+      latitude:lat, longitude:lon, timezone:'auto',
+      daily:'temperature_2m_max', forecast_days:7,
+      models: MODEL_LIST.join(','),
+    });
+    const d=await gFetch(`${OM_FORECAST}?${p}`);
+    renderModelComparison(d.daily||{});
+  }catch(_){
+    if(emptyEl){ emptyEl.style.display='block'; emptyEl.textContent='Model verisi alınamadı.'; }
+  }
+}
+
+function renderModelComparison(dl){
+  const canvas=document.getElementById('model-compare-chart');
+  const emptyEl=document.getElementById('model-compare-empty');
+  const spreadEl=document.getElementById('model-compare-spread');
+  if(!canvas || !dl.time || !dl.time.length){
+    if(emptyEl) emptyEl.style.display='block';
+    return;
+  }
+  if(emptyEl) emptyEl.style.display='none';
+
+  const labels=dl.time.map(t=>{ const dt=new Date(t); return `${String(dt.getDate()).padStart(2,'0')}.${String(dt.getMonth()+1).padStart(2,'0')}`; });
+  const datasets=MODEL_LIST.map(m=>({
+    label: MODEL_LABELS[m],
+    data: dl[`temperature_2m_max_${m}`]||[],
+    borderColor: MODEL_COLORS[m],
+    backgroundColor: 'transparent',
+    borderWidth:2, tension:.3, pointRadius:3, pointHoverRadius:5,
+  })).filter(ds=>ds.data.some(v=>v!=null));   /* veri gelmeyen model varsa çizgiyi hiç eklemez */
+
+  if(modelCompareInst) modelCompareInst.destroy();
+  modelCompareInst=new Chart(canvas.getContext('2d'),{
+    type:'line',
+    data:{labels, datasets},
+    options:{
+      responsive:true, interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{display:true, labels:{color:'#94a3b8', font:{family:'DM Sans',size:11}}},
+        tooltip:{backgroundColor:'rgba(4,17,31,.9)',titleColor:'#94a3b8',bodyColor:'#e0f2fe',
+          callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.y!=null?ctx.parsed.y.toFixed(1)+'°':'—'}`}},
+      },
+      scales:{
+        x:{ticks:{color:'#475569',font:{family:'DM Sans',size:11}},grid:{color:'rgba(255,255,255,.04)'}},
+        y:{ticks:{color:'#475569',font:{family:'DM Sans',size:11},callback:v=>v+'°'},grid:{color:'rgba(255,255,255,.06)'}},
+      }
+    }
+  });
+
+  /* En büyük model farkının olduğu günü bul (belirsizlik göstergesi) */
+  let maxSpread=0, maxSpreadDay=null;
+  dl.time.forEach((t,i)=>{
+    const vals=MODEL_LIST.map(m=>dl[`temperature_2m_max_${m}`]?.[i]).filter(v=>v!=null);
+    if(vals.length>=2){
+      const spread=Math.max(...vals)-Math.min(...vals);
+      if(spread>maxSpread){ maxSpread=spread; maxSpreadDay=t; }
+    }
+  });
+  if(spreadEl){
+    if(maxSpreadDay && maxSpread>=1){
+      const dt=new Date(maxSpreadDay);
+      spreadEl.textContent=`En büyük model farkı ${String(dt.getDate()).padStart(2,'0')}.${String(dt.getMonth()+1).padStart(2,'0')} için ${maxSpread.toFixed(1)}°C — bu gün için tahmin belirsizliği diğerlerine göre daha yüksek.`;
+    } else {
+      spreadEl.textContent='Modeller bu hafta için birbirine yakın tahminlerde bulunuyor, tahmine güven yüksek.';
+    }
+  }
 }
 
 document.querySelectorAll('.chart-pill').forEach(btn=>{
@@ -3203,6 +3437,19 @@ async function loadContent() {
   if(cnTmpl) cnPanel.innerHTML=cnTmpl.innerHTML;
   panelC.appendChild(cnPanel);
 
+  /* Havacılık: Canlı Panel (METAR/TAF) */
+  const avBtn=document.createElement('button');
+  avBtn.className='tab-btn btn-outline text-xs sm:text-sm px-3.5 py-2 sm:px-5 sm:py-2.5 text-slate-300';
+  avBtn.innerHTML='✈️ Havacılık<span class="hidden sm:inline"> (Canlı Panel)</span>';
+  avBtn.dataset.tab='aviation';
+  btnC.appendChild(avBtn);
+
+  const avPanel=document.createElement('div');
+  avPanel.id='tab-aviation'; avPanel.className='tab-panel glass rounded-2xl p-4 sm:p-8';
+  const avTmpl = document.getElementById('aviation-template');
+  if(avTmpl) avPanel.innerHTML=avTmpl.innerHTML;
+  panelC.appendChild(avPanel);
+
   /* Denizcilik / İnşaat gibi statik metin sekmeleri — canlı panellerin ardından */
   tabs.forEach((tab)=>{
     const btn=document.createElement('button');
@@ -3330,7 +3577,7 @@ async function toggleRadarLayer(){
       radarFramePath=frames[frames.length-1].path;   /* en güncel kare */
     }
     radarLayer=L.tileLayer(`https://tilecache.rainviewer.com${radarFramePath}/256/{z}/{x}/{y}/2/1_1.png`,{
-      opacity:.65, zIndex:400,
+      opacity:.65, zIndex:400, maxNativeZoom:12, maxZoom:19,
       attribution:'Radar: <a href="https://www.rainviewer.com/" target="_blank">RainViewer</a>',
     }).addTo(map);
     btn.classList.add('border-brand/60','text-brand');
@@ -3362,7 +3609,7 @@ function toggleSatelliteLayer(){
   satelliteLayer=L.tileLayer(
     `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_CorrectedReflectance_TrueColor/default/${dun}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg`,
     {
-      maxZoom:9, zIndex:400,
+      maxNativeZoom:9, maxZoom:19, zIndex:400,
       attribution:'Uydu: <a href="https://wiki.earthdata.nasa.gov/display/GIBS" target="_blank">NASA EOSDIS GIBS</a>',
     }
   ).addTo(map);
