@@ -361,22 +361,27 @@
       <span id="map-coords-text" class="text-slate-400">Henüz seçim yapılmadı</span>
     </div>
   </div>
-  <div id="map-wrapper" class="reveal relative">
-    <div id="pick-map" style="cursor:crosshair"></div>
-    <div id="map-hint" class="absolute inset-0 flex items-center justify-center pointer-events-none z-10" style="border-radius:16px;transition:opacity .4s">
-      <div class="glass rounded-2xl px-8 py-5 flex items-center gap-3 text-sm text-slate-300 shadow-2xl">
-        <svg class="w-5 h-5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5"/></svg>
-        Harita üzerinde bir noktaya tıklayın
-      </div>
-    </div>
-    <!-- Radar / Uydu katman anahtarları -->
-    <div class="absolute top-3 right-3 z-20 flex flex-col gap-1.5">
+  <div id="map-block">
+    <!-- Radar / Uydu katman anahtarları — haritanın ÜSTÜNE bindirilmiyor,
+         Leaflet'in kendi katmanlarıyla (zoom kontrolü, karolar) çakışmasın
+         diye ayrı bir satır olarak, haritanın hemen üstünde duruyor. -->
+    <div class="reveal flex flex-wrap gap-2 mb-3">
       <button id="btn-toggle-radar" onclick="toggleRadarLayer()" class="glass rounded-lg px-3 py-1.5 text-xs font-600 text-slate-300 hover:border-brand/40 transition-colors flex items-center gap-1.5">
-        🌧 <span class="hidden sm:inline">Radar</span>
+        🌧 Radar
       </button>
       <button id="btn-toggle-satellite" onclick="toggleSatelliteLayer()" class="glass rounded-lg px-3 py-1.5 text-xs font-600 text-slate-300 hover:border-brand/40 transition-colors flex items-center gap-1.5">
-        🛰️ <span class="hidden sm:inline">Uydu</span>
+        🛰️ Uydu
       </button>
+    </div>
+
+    <div id="map-wrapper" class="reveal relative">
+      <div id="pick-map" style="cursor:crosshair"></div>
+      <div id="map-hint" class="absolute inset-0 flex items-center justify-center pointer-events-none z-10" style="border-radius:16px;transition:opacity .4s">
+        <div class="glass rounded-2xl px-8 py-5 flex items-center gap-3 text-sm text-slate-300 shadow-2xl">
+          <svg class="w-5 h-5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5"/></svg>
+          Harita üzerinde bir noktaya tıklayın
+        </div>
+      </div>
     </div>
   </div>
 </section>
@@ -3436,8 +3441,9 @@ const PAGE_REFRESH = {
 };
 
 /* Harita tek bir Leaflet örneği olarak kalır; sadece kapsayıcı <div>'i
-   (map-wrapper) hangi sayfa açıksa oraya taşırız. Böylece 5 ayrı harita
-   yüklemeye gerek kalmaz, tek harita gerektiği yere "gider". */
+   (map-block: radar/uydu butonları + harita birlikte) hangi sayfa açıksa
+   oraya taşırız. Böylece 5 ayrı harita yüklemeye gerek kalmaz, tek harita
+   gerektiği yere "gider", butonlar da onunla birlikte gelir. */
 const MAP_SLOTS = {
   ozet:   ()=>document.getElementById('map-picker'),
   hava:   ()=>document.getElementById('map-slot-hava'),
@@ -3446,10 +3452,10 @@ const MAP_SLOTS = {
   grafik: ()=>document.getElementById('map-slot-grafik'),
 };
 function relocateMap(page){
-  const wrapper=document.getElementById('map-wrapper');
+  const block=document.getElementById('map-block');
   const slot=MAP_SLOTS[page]?.();
-  if(!wrapper || !slot) return;   /* diğer sayfalarda (Danışmanlık vb.) harita zaten gizli kalır */
-  slot.appendChild(wrapper);
+  if(!block || !slot) return;   /* diğer sayfalarda (Danışmanlık vb.) harita zaten gizli kalır */
+  slot.appendChild(block);
   if(typeof map!=='undefined' && map) setTimeout(()=>map.invalidateSize(), 80);
 }
 
