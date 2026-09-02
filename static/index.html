@@ -229,10 +229,6 @@
   <div class="absolute inset-0" style="background-image:linear-gradient(rgba(56,189,248,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(56,189,248,.04) 1px,transparent 1px);background-size:60px 60px;"></div>
 
   <div class="relative z-10 text-center px-6 max-w-4xl mx-auto">
-    <div class="inline-flex items-center gap-2 text-xs font-600 uppercase tracking-widest text-brand border border-brand/30 rounded-full px-4 py-1.5 mb-8 bg-brand/5">
-      <span class="w-1.5 h-1.5 rounded-full bg-brand animate-pulse"></span>
-      Canlı Meteoroloji
-    </div>
     <h1 class="font-display text-3xl md:text-5xl font-800 leading-[1.1] mb-5 text-white">
       Hava Durumunu<br/>
       <span style="background-image:linear-gradient(135deg,#38bdf8,#818cf8);-webkit-background-clip:text;background-clip:text;color:transparent">Gerçek Zamanlı</span><br/>
@@ -260,43 +256,9 @@
     <p class="text-slate-600 text-xs mt-3">Ya da "Konumum" butonuna tıklayın — veya haritadan seçin ↓</p>
   </div>
 
-  <!-- Danışmanlık — sektör önizleme kartları (babanın "en görünür yerde olsun" isteği) -->
-  <div class="relative z-10 w-full max-w-5xl mx-auto px-6 mt-14">
-    <p class="text-center text-slate-500 text-xs uppercase tracking-widest mb-4">Sektörünüzü Seçin — Canlı Danışmanlık Panelleri</p>
-    <div class="grid grid-cols-4 md:grid-cols-7 gap-2.5">
-      <button onclick="goToSector('energy-live')" class="glass rounded-xl p-3 text-center hover:border-brand/40 transition-colors">
-        <span class="text-2xl block mb-1">⚡</span>
-        <span class="text-xs font-600 text-white block">Enerji</span>
-      </button>
-      <button onclick="goToSector('hazelnut')" class="glass rounded-xl p-3 text-center hover:border-brand/40 transition-colors">
-        <span class="text-2xl block mb-1">🌰</span>
-        <span class="text-xs font-600 text-white block">Fındık</span>
-      </button>
-      <button onclick="goToSector('construction')" class="glass rounded-xl p-3 text-center hover:border-brand/40 transition-colors">
-        <span class="text-2xl block mb-1">🏗️</span>
-        <span class="text-xs font-600 text-white block">İnşaat</span>
-      </button>
-      <button onclick="goToSector('crop-bugday')" class="glass rounded-xl p-3 text-center hover:border-brand/40 transition-colors">
-        <span class="text-2xl block mb-1">🌾</span>
-        <span class="text-xs font-600 text-white block">Buğday</span>
-      </button>
-      <button onclick="goToSector('crop-uzum')" class="glass rounded-xl p-3 text-center hover:border-brand/40 transition-colors">
-        <span class="text-2xl block mb-1">🍇</span>
-        <span class="text-xs font-600 text-white block">Üzüm</span>
-      </button>
-      <button onclick="goToSector('crop-kayisi')" class="glass rounded-xl p-3 text-center hover:border-brand/40 transition-colors">
-        <span class="text-2xl block mb-1">🍑</span>
-        <span class="text-xs font-600 text-white block">Kayısı</span>
-      </button>
-      <button onclick="showPage('danismanlik')" class="glass rounded-xl p-3 text-center hover:border-brand/40 transition-colors">
-        <span class="text-2xl block mb-1">📋</span>
-        <span class="text-xs font-600 text-white block">Tümü</span>
-      </button>
-    </div>
-  </div>
-
-  <!-- Hero weather strip -->
-  <div id="hero-weather" class="relative z-10 mt-16 w-full max-w-5xl mx-auto px-6 hidden">
+  <!-- Hava durumu özeti — Ankara varsayılan konumla sayfa açılır açılmaz otomatik yüklenir,
+       böylece ziyaretçi hiçbir şey yapmadan hem hava durumunu hem hizmetleri görür. -->
+  <div id="hero-weather" class="relative z-10 mt-14 w-full max-w-5xl mx-auto px-6 hidden">
     <div class="glass rounded-2xl p-6 md:p-8">
       <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8">
         <div>
@@ -345,6 +307,41 @@
     </div>
   </div>
 
+  <!-- Danışmanlık — sektör önizleme kartları (bitkiler önce, sonra enerji, sonra inşaat) -->
+  <div class="relative z-10 w-full max-w-5xl mx-auto px-6 mt-14">
+    <p class="text-center text-slate-500 text-xs uppercase tracking-widest mb-4">Sektörünüzü Seçin — Canlı Danışmanlık Panelleri</p>
+    <div class="grid grid-cols-4 md:grid-cols-7 gap-2.5">
+      <button onclick="goToSector('hazelnut')" class="glass rounded-xl p-3 text-center hover:border-brand/40 transition-colors">
+        <span class="text-2xl block mb-1">🌰</span>
+        <span class="text-xs font-600 text-white block">Fındık</span>
+      </button>
+      <button onclick="goToSector('crop-bugday')" class="glass rounded-xl p-3 text-center hover:border-brand/40 transition-colors">
+        <span class="text-2xl block mb-1">🌾</span>
+        <span class="text-xs font-600 text-white block">Buğday</span>
+      </button>
+      <button onclick="goToSector('crop-uzum')" class="glass rounded-xl p-3 text-center hover:border-brand/40 transition-colors">
+        <span class="text-2xl block mb-1">🍇</span>
+        <span class="text-xs font-600 text-white block">Üzüm</span>
+      </button>
+      <button onclick="goToSector('crop-kayisi')" class="glass rounded-xl p-3 text-center hover:border-brand/40 transition-colors">
+        <span class="text-2xl block mb-1">🍑</span>
+        <span class="text-xs font-600 text-white block">Kayısı</span>
+      </button>
+      <button onclick="goToSector('energy-live')" class="glass rounded-xl p-3 text-center hover:border-brand/40 transition-colors">
+        <span class="text-2xl block mb-1">⚡</span>
+        <span class="text-xs font-600 text-white block">Enerji</span>
+      </button>
+      <button onclick="goToSector('construction')" class="glass rounded-xl p-3 text-center hover:border-brand/40 transition-colors">
+        <span class="text-2xl block mb-1">🏗️</span>
+        <span class="text-xs font-600 text-white block">İnşaat</span>
+      </button>
+      <button onclick="showPage('danismanlik')" class="glass rounded-xl p-3 text-center hover:border-brand/40 transition-colors">
+        <span class="text-2xl block mb-1">📋</span>
+        <span class="text-xs font-600 text-white block">Tümü</span>
+      </button>
+    </div>
+  </div>
+
   <div class="absolute bottom-10 inset-x-0 flex justify-center animate-bounce">
     <svg class="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
   </div>
@@ -371,6 +368,15 @@
         <svg class="w-5 h-5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5"/></svg>
         Harita üzerinde bir noktaya tıklayın
       </div>
+    </div>
+    <!-- Radar / Uydu katman anahtarları -->
+    <div class="absolute top-3 right-3 z-20 flex flex-col gap-1.5">
+      <button id="btn-toggle-radar" onclick="toggleRadarLayer()" class="glass rounded-lg px-3 py-1.5 text-xs font-600 text-slate-300 hover:border-brand/40 transition-colors flex items-center gap-1.5">
+        🌧 <span class="hidden sm:inline">Radar</span>
+      </button>
+      <button id="btn-toggle-satellite" onclick="toggleSatelliteLayer()" class="glass rounded-lg px-3 py-1.5 text-xs font-600 text-slate-300 hover:border-brand/40 transition-colors flex items-center gap-1.5">
+        🛰️ <span class="hidden sm:inline">Uydu</span>
+      </button>
     </div>
   </div>
 </section>
@@ -3137,47 +3143,21 @@ async function loadContent() {
   btnC.innerHTML=''; panelC.innerHTML='';
   let firstTab=true;   /* ilk oluşturulan sekme otomatik aktif olsun */
 
-  /* Enerji: Canlı Karar Paneli — EN ÖNDE, danışmanlık işimizin vitrini */
-  const eBtn=document.createElement('button');
-  eBtn.className='tab-btn btn-outline text-xs sm:text-sm px-3.5 py-2 sm:px-5 sm:py-2.5 text-slate-300'+(firstTab?' active':'');
-  eBtn.innerHTML='⚡ Enerji<span class="hidden sm:inline"> (Canlı Panel)</span>';
-  eBtn.dataset.tab='energy-live';
-  btnC.appendChild(eBtn);
-
-  const ePanel=document.createElement('div');
-  ePanel.id='tab-energy-live'; ePanel.className='tab-panel glass rounded-2xl p-4 sm:p-8'+(firstTab?' active':'');
-  const eTmpl = document.getElementById('energy-template');
-  if(eTmpl) ePanel.innerHTML=eTmpl.innerHTML;
-  panelC.appendChild(ePanel);
-  firstTab=false;
-
-  /* Fındık: Canlı Karar Paneli */
+  /* Fındık: Canlı Karar Paneli — EN ÖNDE, bitkisel danışmanlık vitrini */
   const fBtn=document.createElement('button');
-  fBtn.className='tab-btn btn-outline text-xs sm:text-sm px-3.5 py-2 sm:px-5 sm:py-2.5 text-slate-300';
+  fBtn.className='tab-btn btn-outline text-xs sm:text-sm px-3.5 py-2 sm:px-5 sm:py-2.5 text-slate-300'+(firstTab?' active':'');
   fBtn.innerHTML='🌰 Fındık<span class="hidden sm:inline"> (Canlı Panel)</span>';
   fBtn.dataset.tab='hazelnut';
   btnC.appendChild(fBtn);
 
   const fPanel=document.createElement('div');
-  fPanel.id='tab-hazelnut'; fPanel.className='tab-panel glass rounded-2xl p-4 sm:p-8';
+  fPanel.id='tab-hazelnut'; fPanel.className='tab-panel glass rounded-2xl p-4 sm:p-8'+(firstTab?' active':'');
   const tmpl = document.getElementById('hazelnut-template');
   if(tmpl) fPanel.innerHTML=tmpl.innerHTML;
   panelC.appendChild(fPanel);
+  firstTab=false;
 
-  /* İnşaat: Canlı Karar Paneli */
-  const cnBtn=document.createElement('button');
-  cnBtn.className='tab-btn btn-outline text-xs sm:text-sm px-3.5 py-2 sm:px-5 sm:py-2.5 text-slate-300';
-  cnBtn.innerHTML='🏗️ İnşaat<span class="hidden sm:inline"> (Canlı Panel)</span>';
-  cnBtn.dataset.tab='construction';
-  btnC.appendChild(cnBtn);
-
-  const cnPanel=document.createElement('div');
-  cnPanel.id='tab-construction'; cnPanel.className='tab-panel glass rounded-2xl p-4 sm:p-8';
-  const cnTmpl = document.getElementById('construction-template');
-  if(cnTmpl) cnPanel.innerHTML=cnTmpl.innerHTML;
-  panelC.appendChild(cnPanel);
-
-  /* Buğday / Üzüm / Kayısı: aynı jenerik motoru paylaşan canlı paneller */
+  /* Buğday / Üzüm / Kayısı: aynı jenerik motoru paylaşan canlı paneller (bitkiler devam) */
   Object.keys(CROPS).forEach(key=>{
     const crop = CROPS[key];
     const cBtn=document.createElement('button');
@@ -3191,6 +3171,32 @@ async function loadContent() {
     cPanel.innerHTML = buildCropPanelHTML(key, crop);
     panelC.appendChild(cPanel);
   });
+
+  /* Enerji: Canlı Karar Paneli */
+  const eBtn=document.createElement('button');
+  eBtn.className='tab-btn btn-outline text-xs sm:text-sm px-3.5 py-2 sm:px-5 sm:py-2.5 text-slate-300';
+  eBtn.innerHTML='⚡ Enerji<span class="hidden sm:inline"> (Canlı Panel)</span>';
+  eBtn.dataset.tab='energy-live';
+  btnC.appendChild(eBtn);
+
+  const ePanel=document.createElement('div');
+  ePanel.id='tab-energy-live'; ePanel.className='tab-panel glass rounded-2xl p-4 sm:p-8';
+  const eTmpl = document.getElementById('energy-template');
+  if(eTmpl) ePanel.innerHTML=eTmpl.innerHTML;
+  panelC.appendChild(ePanel);
+
+  /* İnşaat: Canlı Karar Paneli */
+  const cnBtn=document.createElement('button');
+  cnBtn.className='tab-btn btn-outline text-xs sm:text-sm px-3.5 py-2 sm:px-5 sm:py-2.5 text-slate-300';
+  cnBtn.innerHTML='🏗️ İnşaat<span class="hidden sm:inline"> (Canlı Panel)</span>';
+  cnBtn.dataset.tab='construction';
+  btnC.appendChild(cnBtn);
+
+  const cnPanel=document.createElement('div');
+  cnPanel.id='tab-construction'; cnPanel.className='tab-panel glass rounded-2xl p-4 sm:p-8';
+  const cnTmpl = document.getElementById('construction-template');
+  if(cnTmpl) cnPanel.innerHTML=cnTmpl.innerHTML;
+  panelC.appendChild(cnPanel);
 
   /* Denizcilik / İnşaat gibi statik metin sekmeleri — canlı panellerin ardından */
   tabs.forEach((tab)=>{
@@ -3291,6 +3297,72 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r
 
 setTimeout(()=>map.invalidateSize(), 300);
 window.addEventListener('load', ()=>map.invalidateSize());
+
+/* ---------------------------------------------------------------
+   RADAR (RainViewer) — canlı yağış radarı, ücretsiz, API anahtarı
+   gerektirmiyor, 5 dakikada bir yenileniyor. Kaynak gösterimi zorunlu.
+--------------------------------------------------------------- */
+let radarLayer=null;
+let radarFramePath=null;   /* aynı oturumda tekrar API'ye gitmemek için önbellekte tutulur */
+
+async function toggleRadarLayer(){
+  const btn=document.getElementById('btn-toggle-radar');
+  if(radarLayer){
+    map.removeLayer(radarLayer);
+    radarLayer=null;
+    btn.classList.remove('border-brand/60','text-brand');
+    return;
+  }
+  if(satelliteLayer) toggleSatelliteLayer();   /* iki katman aynı anda karışmasın */
+
+  btn.textContent='⏳';
+  try{
+    if(!radarFramePath){
+      const r=await fetch('https://api.rainviewer.com/public/weather-maps.json');
+      const j=await r.json();
+      const frames=j.radar?.past||[];
+      if(!frames.length) throw new Error('Radar verisi yok');
+      radarFramePath=frames[frames.length-1].path;   /* en güncel kare */
+    }
+    radarLayer=L.tileLayer(`https://tilecache.rainviewer.com${radarFramePath}/256/{z}/{x}/{y}/2/1_1.png`,{
+      opacity:.65, zIndex:400,
+      attribution:'Radar: <a href="https://www.rainviewer.com/" target="_blank">RainViewer</a>',
+    }).addTo(map);
+    btn.classList.add('border-brand/60','text-brand');
+  }catch(_){
+    toast('Radar verisi şu an alınamadı','warn');
+  }finally{
+    btn.innerHTML='🌧 <span class="hidden sm:inline">Radar</span>';
+  }
+}
+
+/* ---------------------------------------------------------------
+   UYDU (NASA GIBS) — gerçek uydu görüntüsü (MODIS Terra True Color),
+   ücretsiz, API anahtarı gerektirmiyor. Günlük güncellenir; bugünün
+   görüntüsü genelde henüz işlenmediği için DÜN'ün tarihi kullanılır.
+--------------------------------------------------------------- */
+let satelliteLayer=null;
+
+function toggleSatelliteLayer(){
+  const btn=document.getElementById('btn-toggle-satellite');
+  if(satelliteLayer){
+    map.removeLayer(satelliteLayer);
+    satelliteLayer=null;
+    btn.classList.remove('border-brand/60','text-brand');
+    return;
+  }
+  if(radarLayer) toggleRadarLayer();
+
+  const dun=new Date(Date.now()-24*3600*1000).toISOString().slice(0,10);
+  satelliteLayer=L.tileLayer(
+    `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_CorrectedReflectance_TrueColor/default/${dun}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg`,
+    {
+      maxZoom:9, zIndex:400,
+      attribution:'Uydu: <a href="https://wiki.earthdata.nasa.gov/display/GIBS" target="_blank">NASA EOSDIS GIBS</a>',
+    }
+  ).addTo(map);
+  btn.classList.add('border-brand/60','text-brand');
+}
 
 const mIcon=L.divIcon({
   html:`<div style="width:28px;height:28px;background:linear-gradient(135deg,#0ea5e9,#6366f1);border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2px solid rgba(255,255,255,.3);box-shadow:0 4px 14px rgba(56,189,248,.5)"></div>`,
