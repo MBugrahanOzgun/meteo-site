@@ -37,6 +37,9 @@
   <link href="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css" rel="stylesheet"/>
   <script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js"></script>
   <script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet/leaflet-maplibre-gl.js"></script>
+  <!-- Mammoth.js: Word (.docx) belgesini tarayıcıda doğrudan HTML'e çevirir,
+       sunucuya hiç yük binmez — admin panelindeki Word yükleme özelliği için. -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.7.2/mammoth.browser.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -135,6 +138,23 @@
        kendi (genelde beyaz) stiliyle çiziliyor, background/color ayarını
        görmezden geliyor — bu kural o listeyi de koyu temaya zorluyor. */
     select.loc-input option{background:#0f172a;color:#e2e8f0}
+
+    /* Word (.docx) belgesinden gelen HTML çıplak semantik etiketlerle
+       (p, h1, ul, strong...) geliyor, hiç stil taşımıyor — bu kural
+       koyu temada okunaklı hale getiriyor. */
+    .expert-note-html p{margin-bottom:12px}
+    .expert-note-html h1,.expert-note-html h2,.expert-note-html h3{color:#fff;font-weight:700;margin:16px 0 8px}
+    .expert-note-html h1{font-size:1.3rem}
+    .expert-note-html h2{font-size:1.15rem}
+    .expert-note-html h3{font-size:1.05rem}
+    .expert-note-html ul,.expert-note-html ol{margin:0 0 12px 20px}
+    .expert-note-html li{margin-bottom:4px}
+    .expert-note-html strong{color:#e2e8f0;font-weight:700}
+    .expert-note-html em{font-style:italic}
+    .expert-note-html a{color:#38bdf8;text-decoration:underline}
+    .expert-note-html img{max-width:100%;border-radius:10px;margin:10px 0}
+    .expert-note-html table{width:100%;border-collapse:collapse;margin-bottom:12px}
+    .expert-note-html td,.expert-note-html th{border:1px solid rgba(148,163,184,.2);padding:6px 10px}
 
     /* Öneri kutusu: kart içinde değil, sabit konumlu tek ortak kutu.
        Kart .glass{backdrop-filter} kendi katmanını oluşturduğu için
@@ -778,6 +798,16 @@
             <button onclick="adminClearImageSelection()" class="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white text-xs flex items-center justify-center">✕</button>
           </div>
           <p id="admin-note-image-status" class="text-slate-600 text-xs mt-1"></p>
+        </div>
+
+        <div>
+          <label class="text-slate-500 text-xs uppercase tracking-widest block mb-2">📄 Word Belgesinden Yükle (.docx) — isteğe bağlı, biçimlendirmeyi (başlık, kalın, madde listesi) korur</label>
+          <div class="flex items-center gap-2">
+            <input id="admin-note-docx-input" type="file" accept=".docx" onchange="adminHandleDocxSelect(event)" class="loc-input w-full text-xs">
+            <button id="admin-docx-clear-btn" onclick="adminClearDocxSelection()" class="hidden text-red-400 text-xs hover:text-red-300 whitespace-nowrap flex-shrink-0">Kaldır</button>
+          </div>
+          <p id="admin-docx-status" class="text-slate-600 text-xs mt-1"></p>
+          <div id="admin-docx-preview" class="expert-note-html hidden mt-3 glass rounded-xl p-4 max-h-64 overflow-y-auto text-slate-300 text-sm"></div>
         </div>
 
         <button onclick="adminAddNote()" id="admin-note-submit-btn" class="btn-primary text-white text-sm px-5 py-2.5">Yayınla</button>
@@ -3096,7 +3126,9 @@ async function loadExpertContent(){
             <span class="text-slate-500 text-xs whitespace-nowrap ml-3">${fmtNoteDate(note.created_at)}</span>
           </div>
           ${note.image_url?`<img src="${BACKEND}${note.image_url}" class="rounded-xl w-full max-h-96 object-cover mb-4" loading="lazy">`:''}
-          <p class="text-slate-400 text-sm leading-relaxed whitespace-pre-line">${note.body}</p>
+          ${note.body_html
+            ? `<div class="expert-note-html text-slate-400 text-sm leading-relaxed">${note.body_html}</div>`
+            : `<p class="text-slate-400 text-sm leading-relaxed whitespace-pre-line">${note.body}</p>`}
         </div>`).join('');
     }
   }catch(_){
@@ -3213,6 +3245,53 @@ function adminClearImageSelection(){
   document.getElementById('admin-note-image-status').textContent='';
 }
 
+/* --- Word (.docx) yükleme: Mammoth.js tarayıcıda HTML'e çevirir,
+   sunucuya hiç yük binmez. Biçimli hali (body_html) önizlemede
+   gösterilir; düz metin karşılığı otomatik olarak textarea'ya da
+   dolar (body alanı hiç boş kalmasın, arama/erişilebilirlik için). */
+let pendingBodyHtml=null;
+
+async function adminHandleDocxSelect(event){
+  const file=event.target.files[0];
+  if(!file) return;
+  const statusEl=document.getElementById('admin-docx-status');
+  statusEl.textContent='Dönüştürülüyor…';
+  try{
+    const arrayBuffer=await file.arrayBuffer();
+    const htmlResult=await mammoth.convertToHtml({arrayBuffer});
+    const textResult=await mammoth.extractRawText({arrayBuffer});
+    pendingBodyHtml=htmlResult.value;
+
+    document.getElementById('admin-note-body').value=textResult.value.trim();
+
+    const previewEl=document.getElementById('admin-docx-preview');
+    previewEl.innerHTML=pendingBodyHtml;
+    previewEl.classList.remove('hidden');
+    document.getElementById('admin-docx-clear-btn').classList.remove('hidden');
+    statusEl.textContent='Hazır — "Yayınla"ya basınca bu biçimlendirmeyle yayınlanacak.'
+      + (htmlResult.messages.length ? ` (${htmlResult.messages.length} küçük uyarı, önizlemeyi kontrol edin)` : '');
+
+    /* Başlık boşsa belgenin ilk başlık/paragrafından öneri çıkar */
+    const titleInput=document.getElementById('admin-note-title');
+    if(!titleInput.value.trim()){
+      const tmp=document.createElement('div'); tmp.innerHTML=pendingBodyHtml;
+      const firstText=tmp.querySelector('h1,h2,p')?.textContent?.trim();
+      if(firstText) titleInput.value=firstText.slice(0,120);
+    }
+  }catch(_){
+    statusEl.textContent='Word dosyası okunamadı — .docx formatında olduğundan emin olun.';
+    pendingBodyHtml=null;
+  }
+}
+function adminClearDocxSelection(){
+  pendingBodyHtml=null;
+  document.getElementById('admin-note-docx-input').value='';
+  document.getElementById('admin-docx-preview').classList.add('hidden');
+  document.getElementById('admin-docx-preview').innerHTML='';
+  document.getElementById('admin-docx-clear-btn').classList.add('hidden');
+  document.getElementById('admin-docx-status').textContent='';
+}
+
 /* --- Notlar --- */
 async function adminLoadNotesList(){
   const listEl=document.getElementById('admin-notes-list');
@@ -3223,7 +3302,7 @@ async function adminLoadNotesList(){
         <div class="flex items-center gap-3 min-w-0">
           ${note.image_url?`<img src="${BACKEND}${note.image_url}" class="w-10 h-10 rounded-lg object-cover flex-shrink-0">`:''}
           <div class="min-w-0">
-            <p class="text-white text-sm font-600 truncate">${note.title}</p>
+            <p class="text-white text-sm font-600 truncate">${note.title}${note.body_html?' <span class="text-slate-500 font-400">📄</span>':''}</p>
             <p class="text-slate-500 text-xs">${fmtNoteDate(note.created_at)}</p>
           </div>
         </div>
@@ -3253,10 +3332,11 @@ async function adminAddNote(){
       imageUrl=(await r.json()).url;
     }
 
-    await adminApi('/notes','POST',{title,body,image_url:imageUrl});
+    await adminApi('/notes','POST',{title,body,image_url:imageUrl,body_html:pendingBodyHtml});
     document.getElementById('admin-note-title').value='';
     document.getElementById('admin-note-body').value='';
     adminClearImageSelection();
+    adminClearDocxSelection();
     toast('Değerlendirme yayınlandı ✓','success');
     adminLoadNotesList();
   }catch(_){

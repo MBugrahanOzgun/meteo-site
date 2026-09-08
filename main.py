@@ -71,6 +71,14 @@ def init_db():
     except sqlite3.OperationalError:
         pass  # sütun zaten var
 
+    # body_html: Word (.docx) belgesinden yüklendiğinde biçimlendirmeli
+    # (başlık, kalın, madde listesi) hali burada tutulur. Yoksa (elle
+    # yazılan notlarda) düz metin olan 'body' kullanılır.
+    try:
+        con.execute("ALTER TABLE expert_notes ADD COLUMN body_html TEXT")
+    except sqlite3.OperationalError:
+        pass  # sütun zaten var
+
     # Admin panelinden girilen excel-benzeri tablo — tek satır, JSON olarak tutulur
     # (başlık/sütun sayısı sabit olmadığı için esnek şema)
     con.execute("""
@@ -203,6 +211,7 @@ class NotePayload(BaseModel):
     title: str
     body: str
     image_url: str | None = None
+    body_html: str | None = None
 
 
 class TablePayload(BaseModel):
@@ -335,7 +344,7 @@ def get_notes():
     con = sqlite3.connect(DB_PATH)
     con.row_factory = sqlite3.Row
     rows = con.execute(
-        "SELECT id, title, body, created_at, image_url FROM expert_notes ORDER BY created_at DESC"
+        "SELECT id, title, body, created_at, image_url, body_html FROM expert_notes ORDER BY created_at DESC"
     ).fetchall()
     con.close()
     return {"notes": [dict(r) for r in rows]}
@@ -350,8 +359,8 @@ def add_note(payload: NotePayload, authorization: str | None = Header(default=No
         raise HTTPException(status_code=400, detail="Başlık ve metin gerekli")
     con = sqlite3.connect(DB_PATH)
     con.execute(
-        "INSERT INTO expert_notes (title, body, created_at, image_url) VALUES (?,?,?,?)",
-        (title, body, datetime.now(timezone.utc).isoformat(), payload.image_url),
+        "INSERT INTO expert_notes (title, body, created_at, image_url, body_html) VALUES (?,?,?,?,?)",
+        (title, body, datetime.now(timezone.utc).isoformat(), payload.image_url, payload.body_html),
     )
     con.commit()
     con.close()
