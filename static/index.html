@@ -3387,6 +3387,16 @@ function clearAllDrawings(){
 async function exportDrawingToNote(){
   if(!drawMap){ toast('Harita henüz hazır değil','warn'); return; }
   finishPolygon();
+
+  /* Çizerken haritada gezinmiş/yakınlaşmış olabilirsiniz — dışa aktarım
+     anında sadece o an ekranda görünen kısım değil, TÜM çizimlerin
+     sığacağı şekilde harita otomatik uzaklaşır/ortalanır. */
+  if(drawnLayers.length){
+    const group=L.featureGroup(drawnLayers);
+    drawMap.fitBounds(group.getBounds(), {padding:[40,40]});
+    await new Promise(r=>setTimeout(r,700));   /* yeni karoların yüklenmesi için bekle */
+  }
+
   toast('Görsel hazırlanıyor…','info');
   try{
     const el=document.getElementById('draw-map');
