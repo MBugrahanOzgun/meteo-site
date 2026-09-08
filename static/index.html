@@ -139,6 +139,11 @@
        görmezden geliyor — bu kural o listeyi de koyu temaya zorluyor. */
     select.loc-input option{background:#0f172a;color:#e2e8f0}
 
+    /* Harita çizim aracı */
+    .draw-tool-btn{transition:all .15s}
+    .draw-tool-btn.active{border-color:#38bdf8;color:#38bdf8;background:rgba(56,189,248,.14)}
+    .draw-emoji-marker{font-size:28px;line-height:1;text-shadow:0 1px 3px rgba(0,0,0,.6);cursor:move}
+
     /* Word (.docx) belgesinden gelen HTML çıplak semantik etiketlerle
        (p, h1, ul, strong...) geliyor, hiç stil taşımıyor — bu kural
        koyu temada okunaklı hale getiriyor. */
@@ -781,6 +786,42 @@
   <div id="admin-panel-box" class="hidden space-y-12">
     <div class="flex justify-end">
       <button onclick="adminLogout()" class="text-slate-500 text-xs hover:text-slate-300">Çıkış Yap</button>
+    </div>
+
+    <!-- Harita Çiz -->
+    <div>
+      <h3 class="font-display text-xl font-700 text-white mb-1">🎨 Harita Çiz</h3>
+      <p class="text-slate-500 text-xs mb-4">Bölge boyayın, daire/çizgi çizin, hava durumu emojileri yerleştirin — bittiğinde aşağıdaki değerlendirme formuna görsel olarak eklenir.</p>
+      <div class="glass rounded-2xl p-4">
+        <div class="flex flex-wrap items-center gap-2 mb-3">
+          <button data-draw-mode="polygon" onclick="setDrawMode('polygon')" class="draw-tool-btn glass rounded-lg px-3 py-1.5 text-xs text-slate-300">🔷 Bölge</button>
+          <button data-draw-mode="circle" onclick="setDrawMode('circle')" class="draw-tool-btn glass rounded-lg px-3 py-1.5 text-xs text-slate-300">⭕ Daire</button>
+          <button data-draw-mode="line" onclick="setDrawMode('line')" class="draw-tool-btn glass rounded-lg px-3 py-1.5 text-xs text-slate-300">➡️ Çizgi/Ok</button>
+          <button data-draw-mode="emoji" onclick="setDrawMode('emoji')" class="draw-tool-btn glass rounded-lg px-3 py-1.5 text-xs text-slate-300">😀 Emoji</button>
+          <input id="draw-color-picker" type="color" value="#38bdf8" title="Renk seç" class="w-8 h-8 rounded cursor-pointer border-0 bg-transparent">
+          <button onclick="finishPolygon()" id="draw-finish-btn" class="hidden btn-primary text-white text-xs px-3 py-1.5">Bölgeyi Bitir</button>
+          <span class="flex-1"></span>
+          <button onclick="undoLastDrawing()" class="glass rounded-lg px-3 py-1.5 text-xs text-slate-300">↩ Geri Al</button>
+          <button onclick="clearAllDrawings()" class="glass rounded-lg px-3 py-1.5 text-xs text-red-400">🗑 Temizle</button>
+        </div>
+        <div id="draw-emoji-palette" class="hidden flex flex-wrap gap-3 mb-3 px-1">
+          <button onclick="selectDrawEmoji('☀️')" class="text-2xl hover:scale-125 transition-transform">☀️</button>
+          <button onclick="selectDrawEmoji('⛅')" class="text-2xl hover:scale-125 transition-transform">⛅</button>
+          <button onclick="selectDrawEmoji('☁️')" class="text-2xl hover:scale-125 transition-transform">☁️</button>
+          <button onclick="selectDrawEmoji('🌧️')" class="text-2xl hover:scale-125 transition-transform">🌧️</button>
+          <button onclick="selectDrawEmoji('⛈️')" class="text-2xl hover:scale-125 transition-transform">⛈️</button>
+          <button onclick="selectDrawEmoji('❄️')" class="text-2xl hover:scale-125 transition-transform">❄️</button>
+          <button onclick="selectDrawEmoji('🌫️')" class="text-2xl hover:scale-125 transition-transform">🌫️</button>
+          <button onclick="selectDrawEmoji('💨')" class="text-2xl hover:scale-125 transition-transform">💨</button>
+          <button onclick="selectDrawEmoji('🌡️')" class="text-2xl hover:scale-125 transition-transform">🌡️</button>
+          <button onclick="selectDrawEmoji('⚠️')" class="text-2xl hover:scale-125 transition-transform">⚠️</button>
+        </div>
+        <p id="draw-hint" class="text-slate-500 text-xs mb-3">Bir araç seçip haritaya tıklayın.</p>
+        <div id="draw-map" style="height:420px;border-radius:12px;overflow:hidden;background:#0f172a"></div>
+        <div class="flex justify-end mt-3">
+          <button onclick="exportDrawingToNote()" class="btn-primary text-white text-sm px-5 py-2.5">🖼️ Görseli Değerlendirme Formuna Ekle</button>
+        </div>
+      </div>
     </div>
 
     <!-- Uzman değerlendirmesi ekle -->
@@ -3162,6 +3203,7 @@ function checkAdminAuth(){
     panelBox.classList.remove('hidden');
     adminLoadNotesList();
     adminLoadTable();
+    initDrawMap();
   } else {
     loginBox.classList.remove('hidden');
     panelBox.classList.add('hidden');
@@ -3201,6 +3243,167 @@ async function adminApi(path, method, body){
   if(r.status===401){ toast('Oturum süresi doldu, tekrar giriş yapın','error'); setAdminToken(null); checkAdminAuth(); throw new Error('401'); }
   if(!r.ok) throw new Error('İstek başarısız');
   return r.json();
+}
+
+/* ---------------------------------------------------------------
+   HARİTA ÇİZ (admin panelinde) — bölge boyama, daire, çizgi/ok,
+   emoji yerleştirme. Leaflet.draw eklentisi artık bakımı yapılmıyor
+   (kendi GitHub sayfasında kabul edilmiş), o yüzden Leaflet'in
+   kendi çekirdek fonksiyonlarıyla (L.polygon, L.circle, L.marker,
+   L.polyline) basit ve stabil bir sürüm kuruldu.
+
+   NOT: Bu harita, ana sitedeki (MapLibre/vektör) haritadan farklı
+   olarak düz raster karo kullanıyor — çünkü çizimi görsele çevirme
+   (html2canvas) işlemi WebGL tabanlı vektör haritalarda güvenilir
+   çalışmıyor. Sadece bu admin aracını etkiler, ana site haritası
+   aynı kalıyor.
+--------------------------------------------------------------- */
+let drawMap=null;
+let drawMode=null;          // null | 'polygon' | 'circle' | 'line' | 'emoji'
+let drawColor='#38bdf8';
+let drawEmoji=null;
+let drawnLayers=[];         // geri al / temizle için tüm katmanlar
+let polyPoints=[];          // aktif çizilen bölgenin noktaları
+let polyPreview=null;       // bölge çizerken canlı önizleme çizgisi
+let circleFirst=null;       // daire için merkez noktası
+let lineFirst=null;         // çizgi için başlangıç noktası
+let drawTempMarker=null;    // ilk tık sonrası geçici işaretçi (daire/çizgi)
+
+function initDrawMap(){
+  if(drawMap) return;   /* zaten kurulu, tekrar kurma */
+  const el=document.getElementById('draw-map');
+  if(!el) return;
+  drawMap=L.map('draw-map',{center:[39.0,35.0],zoom:5,zoomControl:true});
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    maxZoom:18, crossOrigin:true,
+    attribution:'&copy; OpenStreetMap katkıda bulunanlar',
+  }).addTo(drawMap);
+  setTimeout(()=>drawMap.invalidateSize(),150);
+
+  document.getElementById('draw-color-picker').addEventListener('input',e=>{ drawColor=e.target.value; });
+  drawMap.on('click', onDrawMapClick);
+}
+
+function setDrawMode(mode){
+  drawMode = (drawMode===mode) ? null : mode;   /* aynı butona tekrar basınca kapat */
+  finishPolygon();
+  circleFirst=null; lineFirst=null;
+  if(drawTempMarker){ drawMap.removeLayer(drawTempMarker); drawTempMarker=null; }
+
+  document.querySelectorAll('.draw-tool-btn').forEach(b=>b.classList.toggle('active', b.dataset.drawMode===drawMode));
+  document.getElementById('draw-emoji-palette').classList.toggle('hidden', drawMode!=='emoji');
+
+  const hints={
+    polygon:'Bölgenin köşelerine tıklayın, bitirince "Bölgeyi Bitir"e basın.',
+    circle:'Merkez için tıklayın, sonra yarıçapı belirlemek için ikinci noktaya tıklayın.',
+    line:'Başlangıç noktasına, sonra bitiş noktasına tıklayın.',
+    emoji:'Bir emoji seçin, sonra haritada yerleştirmek istediğiniz yere tıklayın.',
+  };
+  document.getElementById('draw-hint').textContent = drawMode ? hints[drawMode] : 'Bir araç seçip haritaya tıklayın.';
+}
+
+function selectDrawEmoji(e){
+  drawEmoji=e;
+  document.querySelectorAll('#draw-emoji-palette button').forEach(b=>{
+    b.style.outline = b.textContent.trim()===e ? '2px solid #38bdf8' : 'none';
+    b.style.borderRadius = '8px';
+  });
+}
+
+function onDrawMapClick(e){
+  if(!drawMode) return;
+  const ll=e.latlng;
+
+  if(drawMode==='polygon'){
+    polyPoints.push(ll);
+    if(polyPreview) drawMap.removeLayer(polyPreview);
+    polyPreview=L.polyline(polyPoints,{color:drawColor,weight:2,dashArray:'4,4'}).addTo(drawMap);
+    document.getElementById('draw-finish-btn').classList.toggle('hidden', polyPoints.length<3);
+  }
+
+  else if(drawMode==='circle'){
+    if(!circleFirst){
+      circleFirst=ll;
+      drawTempMarker=L.circleMarker(ll,{radius:5,color:drawColor}).addTo(drawMap);
+    } else {
+      const radiusM=circleFirst.distanceTo(ll);
+      const circle=L.circle(circleFirst,{radius:radiusM,color:drawColor,fillColor:drawColor,fillOpacity:.35,weight:2}).addTo(drawMap);
+      drawnLayers.push(circle);
+      if(drawTempMarker){ drawMap.removeLayer(drawTempMarker); drawTempMarker=null; }
+      circleFirst=null;
+    }
+  }
+
+  else if(drawMode==='line'){
+    if(!lineFirst){
+      lineFirst=ll;
+      drawTempMarker=L.circleMarker(ll,{radius:5,color:drawColor}).addTo(drawMap);
+    } else {
+      const line=L.polyline([lineFirst,ll],{color:drawColor,weight:3}).addTo(drawMap);
+      /* Basit ok ucu: bitiş noktasına yönü hesaplanmış küçük bir üçgen */
+      const angle=Math.atan2(ll.lat-lineFirst.lat, ll.lng-lineFirst.lng)*180/Math.PI;
+      const arrowIcon=L.divIcon({
+        html:`<div style="width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:14px solid ${drawColor};transform:rotate(${90-angle}deg)"></div>`,
+        className:'', iconSize:[14,14], iconAnchor:[7,7],
+      });
+      const arrowMarker=L.marker(ll,{icon:arrowIcon}).addTo(drawMap);
+      drawnLayers.push(line, arrowMarker);
+      if(drawTempMarker){ drawMap.removeLayer(drawTempMarker); drawTempMarker=null; }
+      lineFirst=null;
+    }
+  }
+
+  else if(drawMode==='emoji'){
+    if(!drawEmoji){ toast('Önce bir emoji seçin','warn'); return; }
+    const icon=L.divIcon({html:`<div class="draw-emoji-marker">${drawEmoji}</div>`, className:'', iconSize:[32,32], iconAnchor:[16,16]});
+    const marker=L.marker(ll,{icon,draggable:true}).addTo(drawMap);
+    drawnLayers.push(marker);
+  }
+}
+
+function finishPolygon(){
+  if(polyPoints.length>=3){
+    const polygon=L.polygon(polyPoints,{color:drawColor,fillColor:drawColor,fillOpacity:.35,weight:2}).addTo(drawMap);
+    drawnLayers.push(polygon);
+  }
+  if(polyPreview){ drawMap.removeLayer(polyPreview); polyPreview=null; }
+  polyPoints=[];
+  document.getElementById('draw-finish-btn')?.classList.add('hidden');
+}
+
+function undoLastDrawing(){
+  const last=drawnLayers.pop();
+  if(last) drawMap.removeLayer(last);
+  else toast('Geri alınacak bir şey yok','info');
+}
+function clearAllDrawings(){
+  drawnLayers.forEach(l=>drawMap.removeLayer(l));
+  drawnLayers=[];
+  if(polyPreview){ drawMap.removeLayer(polyPreview); polyPreview=null; }
+  polyPoints=[];
+  toast('Çizimler temizlendi','info');
+}
+
+async function exportDrawingToNote(){
+  if(!drawMap){ toast('Harita henüz hazır değil','warn'); return; }
+  finishPolygon();
+  toast('Görsel hazırlanıyor…','info');
+  try{
+    const el=document.getElementById('draw-map');
+    const canvas=await html2canvas(el,{useCORS:true,backgroundColor:'#0f172a'});
+    canvas.toBlob(blob=>{
+      if(!blob){ toast('Görsel oluşturulamadı, tekrar deneyin','error'); return; }
+      pendingImageBlob=blob;
+      document.getElementById('admin-note-image-preview-img').src=URL.createObjectURL(blob);
+      document.getElementById('admin-note-image-preview').classList.remove('hidden');
+      document.getElementById('admin-note-image-status').textContent=`Hazır (${(blob.size/1024).toFixed(0)} KB) — çizdiğiniz harita`;
+      document.getElementById('admin-note-title').scrollIntoView({behavior:'smooth',block:'center'});
+      toast('Görsel değerlendirme formuna eklendi ✓','success');
+    }, 'image/jpeg', .85);
+  }catch(err){
+    console.error(err);
+    toast('Görsel oluşturulamadı — harita karoları tarayıcı güvenlik kısıtlaması yüzünden dışa aktarılamadı olabilir','error');
+  }
 }
 
 /* --- Resim seçimi: tarayıcıda otomatik küçültme/sıkıştırma ---
