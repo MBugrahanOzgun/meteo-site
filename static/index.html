@@ -3390,11 +3390,21 @@ async function exportDrawingToNote(){
 
   /* Çizerken haritada gezinmiş/yakınlaşmış olabilirsiniz — dışa aktarım
      anında sadece o an ekranda görünen kısım değil, TÜM çizimlerin
-     sığacağı şekilde harita otomatik uzaklaşır/ortalanır. */
+     sığacağı şekilde harita otomatik uzaklaşır/ortalanır.
+     ÖNEMLİ: animate:false ile ANLIK sıçratıyoruz — animasyonlu geçiş
+     kullanılırsa html2canvas geçiş ortasında bir kare yakalayabiliyor,
+     bu da işaretlerin zeminden kaymış görünmesine yol açıyordu.
+     moveend olayını bekleyerek haritanın gerçekten durduğundan emin
+     oluyoruz (sabit bir süre beklemek yerine). */
   if(drawnLayers.length){
     const group=L.featureGroup(drawnLayers);
-    drawMap.fitBounds(group.getBounds(), {padding:[40,40]});
-    await new Promise(r=>setTimeout(r,700));   /* yeni karoların yüklenmesi için bekle */
+    await new Promise(resolve=>{
+      let done=false;
+      const finish=()=>{ if(done) return; done=true; resolve(); };
+      drawMap.once('moveend', ()=> setTimeout(finish, 400));  /* + karoların yüklenmesi için ek pay */
+      setTimeout(finish, 2000);   /* moveend hiç tetiklenmezse sonsuza kadar beklemeyelim */
+      drawMap.fitBounds(group.getBounds(), {padding:[40,40], animate:false});
+    });
   }
 
   toast('Görsel hazırlanıyor…','info');
