@@ -3410,7 +3410,7 @@ async function exportDrawingToNote(){
   toast('Görsel hazırlanıyor…','info');
   try{
     const el=document.getElementById('draw-map');
-    const canvas=await html2canvas(el,{useCORS:true,backgroundColor:'#0f172a'});
+    const canvas=await html2canvas(el,{useCORS:true,backgroundColor:'#0f172a',foreignObjectRendering:true});
     canvas.toBlob(blob=>{
       if(!blob){ toast('Görsel oluşturulamadı, tekrar deneyin','error'); return; }
       pendingImageBlob=blob;
