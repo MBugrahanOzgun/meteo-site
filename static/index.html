@@ -832,7 +832,7 @@
         <textarea id="admin-note-body" rows="6" placeholder="Değerlendirme metni…" class="loc-input w-full" style="resize:vertical"></textarea>
 
         <div>
-          <label class="text-slate-500 text-xs uppercase tracking-widest block mb-2">🖼️ Resim (isteğe bağlı — harita, uydu görüntüsü vb.)</label>
+          <label class="text-slate-500 text-xs uppercase tracking-widest block mb-2">🖼️ Resim (isteğe bağlı — dosya seçin veya ekran görüntüsünü Ctrl+V ile yapıştırın)</label>
           <input id="admin-note-image-input" type="file" accept="image/jpeg,image/png,image/webp,image/gif" onchange="adminHandleImageSelect(event)" class="loc-input w-full text-xs">
           <div id="admin-note-image-preview" class="hidden mt-3 relative inline-block">
             <img id="admin-note-image-preview-img" class="rounded-xl max-h-40" />
@@ -3410,7 +3410,7 @@ async function exportDrawingToNote(){
   toast('Görsel hazırlanıyor…','info');
   try{
     const el=document.getElementById('draw-map');
-    const canvas=await html2canvas(el,{useCORS:true,backgroundColor:'#0f172a'});
+    const canvas=await html2canvas(el,{useCORS:true,backgroundColor:'#0f172a',foreignObjectRendering:true});
     canvas.toBlob(blob=>{
       if(!blob){ toast('Görsel oluşturulamadı, tekrar deneyin','error'); return; }
       pendingImageBlob=blob;
@@ -3428,11 +3428,12 @@ async function exportDrawingToNote(){
 
 /* --- Resim seçimi: tarayıcıda otomatik küçültme/sıkıştırma ---
    Telefon kamerasından gelen büyük fotoğraflar 1600px'e ve JPEG %82
-   kaliteye indirilir; sunucuya yalnızca küçültülmüş dosya gider. */
+   kaliteye indirilir; sunucuya yalnızca küçültülmüş dosya gider.
+   Hem "Dosya Seç" hem panodan yapıştırma (Ctrl+V) aynı fonksiyonu
+   kullanır. */
 let pendingImageBlob=null;
 
-function adminHandleImageSelect(event){
-  const file=event.target.files[0];
+function processImageFile(file){
   if(!file) return;
   const statusEl=document.getElementById('admin-note-image-status');
   statusEl.textContent='İşleniyor…';
@@ -3461,6 +3462,34 @@ function adminHandleImageSelect(event){
   };
   reader.readAsDataURL(file);
 }
+
+function adminHandleImageSelect(event){
+  processImageFile(event.target.files[0]);
+}
+
+/* Panodan resim yapıştırma: ekran görüntüsü alıp (Win+Shift+S vb.)
+   dosyaya kaydetmeden doğrudan Ctrl+V ile yapıştırılabilir. Sadece
+   admin sayfası açıkken devreye girer, başka yerde metin
+   yapıştırmayı etkilemez; panoda resim yoksa hiçbir şey yapmaz. */
+document.addEventListener('paste', (event)=>{
+  const adminPage=document.querySelector('section[data-page="admin"]');
+  if(!adminPage || !adminPage.classList.contains('active')) return;
+
+  const items=event.clipboardData?.items;
+  if(!items) return;
+  for(const item of items){
+    if(item.type && item.type.startsWith('image/')){
+      const file=item.getAsFile();
+      if(file){
+        event.preventDefault();
+        processImageFile(file);
+        toast('Görsel panodan yapıştırıldı ✓','success');
+      }
+      return;
+    }
+  }
+
+});
 function adminClearImageSelection(){
   pendingImageBlob=null;
   document.getElementById('admin-note-image-input').value='';
