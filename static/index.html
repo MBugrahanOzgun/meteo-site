@@ -142,8 +142,10 @@
     /* Harita çizim aracı */
     .draw-tool-btn{transition:all .15s}
     .draw-tool-btn.active{border-color:#38bdf8;color:#38bdf8;background:rgba(56,189,248,.14)}
-    .draw-emoji-marker{cursor:move;filter:drop-shadow(0 1px 3px rgba(0,0,0,.6))}
-    .draw-emoji-marker svg{width:40px;height:34px;display:block}
+    .draw-emoji-marker{cursor:move;display:flex;flex-direction:column;align-items:center;gap:2px}
+    .draw-emoji-marker-svg{width:36px;height:30px;filter:drop-shadow(0 1px 3px rgba(0,0,0,.7))}
+    .draw-emoji-marker-svg svg{width:100%;height:100%}
+    .draw-emoji-marker-label{font-size:9px;font-weight:600;line-height:1.15;color:#fff;background:rgba(15,23,42,.88);padding:2px 6px;border-radius:5px;white-space:normal;text-align:center;max-width:74px;box-shadow:0 1px 4px rgba(0,0,0,.5)}
     .weather-icon-btn{width:76px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:6px 4px}
     .weather-icon-svg{width:52px;height:44px;display:block}
     .weather-icon-svg svg{width:100%;height:100%}
@@ -3878,7 +3880,14 @@ function onDrawMapClick(e){
   else if(drawMode==='emoji'){
     if(!drawEmoji){ toast('Önce bir hava durumu ikonu seçin','warn'); return; }
     const svg=makeUniqueSvg(WEATHER_ICON_SVGS[drawEmoji]);
-    const icon=L.divIcon({html:`<div class="draw-emoji-marker">${svg}</div>`, className:'', iconSize:[40,34], iconAnchor:[20,17]});
+    const label=WEATHER_ICON_LABELS[drawEmoji];
+    const icon=L.divIcon({
+      html:`<div class="draw-emoji-marker">
+              <div class="draw-emoji-marker-svg">${svg}</div>
+              <div class="draw-emoji-marker-label">${label}</div>
+            </div>`,
+      className:'', iconSize:[80,66], iconAnchor:[40,18],
+    });
     const marker=L.marker(ll,{icon,draggable:true}).addTo(drawMap);
     drawnLayers.push(marker);
   }
