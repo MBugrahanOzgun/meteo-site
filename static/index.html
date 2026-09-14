@@ -222,9 +222,9 @@
     <button class="page-nav-btn active" data-page="ozet">Özet</button>
     <button class="page-nav-btn" data-page="danismanlik">Danışmanlık</button>
     <button class="page-nav-btn" data-page="hava">Hava Durumu</button>
+    <button class="page-nav-btn" data-page="grafik">Tahmin Grafikleri</button>
     <button class="page-nav-btn" data-page="kalite">Hava Kalitesi</button>
     <button class="page-nav-btn" data-page="deniz">Deniz</button>
-    <button class="page-nav-btn" data-page="grafik">Grafik</button>
     <button class="page-nav-btn" data-page="uzmannotu">Uzman Notu</button>
     <button class="page-nav-btn" data-page="iletisim">İletişim</button>
   </div>
@@ -246,9 +246,9 @@
     <button class="page-nav-btn-mobile active" data-page="ozet">🏠 Özet</button>
     <button class="page-nav-btn-mobile" data-page="danismanlik">📋 Danışmanlık</button>
     <button class="page-nav-btn-mobile" data-page="hava">🌤 Hava Durumu</button>
+    <button class="page-nav-btn-mobile" data-page="grafik">📈 Tahmin Grafikleri</button>
     <button class="page-nav-btn-mobile" data-page="kalite">🍃 Hava Kalitesi</button>
     <button class="page-nav-btn-mobile" data-page="deniz">🌊 Deniz</button>
-    <button class="page-nav-btn-mobile" data-page="grafik">📈 Grafik</button>
     <button class="page-nav-btn-mobile" data-page="uzmannotu">📝 Uzman Notu</button>
     <button class="page-nav-btn-mobile" data-page="iletisim">✉️ İletişim</button>
     <button id="btn-locate-mobile" class="btn-primary text-white text-sm px-4 py-3 rounded-xl mt-2 flex items-center justify-center gap-2">
@@ -622,6 +622,10 @@
     <button class="chart-pill" data-metric="cloud_cover">☁️ Bulut</button>
     <button class="chart-pill" data-metric="precipitation">🌧 Yağış</button>
     <button class="chart-pill" data-metric="precip_prob">🎲 Yağış Olasılığı</button>
+  </div>
+  <div id="heavy-rain-warning" class="hidden reveal rounded-2xl px-5 py-4 mb-4 border border-orange-500/30 bg-orange-500/10 flex items-start gap-3">
+    <span class="text-xl leading-none">⚠️</span>
+    <p id="heavy-rain-warning-text" class="text-orange-300 text-sm leading-relaxed"></p>
   </div>
   <div class="reveal glass rounded-2xl p-6">
     <canvas id="hourly-chart" height="100"></canvas>
@@ -3012,12 +3016,49 @@ function buildChart(id, labels, values, color, label, unit) {
   });
 }
 
+/* Günlük toplam yağış 30mm'yi geçerse "Kuvvetli Yağış" uyarısı gösterir.
+   Sadece Yağış metriği seçiliyken görünür, diğer metriklerde gizlenir. */
+const HEAVY_RAIN_THRESHOLD_MM = 30;
+function checkHeavyRainWarning(){
+  const el=document.getElementById('heavy-rain-warning');
+  const textEl=document.getElementById('heavy-rain-warning-text');
+  if(!el || !textEl) return;
+
+  if(activeMetric!=='precipitation' || !hourlyData || !hourlyData.time){
+    el.classList.add('hidden');
+    return;
+  }
+
+  const gunlukToplam={};
+  hourlyData.time.forEach((t,i)=>{
+    const gun=t.slice(0,10);
+    const deger=hourlyData.precipitation?.[i];
+    if(deger!=null) gunlukToplam[gun]=(gunlukToplam[gun]||0)+deger;
+  });
+
+  const gunAdlari=['Pazar','Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi'];
+  const asilanlar=Object.entries(gunlukToplam)
+    .filter(([_,toplam])=>toplam>=HEAVY_RAIN_THRESHOLD_MM)
+    .map(([gun,toplam])=>{
+      const dt=new Date(gun);
+      return `${gunAdlari[dt.getDay()]} ${String(dt.getDate()).padStart(2,'0')}.${String(dt.getMonth()+1).padStart(2,'0')} (${toplam.toFixed(0)} mm)`;
+    });
+
+  if(asilanlar.length){
+    el.classList.remove('hidden');
+    textEl.innerHTML=`<b>Kuvvetli Yağış Bekleniyor</b> — günlük toplam ${HEAVY_RAIN_THRESHOLD_MM} mm eşiğini aşan gün(ler): ${asilanlar.join(', ')}.`;
+  } else {
+    el.classList.add('hidden');
+  }
+}
+
 function renderForecastChart(){
   if(!hourlyData) return;
   const m=METRICS[activeMetric];
   const labels=hourlyData.time.map(fmtTime);
   if(chartInst) chartInst.destroy();
   chartInst=buildChart('hourly-chart',labels,hourlyData[activeMetric]||[],m.color,m.label,m.unit);
+  checkHeavyRainWarning();
 }
 function renderAqiChart(){
   if(!aqiHourly) return;
