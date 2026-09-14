@@ -791,15 +791,15 @@
     <!-- Harita Çiz -->
     <div>
       <h3 class="font-display text-xl font-700 text-white mb-1">🎨 Harita Çiz</h3>
-      <p class="text-slate-500 text-xs mb-4">Bölge boyayın, daire/çizgi çizin, hava durumu emojileri yerleştirin — bittiğinde aşağıdaki değerlendirme formuna görsel olarak eklenir.</p>
+      <p class="text-slate-500 text-xs mb-4">Fare ile basılı tutup sürükleyerek bölge çizin, sonra "Doldur" ile renk verin — daire/çizgi çizin, hava durumu emojileri yerleştirin.</p>
       <div class="glass rounded-2xl p-4">
         <div class="flex flex-wrap items-center gap-2 mb-3">
-          <button data-draw-mode="polygon" onclick="setDrawMode('polygon')" class="draw-tool-btn glass rounded-lg px-3 py-1.5 text-xs text-slate-300">🔷 Bölge</button>
+          <button data-draw-mode="freehand" onclick="setDrawMode('freehand')" class="draw-tool-btn glass rounded-lg px-3 py-1.5 text-xs text-slate-300">🖊️ Bölge Çiz</button>
+          <button data-draw-mode="fill" onclick="setDrawMode('fill')" class="draw-tool-btn glass rounded-lg px-3 py-1.5 text-xs text-slate-300">🪣 Doldur</button>
           <button data-draw-mode="circle" onclick="setDrawMode('circle')" class="draw-tool-btn glass rounded-lg px-3 py-1.5 text-xs text-slate-300">⭕ Daire</button>
           <button data-draw-mode="line" onclick="setDrawMode('line')" class="draw-tool-btn glass rounded-lg px-3 py-1.5 text-xs text-slate-300">➡️ Çizgi/Ok</button>
           <button data-draw-mode="emoji" onclick="setDrawMode('emoji')" class="draw-tool-btn glass rounded-lg px-3 py-1.5 text-xs text-slate-300">😀 Emoji</button>
           <input id="draw-color-picker" type="color" value="#38bdf8" title="Renk seç" class="w-8 h-8 rounded cursor-pointer border-0 bg-transparent">
-          <button onclick="finishPolygon()" id="draw-finish-btn" class="hidden btn-primary text-white text-xs px-3 py-1.5">Bölgeyi Bitir</button>
           <span class="flex-1"></span>
           <button onclick="undoLastDrawing()" class="glass rounded-lg px-3 py-1.5 text-xs text-slate-300">↩ Geri Al</button>
           <button onclick="clearAllDrawings()" class="glass rounded-lg px-3 py-1.5 text-xs text-red-400">🗑 Temizle</button>
@@ -3246,11 +3246,12 @@ async function adminApi(path, method, body){
 }
 
 /* ---------------------------------------------------------------
-   HARİTA ÇİZ (admin panelinde) — bölge boyama, daire, çizgi/ok,
-   emoji yerleştirme. Leaflet.draw eklentisi artık bakımı yapılmıyor
-   (kendi GitHub sayfasında kabul edilmiş), o yüzden Leaflet'in
-   kendi çekirdek fonksiyonlarıyla (L.polygon, L.circle, L.marker,
-   L.polyline) basit ve stabil bir sürüm kuruldu.
+   HARİTA ÇİZ (admin panelinde) — serbest çizim (fare basılı tutup
+   sürükleme), doldurma aracı, daire, çizgi/ok, emoji yerleştirme.
+   Leaflet.draw eklentisi artık bakımı yapılmıyor (kendi GitHub
+   sayfasında kabul edilmiş), o yüzden Leaflet'in kendi çekirdek
+   fonksiyonlarıyla (L.polygon, L.circle, L.marker, L.polyline)
+   basit ve stabil bir sürüm kuruldu.
 
    NOT: Bu harita, ana sitedeki (MapLibre/vektör) haritadan farklı
    olarak düz raster karo kullanıyor — çünkü çizimi görsele çevirme
@@ -3259,15 +3260,18 @@ async function adminApi(path, method, body){
    aynı kalıyor.
 --------------------------------------------------------------- */
 let drawMap=null;
-let drawMode=null;          // null | 'polygon' | 'circle' | 'line' | 'emoji'
+let drawMode=null;          // null | 'freehand' | 'fill' | 'circle' | 'line' | 'emoji'
 let drawColor='#38bdf8';
 let drawEmoji=null;
 let drawnLayers=[];         // geri al / temizle için tüm katmanlar
-let polyPoints=[];          // aktif çizilen bölgenin noktaları
-let polyPreview=null;       // bölge çizerken canlı önizleme çizgisi
 let circleFirst=null;       // daire için merkez noktası
 let lineFirst=null;         // çizgi için başlangıç noktası
 let drawTempMarker=null;    // ilk tık sonrası geçici işaretçi (daire/çizgi)
+
+/* Serbest çizim (bölge) durumu — fare basılı tutulduğu sürece nokta toplar */
+let isDrawingFreehand=false;
+let freehandPoints=[];
+let freehandPreview=null;
 
 function initDrawMap(){
   if(drawMap) return;   /* zaten kurulu, tekrar kurma */
@@ -3281,20 +3285,28 @@ function initDrawMap(){
   setTimeout(()=>drawMap.invalidateSize(),150);
 
   document.getElementById('draw-color-picker').addEventListener('input',e=>{ drawColor=e.target.value; });
+
   drawMap.on('click', onDrawMapClick);
+  drawMap.on('mousedown', onFreehandStart);
+  drawMap.on('mousemove', onFreehandMove);
+  drawMap.on('mouseup',   onFreehandEnd);
+  /* Fare haritadan dışarı çıkarsa da çizimi güvenle bitir */
+  drawMap.getContainer().addEventListener('mouseleave', ()=>{ if(isDrawingFreehand) onFreehandEnd(); });
 }
 
 function setDrawMode(mode){
   drawMode = (drawMode===mode) ? null : mode;   /* aynı butona tekrar basınca kapat */
-  finishPolygon();
   circleFirst=null; lineFirst=null;
   if(drawTempMarker){ drawMap.removeLayer(drawTempMarker); drawTempMarker=null; }
+  if(isDrawingFreehand) onFreehandEnd();
 
   document.querySelectorAll('.draw-tool-btn').forEach(b=>b.classList.toggle('active', b.dataset.drawMode===drawMode));
   document.getElementById('draw-emoji-palette').classList.toggle('hidden', drawMode!=='emoji');
+  drawMap.dragging[drawMode==='freehand' ? 'disable' : 'enable']();
 
   const hints={
-    polygon:'Bölgenin köşelerine tıklayın, bitirince "Bölgeyi Bitir"e basın.',
+    freehand:'Fareyi basılı tutup sürükleyerek bölgenin sınırını çizin, bırakınca kapanır.',
+    fill:'Bir renk seçin, sonra doldurmak istediğiniz çizili bölgenin içine tıklayın.',
     circle:'Merkez için tıklayın, sonra yarıçapı belirlemek için ikinci noktaya tıklayın.',
     line:'Başlangıç noktasına, sonra bitiş noktasına tıklayın.',
     emoji:'Bir emoji seçin, sonra haritada yerleştirmek istediğiniz yere tıklayın.',
@@ -3310,15 +3322,67 @@ function selectDrawEmoji(e){
   });
 }
 
+/* --- Serbest çizim: mousedown başlatır, mousemove noktaları toplar,
+   mouseup kapatıp poligonu (sadece dış çizgi, dolgu yok) oluşturur. */
+function onFreehandStart(e){
+  if(drawMode!=='freehand') return;
+  isDrawingFreehand=true;
+  freehandPoints=[e.latlng];
+}
+function onFreehandMove(e){
+  if(!isDrawingFreehand) return;
+  freehandPoints.push(e.latlng);
+  if(freehandPreview) drawMap.removeLayer(freehandPreview);
+  freehandPreview=L.polyline(freehandPoints,{color:drawColor,weight:2}).addTo(drawMap);
+}
+function onFreehandEnd(){
+  if(!isDrawingFreehand) return;
+  isDrawingFreehand=false;
+  if(freehandPreview){ drawMap.removeLayer(freehandPreview); freehandPreview=null; }
+  if(freehandPoints.length>=3){
+    /* Dolgu YOK (fillOpacity:0) — "Doldur" aracıyla ayrı bir adımda renklendirilir. */
+    const polygon=L.polygon(freehandPoints,{color:drawColor,weight:2,fillOpacity:0}).addTo(drawMap);
+    drawnLayers.push(polygon);
+  }
+  freehandPoints=[];
+}
+
+/* --- Doldurma aracı: tıklanan nokta hangi çizili şeklin içindeyse
+   onun dolgusunu seçili renkle günceller (poligon veya daire). */
+function pointInPolygon(pt, vs){
+  let inside=false;
+  for(let i=0,j=vs.length-1;i<vs.length;j=i++){
+    const xi=vs[i].lng, yi=vs[i].lat, xj=vs[j].lng, yj=vs[j].lat;
+    const intersect = ((yi>pt.lat)!==(yj>pt.lat)) && (pt.lng < (xj-xi)*(pt.lat-yi)/(yj-yi)+xi);
+    if(intersect) inside=!inside;
+  }
+  return inside;
+}
+function fillShapeAt(latlng){
+  for(let i=drawnLayers.length-1;i>=0;i--){
+    const layer=drawnLayers[i];
+    if(layer instanceof L.Polygon){
+      const vs=layer.getLatLngs()[0];
+      if(pointInPolygon(latlng, vs)){
+        layer.setStyle({fillColor:drawColor, fillOpacity:.4});
+        return true;
+      }
+    } else if(layer instanceof L.Circle){
+      if(layer.getLatLng().distanceTo(latlng) <= layer.getRadius()){
+        layer.setStyle({fillColor:drawColor, fillOpacity:.4});
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 function onDrawMapClick(e){
-  if(!drawMode) return;
+  if(!drawMode || drawMode==='freehand') return;   /* serbest çizim kendi mousedown/up akışını kullanır */
   const ll=e.latlng;
 
-  if(drawMode==='polygon'){
-    polyPoints.push(ll);
-    if(polyPreview) drawMap.removeLayer(polyPreview);
-    polyPreview=L.polyline(polyPoints,{color:drawColor,weight:2,dashArray:'4,4'}).addTo(drawMap);
-    document.getElementById('draw-finish-btn').classList.toggle('hidden', polyPoints.length<3);
+  if(drawMode==='fill'){
+    if(!fillShapeAt(ll)) toast('Buraya tıkladığınızda dolduracak çizili bir bölge bulunamadı','warn');
   }
 
   else if(drawMode==='circle'){
@@ -3327,7 +3391,7 @@ function onDrawMapClick(e){
       drawTempMarker=L.circleMarker(ll,{radius:5,color:drawColor}).addTo(drawMap);
     } else {
       const radiusM=circleFirst.distanceTo(ll);
-      const circle=L.circle(circleFirst,{radius:radiusM,color:drawColor,fillColor:drawColor,fillOpacity:.35,weight:2}).addTo(drawMap);
+      const circle=L.circle(circleFirst,{radius:radiusM,color:drawColor,weight:2,fillOpacity:0}).addTo(drawMap);
       drawnLayers.push(circle);
       if(drawTempMarker){ drawMap.removeLayer(drawTempMarker); drawTempMarker=null; }
       circleFirst=null;
@@ -3361,16 +3425,6 @@ function onDrawMapClick(e){
   }
 }
 
-function finishPolygon(){
-  if(polyPoints.length>=3){
-    const polygon=L.polygon(polyPoints,{color:drawColor,fillColor:drawColor,fillOpacity:.35,weight:2}).addTo(drawMap);
-    drawnLayers.push(polygon);
-  }
-  if(polyPreview){ drawMap.removeLayer(polyPreview); polyPreview=null; }
-  polyPoints=[];
-  document.getElementById('draw-finish-btn')?.classList.add('hidden');
-}
-
 function undoLastDrawing(){
   const last=drawnLayers.pop();
   if(last) drawMap.removeLayer(last);
@@ -3379,14 +3433,14 @@ function undoLastDrawing(){
 function clearAllDrawings(){
   drawnLayers.forEach(l=>drawMap.removeLayer(l));
   drawnLayers=[];
-  if(polyPreview){ drawMap.removeLayer(polyPreview); polyPreview=null; }
-  polyPoints=[];
+  if(freehandPreview){ drawMap.removeLayer(freehandPreview); freehandPreview=null; }
+  freehandPoints=[]; isDrawingFreehand=false;
   toast('Çizimler temizlendi','info');
 }
 
 async function exportDrawingToNote(){
   if(!drawMap){ toast('Harita henüz hazır değil','warn'); return; }
-  finishPolygon();
+  if(isDrawingFreehand) onFreehandEnd();
 
   /* Çizerken haritada gezinmiş/yakınlaşmış olabilirsiniz — dışa aktarım
      anında sadece o an ekranda görünen kısım değil, TÜM çizimlerin
