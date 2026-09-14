@@ -144,9 +144,12 @@
     .draw-tool-btn.active{border-color:#38bdf8;color:#38bdf8;background:rgba(56,189,248,.14)}
     .draw-emoji-marker{cursor:move;filter:drop-shadow(0 1px 3px rgba(0,0,0,.6))}
     .draw-emoji-marker svg{width:40px;height:34px;display:block}
-    .weather-icon-btn{width:44px;height:38px;display:flex;align-items:center;justify-content:center;padding:2px}
-    .weather-icon-btn svg{width:100%;height:100%}
+    .weather-icon-btn{width:76px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:6px 4px}
+    .weather-icon-svg{width:52px;height:44px;display:block}
+    .weather-icon-svg svg{width:100%;height:100%}
+    .weather-icon-label{font-size:10px;line-height:1.15;color:#94a3b8;text-align:center;white-space:normal}
     .weather-icon-btn.selected{border-color:#38bdf8;background:rgba(56,189,248,.14)}
+    .weather-icon-btn.selected .weather-icon-label{color:#38bdf8;font-weight:600}
 
     /* Word (.docx) belgesinden gelen HTML çıplak semantik etiketlerle
        (p, h1, ul, strong...) geliyor, hiç stil taşımıyor — bu kural
@@ -3721,8 +3724,9 @@ function renderWeatherIconPalette(){
   const el=document.getElementById('draw-emoji-palette');
   if(!el || el.dataset.built) return;   /* bir kez oluştur, tekrar kurma */
   el.innerHTML=Object.keys(WEATHER_ICON_SVGS).map(key=>`
-    <button onclick="selectDrawEmoji('${key}')" data-icon-key="${key}" title="${WEATHER_ICON_LABELS[key]}" class="weather-icon-btn glass rounded-lg hover:border-brand/40 transition-colors">
-      ${makeUniqueSvg(WEATHER_ICON_SVGS[key])}
+    <button onclick="selectDrawEmoji('${key}')" data-icon-key="${key}" class="weather-icon-btn glass rounded-lg hover:border-brand/40 transition-colors">
+      <span class="weather-icon-svg">${makeUniqueSvg(WEATHER_ICON_SVGS[key])}</span>
+      <span class="weather-icon-label">${WEATHER_ICON_LABELS[key]}</span>
     </button>`).join('');
   el.dataset.built='1';
 }
