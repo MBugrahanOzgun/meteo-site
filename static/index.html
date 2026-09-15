@@ -4370,7 +4370,12 @@ document.getElementById('btn-locate').addEventListener('click',()=>{
   if(!navigator.geolocation){toast('Konum desteklenmiyor','error');return;}
   toast('Konum alınıyor…','info');
   navigator.geolocation.getCurrentPosition(
-    p=>loadAll(p.coords.latitude,p.coords.longitude),
+    p=>{
+      const {latitude,longitude}=p.coords;
+      marker.setLatLng([latitude,longitude]);
+      map.setView([latitude,longitude],9);
+      loadAll(latitude,longitude);
+    },
     ()=>toast('Konum izni reddedildi','error')
   );
 });
@@ -4623,6 +4628,7 @@ loadExpertContent();
 (function initLocation(){
   let lat=39.9334, lon=32.8597; 
   const m=location.hash.match(/^#(-?[\d.]+),(-?[\d.]+)$/);
+  const hashVarMi=!!m;
   if(m){ lat=parseFloat(m[1]); lon=parseFloat(m[2]); }
 
   marker=L.marker([lat,lon],{icon:mIcon}).addTo(map);
@@ -4630,6 +4636,25 @@ loadExpertContent();
   const hint=document.getElementById('map-hint');
   if(hint){hint.style.opacity='0';hint.style.pointerEvents='none';}
   loadAll(lat,lon,{noScroll:true});
+
+  /* Linkte belirli bir konum paylaşılmışsa (#enlem,boylam) onu değiştirmiyoruz.
+     Aksi halde, sayfa açılır açılmaz tarayıcıdan sessizce konum izni isteyip
+     verilirse kullanıcının gerçek konumuna otomatik geçiyoruz — izin
+     verilmezse/desteklenmiyorsa varsayılan (Ankara) sessizce kalmaya devam
+     eder, hata gösterilmez (kullanıcı henüz hiçbir şeye tıklamadı). */
+  if(!hashVarMi && navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(
+      p=>{
+        const {latitude,longitude}=p.coords;
+        marker.setLatLng([latitude,longitude]);
+        map.setView([latitude,longitude],9);
+        loadAll(latitude,longitude,{noScroll:true});
+        toast('Konumunuz bulundu, hava durumu güncellendi ✓','success');
+      },
+      ()=>{ /* izin verilmedi veya hata oluştu — sessizce varsayılanda kal */ },
+      { timeout:8000 }
+    );
+  }
 })();
 </script>
 </body>
