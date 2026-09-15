@@ -366,7 +366,7 @@
   <!-- Danışmanlık — sektör önizleme kartları (bitkiler önce, sonra enerji, sonra inşaat) -->
   <div class="relative z-10 w-full max-w-5xl mx-auto px-6 mt-14 text-center">
     <p class="text-center text-slate-500 text-xs uppercase tracking-widest mb-4">Sektörünüzü Seçin — Canlı Danışmanlık Panelleri</p>
-    <div class="grid grid-cols-4 md:grid-cols-8 gap-2.5">
+    <div class="grid grid-cols-3 md:grid-cols-9 gap-2.5">
       <button onclick="goToSector('hazelnut')" class="glass rounded-xl p-3 text-center hover:border-brand/40 transition-colors">
         <span class="text-2xl block mb-1">🌰</span>
         <span class="text-xs font-600 text-white block">Fındık</span>
@@ -394,6 +394,10 @@
       <button onclick="goToSector('aviation')" class="glass rounded-xl p-3 text-center hover:border-brand/40 transition-colors">
         <span class="text-2xl block mb-1">✈️</span>
         <span class="text-xs font-600 text-white block">Havacılık</span>
+      </button>
+      <button onclick="goToSector('stadium')" class="glass rounded-xl p-3 text-center hover:border-brand/40 transition-colors">
+        <span class="text-2xl block mb-1">⚽</span>
+        <span class="text-xs font-600 text-white block">Stadyum</span>
       </button>
       <button onclick="showPage('danismanlik')" class="glass rounded-xl p-3 text-center hover:border-brand/40 transition-colors">
         <span class="text-2xl block mb-1">📋</span>
@@ -1044,6 +1048,60 @@
   </p>
 </template>
 
+<!-- Stadyum paneli şablonu -->
+<template id="stadium-template">
+  <p class="text-slate-400 text-sm leading-relaxed mb-8">Yıldırım/fırtına riski, sıcaklık ve zorunlu su molası eşiği, zemin durumu ve rüzgar — FIFA/FIFPro ve TFF talimatlarındaki eşiklere göre. Aşağıdan stadyumun bulunduğu yeri seçin.</p>
+
+  <div class="loc-bar glass rounded-2xl p-5 mb-10" data-loc-bar>
+    <div class="loc-field" style="flex:2;position:relative">
+      <label>Şehir / İlçe ara</label>
+      <input class="loc-input loc-search" type="text" placeholder="Stadyumun bulunduğu yeri yazın…" autocomplete="off">
+    </div>
+    <div class="loc-field"><label>Enlem</label><input class="loc-input loc-lat" type="text" inputmode="decimal" placeholder="41.01"></div>
+    <div class="loc-field"><label>Boylam</label><input class="loc-input loc-lon" type="text" inputmode="decimal" placeholder="28.97"></div>
+    <button class="loc-apply btn-primary text-white text-sm px-6 py-2.5 whitespace-nowrap">Uygula</button>
+    <div class="loc-current w-full text-xs text-slate-500 pt-1">Seçili konum: <span class="loc-current-text text-slate-300">—</span></div>
+  </div>
+
+  <!-- Yıldırım/Fırtına -->
+  <div class="mb-12">
+    <h3 class="font-display text-2xl font-700 text-white mb-1">⚡ Yıldırım / Fırtına Riski</h3>
+    <p class="text-slate-500 text-sm mb-5">FIFA'nın uyguladığı protokole göre stadyum çevresinde ~13 km yarıçapta yıldırım tespit edilirse müsabaka durdurulur; son yıldırım/gök gürültüsünden en az 30 dakika geçmeden oyun başlamaz. Bu panel, o günün tahmininde gök gürültülü fırtına kodu olup olmadığını gösterir.</p>
+    <div id="stadium-storm-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
+      <div class="skel h-32 rounded-2xl col-span-2 sm:col-span-3 lg:col-span-7"></div>
+    </div>
+  </div>
+
+  <!-- Sıcaklık ve su molası -->
+  <div class="mb-12">
+    <h3 class="font-display text-2xl font-700 text-white mb-1">🌡️ Sıcaklık ve Su Molası Riski</h3>
+    <p class="text-slate-500 text-sm mb-5">FIFPro'nun belirlediği eşikler: 26°C'de oyuncular için ek sıvı alımı/zorunlu su molası, 28°C'de yüksek risk (bazı sağlık kılavuzlarına göre erteleme değerlendirilir). Burada hissedilen sıcaklık (nem, rüzgar dahil) esas alınır, resmi WBGT ölçümü yerine geçmez.</p>
+    <div id="stadium-heat-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
+      <div class="skel h-32 rounded-2xl col-span-2 sm:col-span-3 lg:col-span-7"></div>
+    </div>
+  </div>
+
+  <!-- Zemin durumu -->
+  <div class="mb-12">
+    <h3 class="font-display text-2xl font-700 text-white mb-1">🌱 Zemin Durumu</h3>
+    <p class="text-slate-500 text-sm mb-5">TFF talimatlarına göre çim sulaması müsabaka başlangıcından 75 dakika önce bitirilmelidir. Yoğun yağış su baskını, donmuş zemin ise sertleşme/kaygan zemin riski taşır — ikisi de erteleme sebebi olabilir.</p>
+    <div id="stadium-pitch-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
+      <div class="skel h-32 rounded-2xl col-span-2 sm:col-span-3 lg:col-span-7"></div>
+    </div>
+  </div>
+
+  <!-- Rüzgar -->
+  <div>
+    <h3 class="font-display text-2xl font-700 text-white mb-1">💨 Rüzgar</h3>
+    <p class="text-slate-500 text-sm mb-5">Resmi bir federasyon eşiği bulunmuyor; bu değerlendirme genel pratik kabullere dayanır. Kuvvetli rüzgar top hareketini ve oyun kalitesini etkiler, açık/hafif tribün yapılarında ayrıca dikkat gerektirir.</p>
+    <div id="stadium-wind-list" class="space-y-2"></div>
+  </div>
+
+  <p class="text-slate-600 text-xs mt-10 leading-relaxed max-w-3xl">
+    Yıldırım eşiği FIFA'nın 2026 Dünya Kupası'nda uyguladığı protokole (~13 km / 30 dakika), sıcaklık eşikleri FIFPro'nun resmi tavsiyelerine, zemin sulama kuralı TFF Süper Lig/TFF Talimatları'na dayanır. Rüzgar değerlendirmesi resmi bir kurala dayanmaz, genel pratik kabuldür. Nihai erteleme/durdurma kararı sahadaki hakeme ve federasyona aittir; bu panel bir resmi karar yerine geçmez.
+  </p>
+</template>
+
 <!-- Fındık paneli şablonu -->
 <template id="hazelnut-template">
   <p class="text-slate-400 text-sm leading-relaxed mb-8">Fındığın fenolojik dönemine göre değişen don eşikleri, ilaçlama pencereleri, harman-kurutma uygunluğu ve külleme riski. Aşağıdan bahçenizin bulunduğu yeri seçin.</p>
@@ -1587,6 +1645,7 @@ async function fetchForecast(lat, lon) {
       'weather_code','temperature_2m_max','temperature_2m_min',
       'precipitation_probability_max','wind_speed_10m_max',
       'sunrise','sunset','uv_index_max','precipitation_sum',
+      'apparent_temperature_max',
     ].join(','),
   });
   const d = await gFetch(`${OM_FORECAST}?${p}`);
@@ -1651,6 +1710,7 @@ async function fetchForecast(lat, lon) {
   renderAgri(d.daily||{}, hourlyData);
   renderEnergy(d.daily||{}, hourlyData);
   renderConstruction(d.daily||{}, hourlyData);
+  renderStadium(d.daily||{}, hourlyData);
   Object.keys(CROPS).forEach(key => renderCropPanel(key, d.daily||{}, hourlyData));
 
   /* Bugünün ortalaması (max+min)/2 — geçmiş yıllar ortalamasıyla
@@ -2612,6 +2672,116 @@ function renderConstruction(dl, hourly){
                           dl.precipitation_probability_max?.[i], dl.precipitation_sum?.[i],
                           dl.wind_speed_10m_max?.[i]);
       const dt = new Date(t);
+      return row(`${i===0?'Bugün':AGRI_DAYS[dt.getDay()]} ${String(dt.getDate()).padStart(2,'0')}.${String(dt.getMonth()+1).padStart(2,'0')}.${dt.getFullYear()}`,
+                 r.label, AGRI_CLS[r.cls], r.note);
+    }).join('');
+  }
+}
+
+/* ---------------------------------------------------------------
+   STADYUM KARAR PANELİ
+   Kaynaklar: FIFA'nın 2026 Dünya Kupası'nda uyguladığı yıldırım
+   protokolü (~13 km / 30 dk), FIFPro'nun resmi sıcaklık eşikleri
+   (26°C su molası, 28°C yüksek risk), TFF Süper Lig/2. Lig Statüsü
+   (zemin sulama kuralı — müsabakadan 75 dk önce bitirilmeli).
+--------------------------------------------------------------- */
+
+/* Yıldırım/fırtına: o günün WMO kodu gök gürültülü fırtına (95/96/99) mu */
+function stadiumStormScore(weatherCode){
+  if(weatherCode==null) return {cls:'slate', label:'Veri yok', note:''};
+  if([96,99].includes(weatherCode))
+    return {cls:'red', label:'Yüksek Risk — Dolu/Fırtına', note:'Gök gürültülü fırtına + dolu kodu. FIFA protokolüne göre ~13 km yarıçapta yıldırım tespitinde müsabaka durur, son yıldırımdan 30 dk geçmeden başlamaz.'};
+  if(weatherCode===95)
+    return {cls:'orange', label:'Risk — Gök Gürültülü Fırtına', note:'Gök gürültülü fırtına bekleniyor. Yıldırım tespit edilirse müsabaka anında durdurulur, 30 dk bekleme kuralı işler.'};
+  return {cls:'emerald', label:'Düşük', note:'Fırtına kodu tespit edilmedi.'};
+}
+
+/* Sıcaklık / su molası: FIFPro eşikleri (hissedilen sıcaklık esas alınır) */
+function stadiumHeatScore(apparentMax){
+  if(apparentMax==null) return {cls:'slate', label:'Veri yok', note:''};
+  if(apparentMax>=28)
+    return {cls:'red', label:'Yüksek Risk', note:`Hissedilen ${apparentMax.toFixed(0)}° — FIFPro'nun 28°C yüksek risk eşiğinde/üzerinde. Erteleme değerlendirilebilir, zorunlu su molası gerekir.`};
+  if(apparentMax>=26)
+    return {cls:'orange', label:'Su Molası Gerekli', note:`Hissedilen ${apparentMax.toFixed(0)}° — FIFPro'nun 26°C eşiğini aştı, ek sıvı alımı/zorunlu su molası önerilir.`};
+  if(apparentMax>=20)
+    return {cls:'amber', label:'Takip Edin', note:`Hissedilen ${apparentMax.toFixed(0)}° — henüz eşik altında ama sıcak bir gün.`};
+  return {cls:'emerald', label:'Normal', note:`Hissedilen ${apparentMax.toFixed(0)}° — sıcaklık kaynaklı risk yok.`};
+}
+
+/* Zemin durumu: yoğun yağış (su baskını) veya don (sertleşme/kayganlık) */
+function stadiumPitchScore(tmin, precipSum){
+  if(tmin==null && precipSum==null) return {cls:'slate', label:'Veri yok', note:''};
+  if(tmin!=null && tmin<=0)
+    return {cls:'red', label:'Don Riski', note:`Min ${tmin.toFixed(1)}° — zemin donabilir, sertleşme/kayganlık riski. UEFA maçlarında bu sebeple erteleme örnekleri var.`};
+  if(precipSum!=null && precipSum>=20)
+    return {cls:'red', label:'Su Baskını Riski', note:`Günlük ${precipSum.toFixed(0)} mm yağış — zeminde su birikmesi/su baskını riski, erteleme sebebi olabilir.`};
+  if(precipSum!=null && precipSum>=8)
+    return {cls:'amber', label:'Islak Zemin', note:`Günlük ${precipSum.toFixed(0)} mm yağış — zemin ıslak olacak, sulamaya muhtemelen gerek kalmaz.`};
+  return {cls:'emerald', label:'Normal — Sulama Gerekli', note:'Belirgin yağış/don riski yok. TFF kuralına göre çim sulaması müsabakadan 75 dk önce bitirilmeli.'};
+}
+
+/* Rüzgar: resmi eşik yok, genel pratik kabul */
+function stadiumWindScore(windMax){
+  if(windMax==null) return {cls:'slate', label:'Veri yok', note:''};
+  if(windMax>=14)
+    return {cls:'orange', label:'Kuvvetli', note:`${windMax.toFixed(1)} m/s — top hareketini belirgin etkiler, açık/hafif tribün yapılarında ek dikkat gerekir.`};
+  if(windMax>=8)
+    return {cls:'amber', label:'Orta', note:`${windMax.toFixed(1)} m/s — oyun kalitesini bir miktar etkileyebilir.`};
+  return {cls:'emerald', label:'Düşük', note:`${windMax.toFixed(1)} m/s — rüzgar kaynaklı belirgin bir etki beklenmiyor.`};
+}
+
+let lastStadiumDaily={};
+function renderStadium(dl, hourly){
+  lastStadiumDaily=dl;
+  const stormGrid=document.getElementById('stadium-storm-grid');
+  if(!stormGrid) return;   /* sekme henüz DOM'da değil */
+  if(!dl || !dl.time || !dl.time.length) return;
+
+  const gridBuilder=(scoreFn, valueFn, unit)=>{
+    let html='';
+    for(let i=0;i<dl.time.length;i++){
+      const dt=new Date(dl.time[i]);
+      const val=valueFn(i);
+      const r=scoreFn(i);
+      const c=AGRI_CLS[r.cls];
+      html+=`
+        <div class="rounded-2xl p-4 border ${c.bg} ${c.br} flex flex-col gap-1.5">
+          <p class="text-slate-400 text-xs font-600">${i===0?'Bugün':AGRI_DAYS[dt.getDay()]}</p>
+          <p class="text-slate-600 text-xs">${String(dt.getDate()).padStart(2,'0')}.${String(dt.getMonth()+1).padStart(2,'0')}.${dt.getFullYear()}</p>
+          <p class="font-display text-xl font-700 text-white mt-1">${val!=null?val+unit:'—'}</p>
+          <p class="${c.tx} text-xs font-600 leading-tight min-h-[2.4em]">${r.label}</p>
+          <p class="text-slate-500 text-[11px] leading-snug">${r.note}</p>
+        </div>`;
+    }
+    return html;
+  };
+
+  stormGrid.innerHTML=gridBuilder(
+    i=>stadiumStormScore(dl.weather_code?.[i]),
+    i=>{ const [ic]=wmo(dl.weather_code?.[i]); return ic; }, ''
+  );
+
+  const heatGrid=document.getElementById('stadium-heat-grid');
+  if(heatGrid){
+    heatGrid.innerHTML=gridBuilder(
+      i=>stadiumHeatScore(dl.apparent_temperature_max?.[i]),
+      i=>dl.apparent_temperature_max?.[i]!=null?Math.round(dl.apparent_temperature_max[i]):null, '°'
+    );
+  }
+
+  const pitchGrid=document.getElementById('stadium-pitch-grid');
+  if(pitchGrid){
+    pitchGrid.innerHTML=gridBuilder(
+      i=>stadiumPitchScore(dl.temperature_2m_min?.[i], dl.precipitation_sum?.[i]),
+      i=>dl.precipitation_sum?.[i]!=null?dl.precipitation_sum[i].toFixed(0):null, ' mm'
+    );
+  }
+
+  const windList=document.getElementById('stadium-wind-list');
+  if(windList){
+    windList.innerHTML=dl.time.map((t,i)=>{
+      const r=stadiumWindScore(dl.wind_speed_10m_max?.[i]);
+      const dt=new Date(t);
       return row(`${i===0?'Bugün':AGRI_DAYS[dt.getDay()]} ${String(dt.getDate()).padStart(2,'0')}.${String(dt.getMonth()+1).padStart(2,'0')}.${dt.getFullYear()}`,
                  r.label, AGRI_CLS[r.cls], r.note);
     }).join('');
@@ -4566,6 +4736,19 @@ async function loadContent() {
   if(avTmpl) avPanel.innerHTML=avTmpl.innerHTML;
   panelC.appendChild(avPanel);
 
+  /* Stadyum: Canlı Panel */
+  const stBtn=document.createElement('button');
+  stBtn.className='tab-btn btn-outline text-xs sm:text-sm px-3.5 py-2 sm:px-5 sm:py-2.5 text-slate-300';
+  stBtn.innerHTML='⚽ Stadyum<span class="hidden sm:inline"> (Canlı Panel)</span>';
+  stBtn.dataset.tab='stadium';
+  btnC.appendChild(stBtn);
+
+  const stPanel=document.createElement('div');
+  stPanel.id='tab-stadium'; stPanel.className='tab-panel glass rounded-2xl p-4 sm:p-8';
+  const stTmpl = document.getElementById('stadium-template');
+  if(stTmpl) stPanel.innerHTML=stTmpl.innerHTML;
+  panelC.appendChild(stPanel);
+
   /* Denizcilik / İnşaat gibi statik metin sekmeleri — canlı panellerin ardından */
   tabs.forEach((tab)=>{
     const btn=document.createElement('button');
@@ -4589,6 +4772,7 @@ async function loadContent() {
     renderAgri(lastDaily, hourlyData);
     if(typeof renderEnergy === 'function') renderEnergy(lastDaily, hourlyData);
     if(typeof renderConstruction === 'function') renderConstruction(lastDaily, hourlyData);
+    if(typeof renderStadium === 'function') renderStadium(lastDaily, hourlyData);
     Object.keys(CROPS).forEach(key => renderCropPanel(key, lastDaily, hourlyData));
   }
 
@@ -4608,6 +4792,9 @@ async function loadContent() {
     }
     if(btn.dataset.tab==='construction' && lastConstructionDaily && lastConstructionDaily.time) {
       renderConstruction(lastConstructionDaily, hourlyData);
+    }
+    if(btn.dataset.tab==='stadium' && lastStadiumDaily && lastStadiumDaily.time) {
+      renderStadium(lastStadiumDaily, hourlyData);
     }
     if(btn.dataset.tab?.startsWith('crop-')){
       const key = btn.dataset.tab.replace('crop-','');
