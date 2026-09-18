@@ -365,55 +365,10 @@
     </div>
   </div>
 
-  <!-- Danışmanlık — sektör önizleme kartları (bitkiler önce, sonra enerji, sonra inşaat) -->
+  <!-- Danışmanlık — sektör önizleme kartları (kategori bazlı, tıklayınca alt sektörler açılır) -->
   <div class="relative z-10 w-full max-w-5xl mx-auto px-6 mt-14 text-center">
-    <p class="text-center text-slate-500 text-xs uppercase tracking-widest mb-4">Sektörünüzü Seçin — Canlı Danışmanlık Panelleri</p>
-    <div class="grid grid-cols-3 md:grid-cols-11 gap-2.5">
-      <button onclick="goToSector('hazelnut')" class="glass rounded-xl p-3 text-center hover:border-brand/40 transition-colors">
-        <span class="text-2xl block mb-1">🌰</span>
-        <span class="text-xs font-600 text-white block">Fındık</span>
-      </button>
-      <button onclick="goToSector('crop-bugday')" class="glass rounded-xl p-3 text-center hover:border-brand/40 transition-colors">
-        <span class="text-2xl block mb-1">🌾</span>
-        <span class="text-xs font-600 text-white block">Buğday</span>
-      </button>
-      <button onclick="goToSector('crop-uzum')" class="glass rounded-xl p-3 text-center hover:border-brand/40 transition-colors">
-        <span class="text-2xl block mb-1">🍇</span>
-        <span class="text-xs font-600 text-white block">Üzüm</span>
-      </button>
-      <button onclick="goToSector('crop-kayisi')" class="glass rounded-xl p-3 text-center hover:border-brand/40 transition-colors">
-        <span class="text-2xl block mb-1">🍑</span>
-        <span class="text-xs font-600 text-white block">Kayısı</span>
-      </button>
-      <button onclick="goToSector('energy-live')" class="glass rounded-xl p-3 text-center hover:border-brand/40 transition-colors">
-        <span class="text-2xl block mb-1">⚡</span>
-        <span class="text-xs font-600 text-white block">Enerji</span>
-      </button>
-      <button onclick="goToSector('construction')" class="glass rounded-xl p-3 text-center hover:border-brand/40 transition-colors">
-        <span class="text-2xl block mb-1">🏗️</span>
-        <span class="text-xs font-600 text-white block">İnşaat</span>
-      </button>
-      <button onclick="goToSector('aviation')" class="glass rounded-xl p-3 text-center hover:border-brand/40 transition-colors">
-        <span class="text-2xl block mb-1">✈️</span>
-        <span class="text-xs font-600 text-white block">Havacılık</span>
-      </button>
-      <button onclick="goToSector('stadium')" class="glass rounded-xl p-3 text-center hover:border-brand/40 transition-colors">
-        <span class="text-2xl block mb-1">⚽</span>
-        <span class="text-xs font-600 text-white block">Stadyum</span>
-      </button>
-      <button onclick="goToSector('ski')" class="glass rounded-xl p-3 text-center hover:border-brand/40 transition-colors">
-        <span class="text-2xl block mb-1">⛷️</span>
-        <span class="text-xs font-600 text-white block">Kayak</span>
-      </button>
-      <button onclick="goToSector('beekeeping')" class="glass rounded-xl p-3 text-center hover:border-brand/40 transition-colors">
-        <span class="text-2xl block mb-1">🐝</span>
-        <span class="text-xs font-600 text-white block">Arıcılık</span>
-      </button>
-      <button onclick="showPage('danismanlik')" class="glass rounded-xl p-3 text-center hover:border-brand/40 transition-colors">
-        <span class="text-2xl block mb-1">📋</span>
-        <span class="text-xs font-600 text-white block">Tümü</span>
-      </button>
-    </div>
+    <p id="sector-grid-title" class="text-center text-slate-500 text-xs uppercase tracking-widest mb-4">Sektörünüzü Seçin — Canlı Danışmanlık Panelleri</p>
+    <div id="sector-grid" class="grid grid-cols-4 md:grid-cols-8 gap-2.5"></div>
   </div>
 
   <div class="absolute bottom-10 inset-x-0 flex justify-center animate-bounce">
@@ -5509,10 +5464,82 @@ function showPage(page){
   if(PAGE_REFRESH[page]) setTimeout(PAGE_REFRESH[page], 60);
 }
 
+/* ---------------------------------------------------------------
+   ÖZET SAYFASI — SEKTÖR KARTLARI (kategori → alt sektör)
+   Tarım gibi birden fazla ürünü olan kategoriler tek bir karta
+   toplanır; karta basılınca alt sektörler (Fındık, Buğday…) açılır,
+   alt sektöre basılınca goToSector() ile Danışmanlık sekmesindeki
+   ilgili canlı panel doğrudan açılır.
+--------------------------------------------------------------- */
+const SECTOR_MENU=[
+  {type:'group', key:'tarim', icon:'🌾', label:'Tarım', children:[
+    {key:'hazelnut',    icon:'🌰', label:'Fındık'},
+    {key:'crop-bugday', icon:'🌾', label:'Buğday'},
+    {key:'crop-uzum',   icon:'🍇', label:'Üzüm'},
+    {key:'crop-kayisi', icon:'🍑', label:'Kayısı'},
+  ]},
+  {type:'leaf', key:'energy-live', icon:'⚡',  label:'Enerji'},
+  {type:'leaf', key:'construction', icon:'🏗️', label:'İnşaat'},
+  {type:'leaf', key:'aviation',    icon:'✈️',  label:'Havacılık'},
+  {type:'leaf', key:'stadium',     icon:'⚽',  label:'Stadyum'},
+  {type:'leaf', key:'ski',         icon:'⛷️',  label:'Kayak'},
+  {type:'leaf', key:'beekeeping',  icon:'🐝',  label:'Arıcılık'},
+  {type:'all'},
+];
+let sectorGridView=null; /* null = üst kategori görünümü, aksi halde açık grubun key'i */
+function openSectorGroup(key){ sectorGridView=key; renderSectorGrid(); }
+function closeSectorGroup(){ sectorGridView=null; renderSectorGrid(); }
+function renderSectorGrid(){
+  const el=document.getElementById('sector-grid');
+  const titleEl=document.getElementById('sector-grid-title');
+  if(!el) return;
+  const cardCls='glass rounded-xl p-3 text-center hover:border-brand/40 transition-colors';
+  let html='';
+
+  if(sectorGridView){
+    const grp=SECTOR_MENU.find(m=>m.type==='group' && m.key===sectorGridView);
+    if(!grp){ sectorGridView=null; renderSectorGrid(); return; }
+    if(titleEl) titleEl.textContent=grp.label+' — Alt Sektör Seçin';
+    html+=`<button onclick="closeSectorGroup()" class="${cardCls} border-dashed">
+        <span class="text-2xl block mb-1">◀</span>
+        <span class="text-xs font-600 text-white block">Geri</span>
+      </button>`;
+    grp.children.forEach(c=>{
+      html+=`<button onclick="goToSector('${c.key}')" class="${cardCls}">
+          <span class="text-2xl block mb-1">${c.icon}</span>
+          <span class="text-xs font-600 text-white block">${c.label}</span>
+        </button>`;
+    });
+  } else {
+    if(titleEl) titleEl.textContent='Sektörünüzü Seçin — Canlı Danışmanlık Panelleri';
+    SECTOR_MENU.forEach(m=>{
+      if(m.type==='group'){
+        html+=`<button onclick="openSectorGroup('${m.key}')" class="${cardCls}">
+            <span class="text-2xl block mb-1">${m.icon}</span>
+            <span class="text-xs font-600 text-white block">${m.label} <span class="text-slate-500">▾</span></span>
+          </button>`;
+      } else if(m.type==='leaf'){
+        html+=`<button onclick="goToSector('${m.key}')" class="${cardCls}">
+            <span class="text-2xl block mb-1">${m.icon}</span>
+            <span class="text-xs font-600 text-white block">${m.label}</span>
+          </button>`;
+      } else if(m.type==='all'){
+        html+=`<button onclick="showPage('danismanlik')" class="${cardCls}">
+            <span class="text-2xl block mb-1">📋</span>
+            <span class="text-xs font-600 text-white block">Tümü</span>
+          </button>`;
+      }
+    });
+  }
+  el.innerHTML=html;
+}
+renderSectorGrid();
+
 /* Özet'teki sektör kartlarından direkt ilgili danışmanlık sekmesine atlar.
    Sekmeler loadContent() ile sayfa açılışında zaten oluşturulmuş olur;
    yine de emniyet için kısa bir gecikmeyle arayıp tıklıyoruz. */
 function goToSector(tabKey){
+  sectorGridView=null; renderSectorGrid();
   showPage('danismanlik');
   const tryClick = (n)=>{
     const btn = document.querySelector(`.tab-btn[data-tab="${tabKey}"]`);
