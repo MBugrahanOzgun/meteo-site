@@ -26,8 +26,10 @@ DB_PATH = os.environ.get("DB_PATH", "meteo.db")
 UPLOADS_DIR = os.path.join(os.path.dirname(os.path.abspath(DB_PATH)) or ".", "uploads")
 os.makedirs(UPLOADS_DIR, exist_ok=True)
 
-MAX_UPLOAD_BYTES = 6 * 1024 * 1024  # 6 MB üst sınır
+MAX_UPLOAD_BYTES = 6 * 1024 * 1024  # 6 MB üst sınır (resim)
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+
+MAX_PDF_BYTES = 20 * 1024 * 1024  # 20 MB üst sınır (pdf raporlar resimden büyük olabilir)
 
 # Admin paneli şifresi — Render'da ortam değişkeni olarak ayarlanır,
 # koda asla gömülmez. Ayarlanmamışsa admin uçları devre dışı kalır.
@@ -76,6 +78,13 @@ def init_db():
     # yazılan notlarda) düz metin olan 'body' kullanılır.
     try:
         con.execute("ALTER TABLE expert_notes ADD COLUMN body_html TEXT")
+    except sqlite3.OperationalError:
+        pass  # sütun zaten var
+
+    # pdf_url: dışarıdan yüklenen PDF dosyasının erişim adresi (isteğe bağlı,
+    # değerlendirme metnine ek olarak orijinal rapor/döküman eklenebilsin diye)
+    try:
+        con.execute("ALTER TABLE expert_notes ADD COLUMN pdf_url TEXT")
     except sqlite3.OperationalError:
         pass  # sütun zaten var
 
@@ -212,6 +221,7 @@ class NotePayload(BaseModel):
     body: str
     image_url: str | None = None
     body_html: str | None = None
+    pdf_url: str | None = None
 
 
 class TablePayload(BaseModel):
@@ -344,7 +354,7 @@ def get_notes():
     con = sqlite3.connect(DB_PATH)
     con.row_factory = sqlite3.Row
     rows = con.execute(
-        "SELECT id, title, body, created_at, image_url, body_html FROM expert_notes ORDER BY created_at DESC"
+        "SELECT id, title, body, created_at, image_url, body_html, pdf_url FROM expert_notes ORDER BY created_at DESC"
     ).fetchall()
     con.close()
     return {"notes": [dict(r) for r in rows]}
@@ -359,8 +369,8 @@ def add_note(payload: NotePayload, authorization: str | None = Header(default=No
         raise HTTPException(status_code=400, detail="Başlık ve metin gerekli")
     con = sqlite3.connect(DB_PATH)
     con.execute(
-        "INSERT INTO expert_notes (title, body, created_at, image_url, body_html) VALUES (?,?,?,?,?)",
-        (title, body, datetime.now(timezone.utc).isoformat(), payload.image_url, payload.body_html),
+        "INSERT INTO expert_notes (title, body, created_at, image_url, body_html, pdf_url) VALUES (?,?,?,?,?,?)",
+        (title, body, datetime.now(timezone.utc).isoformat(), payload.image_url, payload.body_html, payload.pdf_url),
     )
     con.commit()
     con.close()
@@ -391,6 +401,27 @@ async def upload_image(file: UploadFile = File(...), authorization: str | None =
 
     ext = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp", "image/gif": ".gif"}[file.content_type]
     filename = f"{uuid.uuid4().hex}{ext}"
+    filepath = os.path.join(UPLOADS_DIR, filename)
+    with open(filepath, "wb") as f:
+        f.write(data)
+
+    return {"ok": True, "url": f"/uploads/{filename}"}
+
+
+@app.post("/admin/upload-pdf")
+async def upload_pdf(file: UploadFile = File(...), authorization: str | None = Header(default=None)):
+    """Uzman notuna eklenecek PDF dosyasını (rapor, döküman vb.) kalıcı diske kaydeder, erişim adresini döner."""
+    check_admin(authorization)
+
+    is_pdf = file.content_type == "application/pdf" or (file.filename or "").lower().endswith(".pdf")
+    if not is_pdf:
+        raise HTTPException(status_code=400, detail="Sadece PDF dosyaları kabul edilir")
+
+    data = await file.read()
+    if len(data) > MAX_PDF_BYTES:
+        raise HTTPException(status_code=400, detail="Dosya çok büyük (üst sınır 20 MB)")
+
+    filename = f"{uuid.uuid4().hex}.pdf"
     filepath = os.path.join(UPLOADS_DIR, filename)
     with open(filepath, "wb") as f:
         f.write(data)
