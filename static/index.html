@@ -230,6 +230,7 @@
   </a>
   <div id="page-nav" class="hidden md:flex items-center gap-6 text-sm text-slate-300">
     <button class="page-nav-btn active" data-page="ozet">Özet</button>
+    <button class="page-nav-btn" data-page="uyarilar">Uyarılar</button>
     <button class="page-nav-btn" data-page="danismanlik">Danışmanlık</button>
     <button class="page-nav-btn" data-page="hava">Hava Durumu</button>
     <button class="page-nav-btn" data-page="grafik">Tahmin Grafikleri</button>
@@ -257,6 +258,7 @@
   <div class="absolute inset-0 bg-black/70" onclick="document.getElementById('mobile-nav').classList.add('hidden')"></div>
   <div class="absolute top-16 left-4 right-4 glass rounded-2xl p-3 flex flex-col gap-1">
     <button class="page-nav-btn-mobile active" data-page="ozet">🏠 Özet</button>
+    <button class="page-nav-btn-mobile" data-page="uyarilar">🚨 Uyarılar</button>
     <button class="page-nav-btn-mobile" data-page="danismanlik">📋 Danışmanlık</button>
     <button class="page-nav-btn-mobile" data-page="hava">🌤 Hava Durumu</button>
     <button class="page-nav-btn-mobile" data-page="grafik">📈 Tahmin Grafikleri</button>
@@ -366,7 +368,7 @@
   <!-- Danışmanlık — sektör önizleme kartları (bitkiler önce, sonra enerji, sonra inşaat) -->
   <div class="relative z-10 w-full max-w-5xl mx-auto px-6 mt-14 text-center">
     <p class="text-center text-slate-500 text-xs uppercase tracking-widest mb-4">Sektörünüzü Seçin — Canlı Danışmanlık Panelleri</p>
-    <div class="grid grid-cols-3 md:grid-cols-9 gap-2.5">
+    <div class="grid grid-cols-3 md:grid-cols-11 gap-2.5">
       <button onclick="goToSector('hazelnut')" class="glass rounded-xl p-3 text-center hover:border-brand/40 transition-colors">
         <span class="text-2xl block mb-1">🌰</span>
         <span class="text-xs font-600 text-white block">Fındık</span>
@@ -398,6 +400,14 @@
       <button onclick="goToSector('stadium')" class="glass rounded-xl p-3 text-center hover:border-brand/40 transition-colors">
         <span class="text-2xl block mb-1">⚽</span>
         <span class="text-xs font-600 text-white block">Stadyum</span>
+      </button>
+      <button onclick="goToSector('ski')" class="glass rounded-xl p-3 text-center hover:border-brand/40 transition-colors">
+        <span class="text-2xl block mb-1">⛷️</span>
+        <span class="text-xs font-600 text-white block">Kayak</span>
+      </button>
+      <button onclick="goToSector('beekeeping')" class="glass rounded-xl p-3 text-center hover:border-brand/40 transition-colors">
+        <span class="text-2xl block mb-1">🐝</span>
+        <span class="text-xs font-600 text-white block">Arıcılık</span>
       </button>
       <button onclick="showPage('danismanlik')" class="glass rounded-xl p-3 text-center hover:border-brand/40 transition-colors">
         <span class="text-2xl block mb-1">📋</span>
@@ -447,6 +457,22 @@
         </div>
       </div>
     </div>
+  </div>
+</section>
+
+
+<!-- ======== UYARILAR (Ana Sayfa) ======== -->
+<section id="alerts-page" data-page="uyarilar" class="py-24 px-6 md:px-12 max-w-7xl mx-auto">
+  <div class="reveal mb-10">
+    <p class="text-brand text-sm font-600 uppercase tracking-widest mb-3">İlçe Bazlı Meteorolojik Uyarılar</p>
+    <h2 class="font-display text-4xl md:text-5xl font-700 text-white">Uyarılar</h2>
+    <p class="text-slate-400 mt-4 max-w-2xl">Seçtiğiniz konum için önümüzdeki 7 gün boyunca kuvvetli yağış, aşırı sıcak/soğuk, don, kuvvetli rüzgar/fırtına, yoğun sis, gök gürültülü fırtına/dolu, orman yangını riski ve yüksek UV uyarıları. Eşikler MGM'nin genel uyarı kategorileri ve uluslararası meteoroloji kurumlarının (NWS, WHO) yayımladığı referans değerlere dayanır; resmi ve bağlayıcı uyarı için MGM'nin kendi kanallarını takip edin.</p>
+  </div>
+
+  <div id="alerts-summary" class="reveal mb-8"></div>
+
+  <div id="alerts-sections" class="reveal space-y-10">
+    <div class="spinner"></div>
   </div>
 </section>
 
@@ -1102,6 +1128,87 @@
   </p>
 </template>
 
+<!-- Kayak Merkezleri paneli şablonu -->
+<template id="ski-template">
+  <p class="text-slate-400 text-sm leading-relaxed mb-8">Kar yapma uygunluğu, çığ riski (MGM'nin belirlediği meteorolojik faktörlere göre), pist koşulları ve görüş mesafesi. Aşağıdan kayak merkezinin bulunduğu yeri seçin.</p>
+
+  <div class="loc-bar glass rounded-2xl p-5 mb-10" data-loc-bar>
+    <div class="loc-field" style="flex:2;position:relative">
+      <label>Şehir / İlçe ara</label>
+      <input class="loc-input loc-search" type="text" placeholder="Örn: Uludağ, Erciyes, Palandöken…" autocomplete="off">
+    </div>
+    <div class="loc-field"><label>Enlem</label><input class="loc-input loc-lat" type="text" inputmode="decimal" placeholder="40.09"></div>
+    <div class="loc-field"><label>Boylam</label><input class="loc-input loc-lon" type="text" inputmode="decimal" placeholder="29.18"></div>
+    <button class="loc-apply btn-primary text-white text-sm px-6 py-2.5 whitespace-nowrap">Uygula</button>
+    <div class="loc-current w-full text-xs text-slate-500 pt-1">Seçili konum: <span class="loc-current-text text-slate-300">—</span></div>
+  </div>
+
+  <!-- Kar yapma -->
+  <div class="mb-12">
+    <h3 class="font-display text-2xl font-700 text-white mb-1">❄️ Kar Yapma Uygunluğu</h3>
+    <p class="text-slate-500 text-sm mb-5">Kar yapma makineleri genelde ıslak termometre sıcaklığının yaklaşık -3°C ve altında olmasını gerektirir. Burada kuru termometre (ölçülen hava) sıcaklığı yaklaşık bir gösterge olarak kullanılıyor — gerçek ıslak termometre değeri nem koşullarına göre biraz daha yüksek çıkabilir.</p>
+    <div id="ski-snowmaking-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
+      <div class="skel h-32 rounded-2xl col-span-2 sm:col-span-3 lg:col-span-7"></div>
+    </div>
+  </div>
+
+  <!-- Çığ riski -->
+  <div class="mb-12">
+    <h3 class="font-display text-2xl font-700 text-white mb-1">⚠️ Çığ Riski</h3>
+    <p class="text-slate-500 text-sm mb-5">MGM'nin belirlediği meteorolojik faktörlere göre: tek seferde 25 cm'den fazla yeni kar, kar örtüsü üzerine yağmur, ılık günün ardından ani soğuma ve 24 saatten uzun süre 7 m/s üzeri rüzgar, çığ oluşumuna elverişli ortam yaratır.</p>
+    <div id="ski-avalanche-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
+      <div class="skel h-32 rounded-2xl col-span-2 sm:col-span-3 lg:col-span-7"></div>
+    </div>
+  </div>
+
+  <!-- Pist koşulları / görüş -->
+  <div>
+    <h3 class="font-display text-2xl font-700 text-white mb-1">🎿 Pist Koşulları ve Görüş</h3>
+    <p class="text-slate-500 text-sm mb-5">Sıcaklık konforu ve görüş mesafesini (sis/yoğun kar) birlikte değerlendirir — teleferik/telesiyej işletmesi düşük görüşte durdurulabilir.</p>
+    <div id="ski-piste-list" class="space-y-2"></div>
+  </div>
+
+  <p class="text-slate-600 text-xs mt-10 leading-relaxed max-w-3xl">
+    Kar yapma eşiği genel endüstri pratiğine dayanır (gerçek ıslak termometre hesabı için nem verisi ayrıca gerekir). Çığ faktörleri MGM'nin "Meteoroloji ve Çığ" başlıklı yayınına dayanır. Bu panel bir çığ erken uyarı sistemi değildir; resmi çığ riski değerlendirmesi için AFAD ve yerel dağcılık/kayak merkezi otoritelerine başvurun.
+  </p>
+</template>
+
+<!-- Arıcılık paneli şablonu -->
+<template id="beekeeping-template">
+  <p class="text-slate-400 text-sm leading-relaxed mb-8">Arı uçuş faaliyeti, yağış/rüzgar etkisi ve nektar toplama verimliliği — Türkiye arıcılık kaynaklarındaki sıcaklık eşiklerine göre. Aşağıdan arılığın bulunduğu yeri seçin.</p>
+
+  <div class="loc-bar glass rounded-2xl p-5 mb-10" data-loc-bar>
+    <div class="loc-field" style="flex:2;position:relative">
+      <label>Şehir / İlçe ara</label>
+      <input class="loc-input loc-search" type="text" placeholder="Arılığın bulunduğu yeri yazın…" autocomplete="off">
+    </div>
+    <div class="loc-field"><label>Enlem</label><input class="loc-input loc-lat" type="text" inputmode="decimal" placeholder="40.98"></div>
+    <div class="loc-field"><label>Boylam</label><input class="loc-input loc-lon" type="text" inputmode="decimal" placeholder="37.88"></div>
+    <button class="loc-apply btn-primary text-white text-sm px-6 py-2.5 whitespace-nowrap">Uygula</button>
+    <div class="loc-current w-full text-xs text-slate-500 pt-1">Seçili konum: <span class="loc-current-text text-slate-300">—</span></div>
+  </div>
+
+  <!-- Uçuş faaliyeti -->
+  <div class="mb-12">
+    <h3 class="font-display text-2xl font-700 text-white mb-1">🐝 Uçuş Faaliyeti</h3>
+    <p class="text-slate-500 text-sm mb-5">Bal arıları ~10°C altında uçmaz, 12-14°C altında kovan açılmamalı (düşen arı geri dönemez). 25-26°C civarı en ideal çevre sıcaklığıdır.</p>
+    <div id="bee-flight-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
+      <div class="skel h-32 rounded-2xl col-span-2 sm:col-span-3 lg:col-span-7"></div>
+    </div>
+  </div>
+
+  <!-- Nektar toplama verimi -->
+  <div>
+    <h3 class="font-display text-2xl font-700 text-white mb-1">🍯 Nektar Toplama Verimi</h3>
+    <p class="text-slate-500 text-sm mb-5">Yağmur arıyı kovanda tutar ve nektarı çiçekten uzaklaştırır; kuvvetli rüzgar hem uçuşu zorlaştırır hem bitkilerin nektar salgısını azaltır; yüksek nem polen/nektar toplama verimini düşürür.</p>
+    <div id="bee-nectar-list" class="space-y-2"></div>
+  </div>
+
+  <p class="text-slate-600 text-xs mt-10 leading-relaxed max-w-3xl">
+    Sıcaklık eşikleri Türkiye arıcılık kaynaklarına (Arıcılık Araştırma Dergisi, MAYBİR Teknik Arıcılık Uygulamaları) dayanır. Yağış/rüzgar etkisi arıcılık sektörü temsilcilerinin kamuya açık açıklamalarına dayanan genel gözlemlerdir, laboratuvar ölçümü değildir. Koloni sağlığı ve bal verimi arı ırkı, flora ve yönetim pratiklerine göre de değişir.
+  </p>
+</template>
+
 <!-- Fındık paneli şablonu -->
 <template id="hazelnut-template">
   <p class="text-slate-400 text-sm leading-relaxed mb-8">Fındığın fenolojik dönemine göre değişen don eşikleri, ilaçlama pencereleri, harman-kurutma uygunluğu ve külleme riski. Aşağıdan bahçenizin bulunduğu yeri seçin.</p>
@@ -1640,12 +1747,13 @@ async function fetchForecast(lat, lon) {
       'temperature_2m','relative_humidity_2m','pressure_msl',
       'wind_speed_10m','cloud_cover','precipitation','precipitation_probability',
       'dew_point_2m','soil_temperature_6cm','shortwave_radiation','wind_speed_100m',
+      'visibility',
     ].join(','),
     daily:[
       'weather_code','temperature_2m_max','temperature_2m_min',
-      'precipitation_probability_max','wind_speed_10m_max',
+      'precipitation_probability_max','wind_speed_10m_max','wind_gusts_10m_max',
       'sunrise','sunset','uv_index_max','precipitation_sum',
-      'apparent_temperature_max',
+      'apparent_temperature_max','apparent_temperature_min','snowfall_sum',
     ].join(','),
   });
   const d = await gFetch(`${OM_FORECAST}?${p}`);
@@ -1702,6 +1810,7 @@ async function fetchForecast(lat, lon) {
     soil_temp:     h.soil_temperature_6cm||[],
     shortwave_radiation: h.shortwave_radiation||[],
     wind_speed_100m:     h.wind_speed_100m||[],
+    visibility:          h.visibility||[],
   };
   document.getElementById('chart-empty').style.display='none';
   renderForecastChart();
@@ -1711,6 +1820,9 @@ async function fetchForecast(lat, lon) {
   renderEnergy(d.daily||{}, hourlyData);
   renderConstruction(d.daily||{}, hourlyData);
   renderStadium(d.daily||{}, hourlyData);
+  if(typeof renderSki === 'function') renderSki(d.daily||{});
+  if(typeof renderBeekeeping === 'function') renderBeekeeping(d.daily||{});
+  if(typeof renderAlerts === 'function') renderAlerts(d.daily||{}, hourlyData);
   Object.keys(CROPS).forEach(key => renderCropPanel(key, d.daily||{}, hourlyData));
 
   /* Bugünün ortalaması (max+min)/2 — geçmiş yıllar ortalamasıyla
@@ -2785,6 +2897,336 @@ function renderStadium(dl, hourly){
       return row(`${i===0?'Bugün':AGRI_DAYS[dt.getDay()]} ${String(dt.getDate()).padStart(2,'0')}.${String(dt.getMonth()+1).padStart(2,'0')}.${dt.getFullYear()}`,
                  r.label, AGRI_CLS[r.cls], r.note);
     }).join('');
+  }
+}
+
+/* ---------------------------------------------------------------
+   KAYAK MERKEZİ KARAR PANELİ
+   Kar yapma eşiği genel endüstri pratiğine dayanır (ıslak termometre
+   proxy'si olarak kuru termometre sıcaklığı kullanılır). Çığ
+   faktörleri MGM'nin "Meteoroloji ve Çığ" yayınına dayanır: tek
+   seferde >25cm yeni kar, kar üzerine ısınma/yağmur, 24 saatten
+   uzun süre >7 m/s rüzgar.
+--------------------------------------------------------------- */
+function skiSnowmakingScore(tempMax){
+  if(tempMax==null) return {cls:'slate', label:'Veri yok', note:''};
+  if(tempMax<=-3)
+    return {cls:'emerald', label:'Uygun', note:`Max ${tempMax.toFixed(1)}° — kar yapma için elverişli sıcaklık aralığında.`};
+  if(tempMax<=-1)
+    return {cls:'amber', label:'Sınırda', note:`Max ${tempMax.toFixed(1)}° — düşük nemde mümkün olabilir, garanti değil.`};
+  return {cls:'red', label:'Uygun Değil', note:`Max ${tempMax.toFixed(1)}° — kar yapma makineleri için çok sıcak.`};
+}
+function skiAvalancheScore(snowfallCm, tempMax, windMax){
+  const risky=[];
+  if(snowfallCm!=null && snowfallCm>=25) risky.push(`tek günde ${snowfallCm.toFixed(0)} cm yeni kar`);
+  if(windMax!=null && windMax>=7) risky.push(`${windMax.toFixed(1)} m/s rüzgar (MGM eşiği: 7 m/s üzeri)`);
+  if(tempMax!=null && tempMax>2 && snowfallCm!=null && snowfallCm>0) risky.push('kar örtüsü üzerine ısınma/yağmur riski');
+
+  if(risky.length>=2) return {cls:'red', label:'Yüksek Risk', note:`Birden fazla faktör: ${risky.join('; ')}.`};
+  if(risky.length===1) return {cls:'orange', label:'Dikkat', note:`Risk faktörü: ${risky[0]}.`};
+  return {cls:'emerald', label:'Düşük', note:'MGM\'nin belirlediği çığ tetikleyici faktörler tespit edilmedi.'};
+}
+function skiPisteScore(tempMax, weatherCode){
+  if([45,48].includes(weatherCode))
+    return {cls:'orange', label:'Düşük Görüş — Sisli', note:'Teleferik/telesiyej işletmesi görüş nedeniyle etkilenebilir.'};
+  if(tempMax==null) return {cls:'slate', label:'Veri yok', note:''};
+  if(tempMax>5)
+    return {cls:'amber', label:'Ilık — Kar Kalitesi Düşebilir', note:`Max ${tempMax.toFixed(1)}° — pist yüzeyi yumuşayıp ıslanabilir.`};
+  return {cls:'emerald', label:'Uygun', note:`Max ${tempMax.toFixed(1)}° — normal pist koşulları bekleniyor.`};
+}
+
+let lastSkiDaily={};
+function renderSki(dl){
+  lastSkiDaily=dl;
+  const snowGrid=document.getElementById('ski-snowmaking-grid');
+  if(!snowGrid) return;
+  if(!dl || !dl.time || !dl.time.length) return;
+
+  const gridBuilder=(scoreFn, valueFn, unit)=>{
+    let html='';
+    for(let i=0;i<dl.time.length;i++){
+      const dt=new Date(dl.time[i]);
+      const val=valueFn(i);
+      const r=scoreFn(i);
+      const c=AGRI_CLS[r.cls];
+      html+=`
+        <div class="rounded-2xl p-4 border ${c.bg} ${c.br} flex flex-col gap-1.5">
+          <p class="text-slate-400 text-xs font-600">${i===0?'Bugün':AGRI_DAYS[dt.getDay()]}</p>
+          <p class="text-slate-600 text-xs">${String(dt.getDate()).padStart(2,'0')}.${String(dt.getMonth()+1).padStart(2,'0')}.${dt.getFullYear()}</p>
+          <p class="font-display text-xl font-700 text-white mt-1">${val!=null?val+unit:'—'}</p>
+          <p class="${c.tx} text-xs font-600 leading-tight min-h-[2.4em]">${r.label}</p>
+          <p class="text-slate-500 text-[11px] leading-snug">${r.note}</p>
+        </div>`;
+    }
+    return html;
+  };
+
+  snowGrid.innerHTML=gridBuilder(
+    i=>skiSnowmakingScore(dl.temperature_2m_max?.[i]),
+    i=>dl.temperature_2m_max?.[i]!=null?dl.temperature_2m_max[i].toFixed(1):null, '°'
+  );
+
+  const avalancheGrid=document.getElementById('ski-avalanche-grid');
+  if(avalancheGrid){
+    avalancheGrid.innerHTML=gridBuilder(
+      i=>skiAvalancheScore(dl.snowfall_sum?.[i], dl.temperature_2m_max?.[i], dl.wind_speed_10m_max?.[i]),
+      i=>dl.snowfall_sum?.[i]!=null?dl.snowfall_sum[i].toFixed(0):null, ' cm'
+    );
+  }
+
+  const pisteList=document.getElementById('ski-piste-list');
+  if(pisteList){
+    pisteList.innerHTML=dl.time.map((t,i)=>{
+      const r=skiPisteScore(dl.temperature_2m_max?.[i], dl.weather_code?.[i]);
+      const dt=new Date(t);
+      return row(`${i===0?'Bugün':AGRI_DAYS[dt.getDay()]} ${String(dt.getDate()).padStart(2,'0')}.${String(dt.getMonth()+1).padStart(2,'0')}.${dt.getFullYear()}`,
+                 r.label, AGRI_CLS[r.cls], r.note);
+    }).join('');
+  }
+}
+
+/* ---------------------------------------------------------------
+   ARICILIK KARAR PANELİ
+   Sıcaklık eşikleri Türkiye arıcılık kaynaklarına dayanır: ~10°C
+   altında uçuş yok, 12-14°C altında kovan açılmamalı, 25-26°C
+   civarı en ideal çevre sıcaklığı. Yağış/rüzgar etkisi arıcılık
+   sektörü temsilcilerinin kamuya açık gözlemlerine dayanır.
+--------------------------------------------------------------- */
+function beeFlightScore(tempMax){
+  if(tempMax==null) return {cls:'slate', label:'Veri yok', note:''};
+  if(tempMax<10)
+    return {cls:'red', label:'Uçuş Yok', note:`Max ${tempMax.toFixed(1)}° — 10°C altında arılar uçmaz.`};
+  if(tempMax<14)
+    return {cls:'orange', label:'Sınırlı — Kovan Açmayın', note:`Max ${tempMax.toFixed(1)}° — düşen arı salkıma dönemeyebilir, kovan kapağı tam açılmamalı.`};
+  if(tempMax<25)
+    return {cls:'sky', label:'Aktif', note:`Max ${tempMax.toFixed(1)}° — normal uçuş/çalışma faaliyeti bekleniyor.`};
+  if(tempMax<=32)
+    return {cls:'emerald', label:'İdeal', note:`Max ${tempMax.toFixed(1)}° — bal arısı için ideal aralığa yakın (25-26°C civarı optimal kabul edilir).`};
+  return {cls:'amber', label:'Çok Sıcak', note:`Max ${tempMax.toFixed(1)}° — kovan aşırı ısınabilir, arılar su taşıma/serinletmeye yönelebilir.`};
+}
+function beeNectarScore(precipSum, windMax){
+  if(precipSum==null && windMax==null) return {cls:'slate', label:'Veri yok', note:''};
+  if(precipSum!=null && precipSum>=1)
+    return {cls:'red', label:'Toplama Yok', note:'Yağış bekleniyor — arılar kovanda kalır, açık nektar bezli çiçeklerde nektar yağmurla uzaklaşır.'};
+  if(windMax!=null && windMax>=8)
+    return {cls:'orange', label:'Zorlu', note:`${windMax.toFixed(1)} m/s rüzgar — uçuş zorlaşır, bitkilerin nektar salgısı da azalabilir.`};
+  return {cls:'emerald', label:'Verimli', note:'Yağış/kuvvetli rüzgar riski yok — nektar toplama için uygun gün.'};
+}
+
+let lastBeeDaily={};
+function renderBeekeeping(dl){
+  lastBeeDaily=dl;
+  const flightGrid=document.getElementById('bee-flight-grid');
+  if(!flightGrid) return;
+  if(!dl || !dl.time || !dl.time.length) return;
+
+  let html='';
+  for(let i=0;i<dl.time.length;i++){
+    const dt=new Date(dl.time[i]);
+    const val=dl.temperature_2m_max?.[i];
+    const r=beeFlightScore(val);
+    const c=AGRI_CLS[r.cls];
+    html+=`
+      <div class="rounded-2xl p-4 border ${c.bg} ${c.br} flex flex-col gap-1.5">
+        <p class="text-slate-400 text-xs font-600">${i===0?'Bugün':AGRI_DAYS[dt.getDay()]}</p>
+        <p class="text-slate-600 text-xs">${String(dt.getDate()).padStart(2,'0')}.${String(dt.getMonth()+1).padStart(2,'0')}.${dt.getFullYear()}</p>
+        <p class="font-display text-xl font-700 text-white mt-1">${val!=null?val.toFixed(1)+'°':'—'}</p>
+        <p class="${c.tx} text-xs font-600 leading-tight min-h-[2.4em]">${r.label}</p>
+        <p class="text-slate-500 text-[11px] leading-snug">${r.note}</p>
+      </div>`;
+  }
+  flightGrid.innerHTML=html;
+
+  const nectarList=document.getElementById('bee-nectar-list');
+  if(nectarList){
+    nectarList.innerHTML=dl.time.map((t,i)=>{
+      const r=beeNectarScore(dl.precipitation_sum?.[i], dl.wind_speed_10m_max?.[i]);
+      const dt=new Date(t);
+      return row(`${i===0?'Bugün':AGRI_DAYS[dt.getDay()]} ${String(dt.getDate()).padStart(2,'0')}.${String(dt.getMonth()+1).padStart(2,'0')}.${dt.getFullYear()}`,
+                 r.label, AGRI_CLS[r.cls], r.note);
+    }).join('');
+  }
+}
+
+/* ---------------------------------------------------------------
+   UYARILAR (ALERTS) — Ana sayfa "Uyarılar" sekmesi
+   ----------------------------------------------------------------
+   Babamın isteği: ilçe bazlı, sadece yağış değil, çok kategorili
+   uyarı sistemi. Eşikler:
+   - Kuvvetli Yağış: sitenin mevcut Grafik sayfası eşiği (30 mm/gün)
+   - Aşırı Sıcak/Soğuk: ABD NWS Heat Index / Wind Chill kategorilerine
+     yakın, hissedilen sıcaklık (apparent_temperature) üzerinden
+   - Don: yüzeye yakın hava sıcaklığı 0°C ve altı
+   - Kuvvetli Rüzgar/Fırtına: Beaufort rüzgar skalası (6/8/10 derece)
+   - Yoğun Sis: meteorolojik sis tanımı — görüş <1000 m (<200 m'de
+     "yoğun sis")
+   - Gök Gürültülü Fırtına/Dolu: WMO hava kodu 95/96/99
+   - Orman Yangını Riski: ABD NWS "Red Flag Warning" kriterlerine
+     yakın — düşük nem + kuvvetli rüzgar + sıcak hava birlikteliği
+   - Yüksek UV: DSÖ (WHO) UV İndeksi kategorileri (6+ Yüksek, 8+ Çok
+     Yüksek, 11+ Aşırı)
+   Bu panel resmi/bağlayıcı bir uyarı sistemi değildir; MGM'nin kendi
+   uyarılarının yerini tutmaz.
+--------------------------------------------------------------- */
+function dayMinMax(hourlyArr, times, dayStr){
+  const vals=[];
+  (times||[]).forEach((t,i)=>{
+    if(t.slice(0,10)===dayStr && hourlyArr?.[i]!=null) vals.push(hourlyArr[i]);
+  });
+  if(!vals.length) return {min:null, max:null};
+  return {min:Math.min(...vals), max:Math.max(...vals)};
+}
+
+function alertHeavyRain(precipSum){
+  if(precipSum==null) return {cls:'slate', label:'Veri yok', note:''};
+  if(precipSum>=50) return {cls:'red', label:'Çok Kuvvetli Yağış', note:`Günlük toplam ${precipSum.toFixed(0)} mm — su baskını riski yüksek.`};
+  if(precipSum>=30) return {cls:'orange', label:'Kuvvetli Yağış', note:`Günlük toplam ${precipSum.toFixed(0)} mm — 30 mm eşiği aşıldı.`};
+  return {cls:'emerald', label:'Normal', note:'Kuvvetli yağış beklenmiyor.'};
+}
+function alertExtremeHeat(appTempMax){
+  if(appTempMax==null) return {cls:'slate', label:'Veri yok', note:''};
+  if(appTempMax>=40) return {cls:'red', label:'Aşırı Sıcak — Tehlike', note:`Hissedilen ${appTempMax.toFixed(1)}° — uzun süre açık havada kalmak sağlık riski taşır.`};
+  if(appTempMax>=36) return {cls:'orange', label:'Çok Sıcak', note:`Hissedilen ${appTempMax.toFixed(1)}° — güneş çarpması/sıcak çarpması riski artar.`};
+  if(appTempMax>=32) return {cls:'amber', label:'Sıcak — Dikkat', note:`Hissedilen ${appTempMax.toFixed(1)}° — bol sıvı tüketin, öğle saatlerinde ağır işten kaçının.`};
+  return {cls:'emerald', label:'Normal', note:'Aşırı sıcak beklenmiyor.'};
+}
+function alertExtremeCold(appTempMin){
+  if(appTempMin==null) return {cls:'slate', label:'Veri yok', note:''};
+  if(appTempMin<=-20) return {cls:'red', label:'Aşırı Soğuk — Tehlike', note:`Hissedilen ${appTempMin.toFixed(1)}° — açıkta kısa sürede donma (frostbite) riski.`};
+  if(appTempMin<=-10) return {cls:'orange', label:'Çok Soğuk', note:`Hissedilen ${appTempMin.toFixed(1)}° — uzun süre açıkta kalmaktan kaçının, ekstremiteleri koruyun.`};
+  if(appTempMin<=-3) return {cls:'amber', label:'Soğuk — Dikkat', note:`Hissedilen ${appTempMin.toFixed(1)}° — kalın giyinin, yol/kaldırım buzlanmasına dikkat.`};
+  return {cls:'emerald', label:'Normal', note:'Aşırı soğuk beklenmiyor.'};
+}
+function alertFrost(tempMin){
+  if(tempMin==null) return {cls:'slate', label:'Veri yok', note:''};
+  if(tempMin<=-3) return {cls:'orange', label:'Şiddetli Don', note:`Min ${tempMin.toFixed(1)}° — su/sulama hatlarında donma, bitkilerde ağır zarar riski.`};
+  if(tempMin<=0) return {cls:'amber', label:'Don', note:`Min ${tempMin.toFixed(1)}° — zeminde/açık su yüzeylerinde donma, yollarda buzlanma riski.`};
+  return {cls:'emerald', label:'Normal', note:'Don beklenmiyor.'};
+}
+function alertWindStorm(windMax, gustMax){
+  const v = gustMax!=null ? gustMax : windMax;
+  if(v==null) return {cls:'slate', label:'Veri yok', note:''};
+  if(v>=24.5) return {cls:'red', label:'Kuvvetli Fırtına', note:`${v.toFixed(1)} m/s — Beaufort 10+, ağaç devrilmesi/yapısal hasar riski.`};
+  if(v>=17.2) return {cls:'orange', label:'Fırtına', note:`${v.toFixed(1)} m/s — Beaufort 8, yürüme/araç kullanımı zorlaşır.`};
+  if(v>=10.8) return {cls:'amber', label:'Kuvvetli Rüzgar', note:`${v.toFixed(1)} m/s — Beaufort 6, açık alanda ve yüksekte çalışmada dikkat.`};
+  return {cls:'emerald', label:'Normal', note:'Kuvvetli rüzgar beklenmiyor.'};
+}
+function alertFog(visMin){
+  if(visMin==null) return {cls:'slate', label:'Veri yok', note:''};
+  if(visMin<200) return {cls:'red', label:'Yoğun Sis', note:`Görüş ~${Math.round(visMin)} m'ye kadar düşüyor — trafik/havacılık için çok yüksek risk.`};
+  if(visMin<1000) return {cls:'orange', label:'Sis', note:`Görüş ~${Math.round(visMin)} m'ye kadar düşüyor — trafikte hız azaltın, sis farı kullanın.`};
+  if(visMin<5000) return {cls:'amber', label:'Azalmış Görüş', note:`Görüş ~${(visMin/1000).toFixed(1)} km'ye kadar düşebilir.`};
+  return {cls:'emerald', label:'Normal', note:'Görüş mesafesi sorunu beklenmiyor.'};
+}
+function alertThunderHail(weatherCode){
+  if(weatherCode==null) return {cls:'slate', label:'Veri yok', note:''};
+  if([96,99].includes(weatherCode)) return {cls:'red', label:'Dolu ile Birlikte Fırtına', note:'Şiddetli gök gürültülü fırtına ve dolu bekleniyor — araç/ekin/çatı hasarı riski.'};
+  if(weatherCode===95) return {cls:'orange', label:'Gök Gürültülü Fırtına', note:'Yıldırım, ani sağanak ve kısa süreli kuvvetli rüzgar riski.'};
+  return {cls:'emerald', label:'Normal', note:'Gök gürültülü fırtına beklenmiyor.'};
+}
+function alertWildfire(tempMax, humMin, windMax){
+  if(tempMax==null || humMin==null || windMax==null) return {cls:'slate', label:'Veri yok', note:''};
+  if(humMin<=25 && windMax>=8.3 && tempMax>=25)
+    return {cls:'red', label:'Yüksek Orman Yangını Riski', note:`Nem %${humMin.toFixed(0)}, rüzgar ${windMax.toFixed(1)} m/s, maks ${tempMax.toFixed(1)}° — ABD NWS "Red Flag" kriterlerine yakın koşullar.`};
+  if(humMin<=35 && windMax>=6 && tempMax>=20)
+    return {cls:'orange', label:'Dikkat — Yangın Riski Artıyor', note:`Nem %${humMin.toFixed(0)}, rüzgar ${windMax.toFixed(1)} m/s — açık alanda ateş yakmaktan kaçının.`};
+  if(humMin<=45 && tempMax>=25)
+    return {cls:'amber', label:'Kuru ve Sıcak Hava', note:`Nem %${humMin.toFixed(0)}, maks ${tempMax.toFixed(1)}° — bitki örtüsü kuruyabilir.`};
+  return {cls:'emerald', label:'Normal', note:'Belirgin orman yangını riski görünmüyor.'};
+}
+function alertUv(uvMax){
+  if(uvMax==null) return {cls:'slate', label:'Veri yok', note:''};
+  if(uvMax>=11) return {cls:'red', label:'Aşırı Yüksek UV', note:`UV İndeksi ${uvMax.toFixed(1)} — korunmasız cilt dakikalar içinde zarar görebilir.`};
+  if(uvMax>=8) return {cls:'orange', label:'Çok Yüksek UV', note:`UV İndeksi ${uvMax.toFixed(1)} — güneş kremi, şapka ve gölge şart.`};
+  if(uvMax>=6) return {cls:'amber', label:'Yüksek UV', note:`UV İndeksi ${uvMax.toFixed(1)} — öğle saatlerinde korunma önerilir.`};
+  return {cls:'emerald', label:'Normal', note:'UV riski düşük/orta seviyede.'};
+}
+
+const ALERT_DEFS=[
+  {key:'heavy_rain',   icon:'🌧️', title:'Kuvvetli Yağış',
+   source:'Eşik: günlük toplam yağış ≥30 mm (sitenin Tahmin Grafikleri sayfasıyla aynı eşik).',
+   score:(i,dl)=>alertHeavyRain(dl.precipitation_sum?.[i])},
+  {key:'extreme_heat', icon:'🥵', title:'Aşırı Sıcak',
+   source:'ABD NWS Isı İndeksi (Heat Index) kategorilerine yakın, hissedilen sıcaklık üzerinden.',
+   score:(i,dl)=>alertExtremeHeat(dl.apparent_temperature_max?.[i])},
+  {key:'extreme_cold', icon:'🥶', title:'Aşırı Soğuk',
+   source:'ABD NWS Rüzgar Soğutması (Wind Chill) kategorilerine yakın, hissedilen sıcaklık üzerinden.',
+   score:(i,dl)=>alertExtremeCold(dl.apparent_temperature_min?.[i])},
+  {key:'frost',        icon:'❄️', title:'Don',
+   source:'Eşik: günlük minimum sıcaklık 0°C ve altı (şiddetli don: -3°C ve altı).',
+   score:(i,dl)=>alertFrost(dl.temperature_2m_min?.[i])},
+  {key:'wind_storm',   icon:'💨', title:'Kuvvetli Rüzgar / Fırtına',
+   source:'Beaufort rüzgar skalası: Derece 6 (≈10,8 m/s), Derece 8 (≈17,2 m/s), Derece 10+ (≈24,5 m/s).',
+   score:(i,dl)=>alertWindStorm(dl.wind_speed_10m_max?.[i], dl.wind_gusts_10m_max?.[i])},
+  {key:'fog',          icon:'🌫️', title:'Yoğun Sis',
+   source:'Meteorolojik sis tanımı: görüş <1000 m (yoğun sis: <200 m). Saatlik görüş verisinden günlük minimum alınır.',
+   score:(i,dl,agg)=>alertFog(agg.vis[i]?.min)},
+  {key:'thunder_hail', icon:'⛈️', title:'Gök Gürültülü Fırtına / Dolu',
+   source:'WMO hava kodu 95 (fırtına) / 96, 99 (dolu ile birlikte fırtına).',
+   score:(i,dl)=>alertThunderHail(dl.weather_code?.[i])},
+  {key:'wildfire',     icon:'🔥', title:'Orman Yangını Riski',
+   source:'ABD NWS "Red Flag Warning" kriterlerine yakın: düşük bağıl nem + kuvvetli rüzgar + sıcak hava birlikteliği.',
+   score:(i,dl,agg)=>alertWildfire(dl.temperature_2m_max?.[i], agg.hum[i]?.min, dl.wind_speed_10m_max?.[i])},
+  {key:'uv',           icon:'☀️', title:'Yüksek UV',
+   source:'DSÖ (WHO) UV İndeksi kategorileri: 6+ Yüksek, 8+ Çok Yüksek, 11+ Aşırı.',
+   score:(i,dl)=>alertUv(dl.uv_index_max?.[i])},
+];
+
+let lastAlertsDaily={};
+function renderAlerts(dl, hourly){
+  lastAlertsDaily=dl;
+  const wrap=document.getElementById('alerts-sections');
+  const summaryEl=document.getElementById('alerts-summary');
+  if(!wrap || !dl || !dl.time || !dl.time.length) return;
+
+  /* Saatlik nem/görüş verisinden günlük min/max çıkar (sis ve yangın riski için) */
+  const agg={hum:[], vis:[]};
+  dl.time.forEach(dayStr=>{
+    agg.hum.push(dayMinMax(hourly?.humidity_pct, hourly?.time, dayStr));
+    agg.vis.push(dayMinMax(hourly?.visibility, hourly?.time, dayStr));
+  });
+
+  const activeToday=[];
+  let sectionsHtml='';
+  ALERT_DEFS.forEach(def=>{
+    let dayHasAlert=false;
+    let gridHtml='';
+    for(let i=0;i<dl.time.length;i++){
+      const dt=new Date(dl.time[i]);
+      const r=def.score(i, dl, agg);
+      const c=AGRI_CLS[r.cls];
+      if(i<=1 && (r.cls==='amber'||r.cls==='orange'||r.cls==='red')) dayHasAlert=true;
+      gridHtml+=`
+        <div class="rounded-2xl p-4 border ${c.bg} ${c.br} flex flex-col gap-1.5">
+          <p class="text-slate-400 text-xs font-600">${i===0?'Bugün':AGRI_DAYS[dt.getDay()]}</p>
+          <p class="text-slate-600 text-xs">${String(dt.getDate()).padStart(2,'0')}.${String(dt.getMonth()+1).padStart(2,'0')}.${dt.getFullYear()}</p>
+          <p class="${c.tx} text-sm font-700 leading-tight mt-1 min-h-[2.4em]">${r.label}</p>
+          <p class="text-slate-500 text-[11px] leading-snug">${r.note}</p>
+        </div>`;
+    }
+    if(dayHasAlert) activeToday.push(`${def.icon} ${def.title}`);
+    sectionsHtml+=`
+      <div>
+        <h3 class="font-display text-2xl font-700 text-white mb-1">${def.icon} ${def.title}</h3>
+        <p class="text-slate-500 text-xs mb-4">${def.source}</p>
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">${gridHtml}</div>
+      </div>`;
+  });
+  wrap.innerHTML=sectionsHtml;
+
+  if(summaryEl){
+    if(activeToday.length){
+      summaryEl.innerHTML=`
+        <div class="rounded-2xl p-5 border bg-red-500/10 border-red-500/30">
+          <p class="text-red-400 text-sm font-700 mb-1">🚨 Bugün/Yarın İçin Aktif Uyarı(lar)</p>
+          <p class="text-slate-300 text-sm">${activeToday.join(' · ')}</p>
+        </div>`;
+    } else {
+      summaryEl.innerHTML=`
+        <div class="rounded-2xl p-5 border bg-emerald-500/10 border-emerald-500/30">
+          <p class="text-emerald-400 text-sm font-700">✓ Bugün ve yarın için aktif bir uyarı bulunmuyor.</p>
+        </div>`;
+    }
   }
 }
 
@@ -4749,6 +5191,32 @@ async function loadContent() {
   if(stTmpl) stPanel.innerHTML=stTmpl.innerHTML;
   panelC.appendChild(stPanel);
 
+  /* Kayak Merkezleri: Canlı Panel */
+  const skiBtn=document.createElement('button');
+  skiBtn.className='tab-btn btn-outline text-xs sm:text-sm px-3.5 py-2 sm:px-5 sm:py-2.5 text-slate-300';
+  skiBtn.innerHTML='⛷️ Kayak Merkezi<span class="hidden sm:inline"> (Canlı Panel)</span>';
+  skiBtn.dataset.tab='ski';
+  btnC.appendChild(skiBtn);
+
+  const skiPanel=document.createElement('div');
+  skiPanel.id='tab-ski'; skiPanel.className='tab-panel glass rounded-2xl p-4 sm:p-8';
+  const skiTmpl = document.getElementById('ski-template');
+  if(skiTmpl) skiPanel.innerHTML=skiTmpl.innerHTML;
+  panelC.appendChild(skiPanel);
+
+  /* Arıcılık: Canlı Panel */
+  const beeBtn=document.createElement('button');
+  beeBtn.className='tab-btn btn-outline text-xs sm:text-sm px-3.5 py-2 sm:px-5 sm:py-2.5 text-slate-300';
+  beeBtn.innerHTML='🐝 Arıcılık<span class="hidden sm:inline"> (Canlı Panel)</span>';
+  beeBtn.dataset.tab='beekeeping';
+  btnC.appendChild(beeBtn);
+
+  const beePanel=document.createElement('div');
+  beePanel.id='tab-beekeeping'; beePanel.className='tab-panel glass rounded-2xl p-4 sm:p-8';
+  const beeTmpl = document.getElementById('beekeeping-template');
+  if(beeTmpl) beePanel.innerHTML=beeTmpl.innerHTML;
+  panelC.appendChild(beePanel);
+
   /* Denizcilik / İnşaat gibi statik metin sekmeleri — canlı panellerin ardından */
   tabs.forEach((tab)=>{
     const btn=document.createElement('button');
@@ -4773,6 +5241,9 @@ async function loadContent() {
     if(typeof renderEnergy === 'function') renderEnergy(lastDaily, hourlyData);
     if(typeof renderConstruction === 'function') renderConstruction(lastDaily, hourlyData);
     if(typeof renderStadium === 'function') renderStadium(lastDaily, hourlyData);
+    if(typeof renderSki === 'function') renderSki(lastDaily);
+    if(typeof renderBeekeeping === 'function') renderBeekeeping(lastDaily);
+    if(typeof renderAlerts === 'function') renderAlerts(lastDaily, hourlyData);
     Object.keys(CROPS).forEach(key => renderCropPanel(key, lastDaily, hourlyData));
   }
 
@@ -4795,6 +5266,12 @@ async function loadContent() {
     }
     if(btn.dataset.tab==='stadium' && lastStadiumDaily && lastStadiumDaily.time) {
       renderStadium(lastStadiumDaily, hourlyData);
+    }
+    if(btn.dataset.tab==='ski' && lastSkiDaily && lastSkiDaily.time) {
+      renderSki(lastSkiDaily);
+    }
+    if(btn.dataset.tab==='beekeeping' && lastBeeDaily && lastBeeDaily.time) {
+      renderBeekeeping(lastBeeDaily);
     }
     if(btn.dataset.tab?.startsWith('crop-')){
       const key = btn.dataset.tab.replace('crop-','');
@@ -4993,10 +5470,11 @@ map.on('click',async e=>{
    tetiklenir.
 --------------------------------------------------------------- */
 const PAGE_REFRESH = {
-  hava:   ()=> { if(chartInst) chartInst.resize(); },
-  kalite: ()=> { if(aqiInst) aqiInst.resize(); },
-  deniz:  ()=> { if(marineInst) marineInst.resize(); },
-  admin:  ()=> { checkAdminAuth(); },
+  hava:     ()=> { if(chartInst) chartInst.resize(); },
+  kalite:   ()=> { if(aqiInst) aqiInst.resize(); },
+  deniz:    ()=> { if(marineInst) marineInst.resize(); },
+  admin:    ()=> { checkAdminAuth(); },
+  uyarilar: ()=> { if(lastAlertsDaily && lastAlertsDaily.time) renderAlerts(lastAlertsDaily, hourlyData); },
 };
 
 /* Harita tek bir Leaflet örneği olarak kalır; sadece kapsayıcı <div>'i
