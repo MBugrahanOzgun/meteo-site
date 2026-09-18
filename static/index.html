@@ -424,6 +424,17 @@
     <p class="text-slate-400 mt-4 max-w-2xl">Seçtiğiniz konum için önümüzdeki 7 gün boyunca kuvvetli yağış, aşırı sıcak/soğuk, don, kuvvetli rüzgar/fırtına, yoğun sis, gök gürültülü fırtına/dolu, orman yangını riski ve yüksek UV uyarıları. Eşikler MGM'nin genel uyarı kategorileri ve uluslararası meteoroloji kurumlarının (NWS, WHO) yayımladığı referans değerlere dayanır; resmi ve bağlayıcı uyarı için MGM'nin kendi kanallarını takip edin.</p>
   </div>
 
+  <div class="loc-bar reveal glass rounded-2xl p-5 mb-8" data-loc-bar>
+    <div class="loc-field" style="flex:2;position:relative">
+      <label>Şehir / İlçe ara</label>
+      <input class="loc-input loc-search" type="text" placeholder="Örn: Ordu, Ünye, Giresun…" autocomplete="off">
+    </div>
+    <div class="loc-field"><label>Enlem</label><input class="loc-input loc-lat" type="text" inputmode="decimal" placeholder="40.9833"></div>
+    <div class="loc-field"><label>Boylam</label><input class="loc-input loc-lon" type="text" inputmode="decimal" placeholder="37.8833"></div>
+    <button class="loc-apply btn-primary text-white text-sm px-6 py-2.5 whitespace-nowrap">Uygula</button>
+    <div class="loc-current w-full text-xs text-slate-500 pt-1">Seçili konum: <span class="loc-current-text text-slate-300">—</span></div>
+  </div>
+
   <div id="alerts-summary" class="reveal mb-8"></div>
 
   <div id="alerts-sections" class="reveal space-y-10">
