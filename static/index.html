@@ -206,6 +206,15 @@
     .page-nav-btn.active::after{content:'';position:absolute;left:0;right:0;bottom:-8px;height:2px;background:#38bdf8;border-radius:2px}
     .page-nav-btn-mobile{width:100%;text-align:left;padding:12px 16px;border-radius:10px;background:none;border:none;cursor:pointer;font:inherit;color:#cbd5e1}
     .page-nav-btn-mobile.active{background:rgba(56,189,248,.12);color:#38bdf8;font-weight:600}
+    #sector-sidebar{background:rgba(255,255,255,.03);border-right:1px solid rgba(255,255,255,.08);backdrop-filter:blur(16px)}
+    .sidebar-btn,.sidebar-sub-btn{display:flex;align-items:center;gap:9px;width:100%;text-align:left;padding:9px 10px;border-radius:10px;background:none;border:none;cursor:pointer;font:inherit;color:#cbd5e1;transition:background .15s,color .15s}
+    .sidebar-btn:hover,.sidebar-sub-btn:hover{background:rgba(56,189,248,.08);color:#e2e8f0}
+    .sidebar-btn-open{background:rgba(56,189,248,.10);color:#38bdf8}
+    .sidebar-btn-icon{font-size:16px;flex-shrink:0}
+    .sidebar-btn-label{font-size:13px;font-weight:600;flex:1}
+    .sidebar-btn-caret{font-size:11px;color:#64748b;flex-shrink:0}
+    .sidebar-sub-btn{padding-left:30px;font-size:12px}
+    .sidebar-sub-btn .sidebar-btn-label{font-weight:500;font-size:12.5px}
 
     /* Çerez izni banner'ı */
     #cookie-banner{position:fixed;left:0;right:0;bottom:0;z-index:200;padding:16px;
@@ -278,6 +287,13 @@
   <div id="particles" class="absolute inset-0 pointer-events-none"></div>
   <div class="absolute inset-0" style="background-image:linear-gradient(rgba(56,189,248,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(56,189,248,.04) 1px,transparent 1px);background-size:60px 60px;"></div>
 
+  <!-- Sektör menüsü — masaüstünde sol tarafta sabit dikey menü -->
+  <aside id="sector-sidebar" class="hidden lg:flex flex-col fixed left-0 top-20 bottom-0 w-48 z-20 px-3 py-5 gap-1 overflow-y-auto">
+    <p class="text-slate-500 text-[11px] uppercase tracking-widest font-600 px-2 mb-2">Sektörünüzü Seçin</p>
+    <div id="sector-sidebar-list" class="flex flex-col gap-1"></div>
+  </aside>
+
+  <div class="w-full lg:pl-48">
   <div class="relative z-10 text-center px-6 max-w-4xl mx-auto">
     <p class="text-slate-400 text-lg md:text-xl max-w-2xl mx-auto mb-8 leading-relaxed">
       Hava tahmini · Hava kalitesi · Deniz verileri · Konum analizi — tek ekranda.
@@ -365,10 +381,11 @@
     </div>
   </div>
 
-  <!-- Danışmanlık — sektör önizleme kartları (kategori bazlı, tıklayınca alt sektörler açılır) -->
-  <div class="relative z-10 w-full max-w-5xl mx-auto px-6 mt-14 text-center">
+  <!-- Danışmanlık — sektör önizleme kartları (mobil/tablet; masaüstünde soldaki #sector-sidebar kullanılır) -->
+  <div class="relative z-10 w-full max-w-5xl mx-auto px-6 mt-14 text-center lg:hidden">
     <p id="sector-grid-title" class="text-center text-slate-500 text-xs uppercase tracking-widest mb-4">Sektörünüzü Seçin — Canlı Danışmanlık Panelleri</p>
     <div id="sector-grid" class="grid grid-cols-4 md:grid-cols-8 gap-2.5"></div>
+  </div>
   </div>
 
   <div class="absolute bottom-10 inset-x-0 flex justify-center animate-bounce">
@@ -928,7 +945,7 @@
   </div>
 
   <!-- GES Bölümü -->
-  <div class="mb-12">
+  <div id="ges-section" class="mb-12">
     <h3 class="font-display text-2xl font-700 text-white mb-1">☀️ Güneş Enerjisi Santrali (GES)</h3>
     <p class="text-slate-500 text-sm mb-5">Hava sıcaklığının 25°C'yi aşması durumunda panellerde ve inverterlerde ısınmaya bağlı verim düşüklüğü (termal kayıp) başlar.</p>
     <div id="ges-list" class="space-y-2">
@@ -937,7 +954,7 @@
   </div>
 
   <!-- RES Bölümü -->
-  <div class="mb-12">
+  <div id="res-section" class="mb-12">
     <h3 class="font-display text-2xl font-700 text-white mb-1">🌬️ Rüzgar Enerjisi Santrali (RES)</h3>
     <p class="text-slate-500 text-sm mb-5">Veriler yer seviyesine göre değil, türbin kanat yüksekliği olan <b>100 metre</b> rüzgar hızlarına göre hesaplanmaktadır. (Cut-in: ~3 m/s, Nominal: ~10 m/s, Cut-out: 25 m/s)</p>
     <div id="res-list" class="space-y-2">
@@ -5476,11 +5493,14 @@ function showPage(page){
 }
 
 /* ---------------------------------------------------------------
-   ÖZET SAYFASI — SEKTÖR KARTLARI (kategori → alt sektör)
-   Tarım gibi birden fazla ürünü olan kategoriler tek bir karta
-   toplanır; karta basılınca alt sektörler (Fındık, Buğday…) açılır,
+   ÖZET SAYFASI — SEKTÖR MENÜSÜ (kategori → alt sektör)
+   Tarım ve Enerji gibi birden fazla alt sektörü olan kategoriler
+   tek bir grupta toplanır; gruba basılınca alt sektörler açılır,
    alt sektöre basılınca goToSector() ile Danışmanlık sekmesindeki
-   ilgili canlı panel doğrudan açılır.
+   ilgili canlı panel (gerekirse ilgili bölüme kaydırılarak) açılır.
+   Masaüstünde (lg+) solda sabit dikey bir menü (#sector-sidebar),
+   mobilde ise eski kart ızgarası (#sector-grid) kullanılır — aynı
+   SECTOR_MENU verisinden iki ayrı görünüm üretilir.
 --------------------------------------------------------------- */
 const SECTOR_MENU=[
   {type:'group', key:'tarim', icon:'🌾', label:'Tarım', children:[
@@ -5489,7 +5509,10 @@ const SECTOR_MENU=[
     {key:'crop-uzum',   icon:'🍇', label:'Üzüm'},
     {key:'crop-kayisi', icon:'🍑', label:'Kayısı'},
   ]},
-  {type:'leaf', key:'energy-live', icon:'⚡',  label:'Enerji'},
+  {type:'group', key:'enerji', icon:'⚡', label:'Enerji', children:[
+    {key:'energy-live', icon:'☀️', label:'GES (Güneş)', anchor:'ges-section'},
+    {key:'energy-live', icon:'🌬️', label:'RES (Rüzgar)', anchor:'res-section'},
+  ]},
   {type:'leaf', key:'construction', icon:'🏗️', label:'İnşaat'},
   {type:'leaf', key:'aviation',    icon:'✈️',  label:'Havacılık'},
   {type:'leaf', key:'stadium',     icon:'⚽',  label:'Stadyum'},
@@ -5497,6 +5520,8 @@ const SECTOR_MENU=[
   {type:'leaf', key:'beekeeping',  icon:'🐝',  label:'Arıcılık'},
   {type:'all'},
 ];
+
+/* ---- Mobil: kart ızgarası (drill-down) ---- */
 let sectorGridView=null; /* null = üst kategori görünümü, aksi halde açık grubun key'i */
 function openSectorGroup(key){ sectorGridView=key; renderSectorGrid(); }
 function closeSectorGroup(){ sectorGridView=null; renderSectorGrid(); }
@@ -5516,7 +5541,7 @@ function renderSectorGrid(){
         <span class="text-xs font-600 text-white block">Geri</span>
       </button>`;
     grp.children.forEach(c=>{
-      html+=`<button onclick="goToSector('${c.key}')" class="${cardCls}">
+      html+=`<button onclick="goToSector('${c.key}'${c.anchor?`,'${c.anchor}'`:''})" class="${cardCls}">
           <span class="text-2xl block mb-1">${c.icon}</span>
           <span class="text-xs font-600 text-white block">${c.label}</span>
         </button>`;
@@ -5544,17 +5569,68 @@ function renderSectorGrid(){
   }
   el.innerHTML=html;
 }
-renderSectorGrid();
 
-/* Özet'teki sektör kartlarından direkt ilgili danışmanlık sekmesine atlar.
-   Sekmeler loadContent() ile sayfa açılışında zaten oluşturulmuş olur;
-   yine de emniyet için kısa bir gecikmeyle arayıp tıklıyoruz. */
-function goToSector(tabKey){
+/* ---- Masaüstü: sabit sol dikey menü (accordion) ---- */
+let sidebarOpenGroups=new Set(['tarim']); /* Tarım varsayılan açık gelsin */
+function toggleSidebarGroup(key){
+  if(sidebarOpenGroups.has(key)) sidebarOpenGroups.delete(key); else sidebarOpenGroups.add(key);
+  renderSectorSidebar();
+}
+function renderSectorSidebar(){
+  const el=document.getElementById('sector-sidebar-list');
+  if(!el) return;
+  let html='';
+  SECTOR_MENU.forEach(m=>{
+    if(m.type==='group'){
+      const open=sidebarOpenGroups.has(m.key);
+      html+=`<button onclick="toggleSidebarGroup('${m.key}')" class="sidebar-btn${open?' sidebar-btn-open':''}">
+          <span class="sidebar-btn-icon">${m.icon}</span>
+          <span class="sidebar-btn-label">${m.label}</span>
+          <span class="sidebar-btn-caret">${open?'▾':'▸'}</span>
+        </button>`;
+      if(open){
+        m.children.forEach(c=>{
+          html+=`<button onclick="goToSector('${c.key}'${c.anchor?`,'${c.anchor}'`:''})" class="sidebar-sub-btn">
+              <span class="sidebar-btn-icon">${c.icon}</span>
+              <span class="sidebar-btn-label">${c.label}</span>
+            </button>`;
+        });
+      }
+    } else if(m.type==='leaf'){
+      html+=`<button onclick="goToSector('${m.key}')" class="sidebar-btn">
+          <span class="sidebar-btn-icon">${m.icon}</span>
+          <span class="sidebar-btn-label">${m.label}</span>
+        </button>`;
+    } else if(m.type==='all'){
+      html+=`<button onclick="showPage('danismanlik')" class="sidebar-btn">
+          <span class="sidebar-btn-icon">📋</span>
+          <span class="sidebar-btn-label">Tümü</span>
+        </button>`;
+    }
+  });
+  el.innerHTML=html;
+}
+
+function renderSectorMenus(){ renderSectorGrid(); renderSectorSidebar(); }
+renderSectorMenus();
+
+/* Özet'teki sektör menüsünden direkt ilgili danışmanlık sekmesine atlar;
+   anchorId verilirse sekme açıldıktan sonra panelin ilgili bölümüne
+   (örn. GES/RES) kaydırır. Sekmeler loadContent() ile sayfa açılışında
+   zaten oluşturulmuş olur; yine de emniyet için kısa bir gecikmeyle
+   arayıp tıklıyoruz. */
+function goToSector(tabKey, anchorId){
   sectorGridView=null; renderSectorGrid();
   showPage('danismanlik');
   const tryClick = (n)=>{
     const btn = document.querySelector(`.tab-btn[data-tab="${tabKey}"]`);
-    if(btn){ btn.click(); return; }
+    if(btn){
+      btn.click();
+      if(anchorId){
+        setTimeout(()=>{ document.getElementById(anchorId)?.scrollIntoView({behavior:'smooth', block:'start'}); }, 150);
+      }
+      return;
+    }
     if(n>0) setTimeout(()=>tryClick(n-1), 150);
   };
   setTimeout(()=>tryClick(10), 80);
