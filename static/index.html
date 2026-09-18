@@ -898,6 +898,15 @@
           <div id="admin-docx-preview" class="expert-note-html hidden mt-3 glass rounded-xl p-4 max-h-64 overflow-y-auto text-slate-300 text-sm"></div>
         </div>
 
+        <div>
+          <label class="text-slate-500 text-xs uppercase tracking-widest block mb-2">📎 PDF Yükle (isteğe bağlı — dışarıdan hazır bir rapor/döküman ekleyin, üst sınır 20 MB)</label>
+          <div class="flex items-center gap-2">
+            <input id="admin-note-pdf-input" type="file" accept="application/pdf,.pdf" onchange="adminHandlePdfSelect(event)" class="loc-input w-full text-xs">
+            <button id="admin-pdf-clear-btn" onclick="adminClearPdfSelection()" class="hidden text-red-400 text-xs hover:text-red-300 whitespace-nowrap flex-shrink-0">Kaldır</button>
+          </div>
+          <p id="admin-pdf-status" class="text-slate-600 text-xs mt-1"></p>
+        </div>
+
         <button onclick="adminAddNote()" id="admin-note-submit-btn" class="btn-primary text-white text-sm px-5 py-2.5">Yayınla</button>
       </div>
       <div id="admin-notes-list" class="space-y-2 mt-4"></div>
@@ -4061,6 +4070,11 @@ async function loadExpertContent(){
           ${note.body_html
             ? `<div class="expert-note-html text-slate-400 text-sm leading-relaxed">${note.body_html}</div>`
             : `<p class="text-slate-400 text-sm leading-relaxed whitespace-pre-line">${note.body}</p>`}
+          ${note.pdf_url?`
+          <a href="${BACKEND}${note.pdf_url}" target="_blank" rel="noopener" class="mt-4 inline-flex items-center gap-2 glass rounded-lg px-4 py-2.5 text-sm text-slate-300 hover:border-brand/40 transition-colors">
+            <svg class="w-4 h-4 text-brand flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            📎 PDF Raporunu Görüntüle / İndir
+          </a>`:''}
         </div>`).join('');
     }
   }catch(_){
@@ -4913,6 +4927,42 @@ function adminClearDocxSelection(){
   document.getElementById('admin-docx-status').textContent='';
 }
 
+/* --- PDF yükleme: dosya sunucuya olduğu gibi (dönüştürülmeden) gider,
+   /admin/upload-pdf ile kalıcı diske kaydedilir. Değerlendirme metnine
+   ek olarak orijinal raporu/dökümanı da eklemek isteyenler için. */
+let pendingPdfFile=null;
+const MAX_PDF_MB=20;
+
+function adminHandlePdfSelect(event){
+  const file=event.target.files[0];
+  const statusEl=document.getElementById('admin-pdf-status');
+  if(!file) return;
+  const isPdf = file.type==='application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+  if(!isPdf){
+    statusEl.textContent='Sadece PDF dosyaları kabul edilir.';
+    event.target.value='';
+    pendingPdfFile=null;
+    document.getElementById('admin-pdf-clear-btn').classList.add('hidden');
+    return;
+  }
+  if(file.size > MAX_PDF_MB*1024*1024){
+    statusEl.textContent=`Dosya çok büyük (üst sınır ${MAX_PDF_MB} MB) — ${(file.size/1024/1024).toFixed(1)} MB.`;
+    event.target.value='';
+    pendingPdfFile=null;
+    document.getElementById('admin-pdf-clear-btn').classList.add('hidden');
+    return;
+  }
+  pendingPdfFile=file;
+  statusEl.textContent=`Hazır — ${file.name} (${(file.size/1024/1024).toFixed(1)} MB). "Yayınla"ya basınca yüklenecek.`;
+  document.getElementById('admin-pdf-clear-btn').classList.remove('hidden');
+}
+function adminClearPdfSelection(){
+  pendingPdfFile=null;
+  document.getElementById('admin-note-pdf-input').value='';
+  document.getElementById('admin-pdf-clear-btn').classList.add('hidden');
+  document.getElementById('admin-pdf-status').textContent='';
+}
+
 /* --- Notlar --- */
 async function adminLoadNotesList(){
   const listEl=document.getElementById('admin-notes-list');
@@ -4923,7 +4973,7 @@ async function adminLoadNotesList(){
         <div class="flex items-center gap-3 min-w-0">
           ${note.image_url?`<img src="${BACKEND}${note.image_url}" class="w-10 h-10 rounded-lg object-cover flex-shrink-0">`:''}
           <div class="min-w-0">
-            <p class="text-white text-sm font-600 truncate">${note.title}${note.body_html?' <span class="text-slate-500 font-400">📄</span>':''}</p>
+            <p class="text-white text-sm font-600 truncate">${note.title}${note.body_html?' <span class="text-slate-500 font-400">📄</span>':''}${note.pdf_url?' <span class="text-slate-500 font-400">📎</span>':''}</p>
             <p class="text-slate-500 text-xs">${fmtNoteDate(note.created_at)}</p>
           </div>
         </div>
@@ -4953,11 +5003,25 @@ async function adminAddNote(){
       imageUrl=(await r.json()).url;
     }
 
-    await adminApi('/notes','POST',{title,body,image_url:imageUrl,body_html:pendingBodyHtml});
+    let pdfUrl=null;
+    if(pendingPdfFile){
+      btn.textContent='PDF yükleniyor…';
+      const fd=new FormData();
+      fd.append('file', pendingPdfFile, pendingPdfFile.name);
+      const r=await fetch(`${BACKEND}/admin/upload-pdf`,{
+        method:'POST', headers:{'Authorization':`Bearer ${getAdminToken()}`}, body:fd,
+      });
+      if(!r.ok) throw new Error('PDF yüklenemedi');
+      pdfUrl=(await r.json()).url;
+      btn.textContent='Yayınlanıyor…';
+    }
+
+    await adminApi('/notes','POST',{title,body,image_url:imageUrl,body_html:pendingBodyHtml,pdf_url:pdfUrl});
     document.getElementById('admin-note-title').value='';
     document.getElementById('admin-note-body').value='';
     adminClearImageSelection();
     adminClearDocxSelection();
+    adminClearPdfSelection();
     toast('Değerlendirme yayınlandı ✓','success');
     adminLoadNotesList();
   }catch(_){
