@@ -4,7 +4,7 @@ import os
 import sqlite3
 import uuid
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import httpx
 from cachetools import TTLCache
@@ -97,6 +97,32 @@ def init_db():
         con.execute("ALTER TABLE expert_notes ADD COLUMN drawing_json TEXT")
     except sqlite3.OperationalError:
         pass  # sütun zaten var
+
+    # Stadyumlar: admin panelinden eklenen/silinen, Danışmanlık > Stadyum sekmesinde
+    # hazır seçenek olarak çıkan stadyum listesi. Tablo ilk kez oluşturulurken
+    # birkaç büyük stadyumla doldurulur; sonrası tamamen admin panelinden yönetilir.
+    stadiums_exist = con.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='stadiums'"
+    ).fetchone()
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS stadiums (
+            id   INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            city TEXT,
+            lat  REAL NOT NULL,
+            lon  REAL NOT NULL
+        )
+    """)
+    if not stadiums_exist:
+        con.executemany(
+            "INSERT INTO stadiums (name, city, lat, lon) VALUES (?,?,?,?)",
+            [
+                ("Atatürk Olimpiyat Stadyumu", "İstanbul", 41.0745, 28.7660),
+                ("Rams Park", "İstanbul", 41.1038, 28.9910),
+                ("Şükrü Saracoğlu Stadyumu", "İstanbul", 40.9877, 29.0369),
+                ("Beşiktaş Park", "İstanbul", 41.0391, 28.9946),
+            ],
+        )
 
     # Admin panelinden girilen excel-benzeri tablo — tek satır, JSON olarak tutulur
     # (başlık/sütun sayısı sabit olmadığı için esnek şema)
@@ -235,6 +261,13 @@ class NotePayload(BaseModel):
     body_html: str | None = None
     pdf_url: str | None = None
     drawing_json: str | None = None
+
+
+class StadiumPayload(BaseModel):
+    name: str
+    city: str | None = None
+    lat: float
+    lon: float
 
 
 class TablePayload(BaseModel):
@@ -631,38 +664,118 @@ def save_table(payload: TablePayload, authorization: str | None = Header(default
 AVWX_BASE = "https://aviationweather.gov/api/data"
 
 
+def _json_list(r) -> list:
+    """AWC bazen veri yokken boş (204) yanıt verir; bunu boş liste say."""
+    if not r.content:
+        return []
+    try:
+        data = r.json()
+    except ValueError:
+        return []
+    return data if isinstance(data, list) else []
+
+
 @app.get("/aviation/metar")
 async def get_metar(icao: str = Query(..., min_length=3, max_length=4)):
+    """Son 3 METAR (en yeni önce). 'metar' alanı geriye dönük uyumluluk için en yenisi."""
     icao = icao.strip().upper()
     key = ("metar", icao)
     if key in cache:
         return cache[key]
+    metars: list = []
     try:
-        r = await app.state.http.get(f"{AVWX_BASE}/metar", params={"ids": icao, "format": "json"})
-        r.raise_for_status()
-        data = r.json()
+        # Önce son 6 saat; seyrek rapor veren havaalanlarında 3'e ulaşılamazsa 24 saate genişlet.
+        for hours in (6, 24):
+            r = await app.state.http.get(f"{AVWX_BASE}/metar", params={"ids": icao, "format": "json", "hours": hours})
+            r.raise_for_status()
+            metars = sorted(_json_list(r), key=lambda m: m.get("obsTime") or 0, reverse=True)
+            if len(metars) >= 3:
+                break
     except httpx.HTTPError as e:
         raise HTTPException(status_code=502, detail=f"METAR alınamadı: {e}")
-    result = {"icao": icao, "metar": data[0] if data else None}
+    metars = metars[:3]
+    result = {"icao": icao, "metar": metars[0] if metars else None, "metars": metars}
     cache[key] = result
     return result
 
 
+async def _fetch_taf(icao: str, date: str | None = None):
+    params = {"ids": icao, "format": "json"}
+    if date:
+        params["date"] = date   # o anda geçerli olan TAF'ı döndürür
+    r = await app.state.http.get(f"{AVWX_BASE}/taf", params=params)
+    r.raise_for_status()
+    data = _json_list(r)
+    return data[0] if data else None
+
+
 @app.get("/aviation/taf")
 async def get_taf(icao: str = Query(..., min_length=3, max_length=4)):
+    """Son 2 TAF (en yeni önce). 'taf' alanı geriye dönük uyumluluk için en yenisi."""
     icao = icao.strip().upper()
     key = ("taf", icao)
     if key in cache:
         return cache[key]
     try:
-        r = await app.state.http.get(f"{AVWX_BASE}/taf", params={"ids": icao, "format": "json"})
-        r.raise_for_status()
-        data = r.json()
+        latest = await _fetch_taf(icao)
     except httpx.HTTPError as e:
         raise HTTPException(status_code=502, detail=f"TAF alınamadı: {e}")
-    result = {"icao": icao, "taf": data[0] if data else None}
+    tafs = [latest] if latest else []
+    if latest and latest.get("issueTime"):
+        # Bir önceki TAF: en yeninin yayın saatinden hemen önceki anda geçerli olan TAF.
+        # Aynısı dönerse 3'er saat geriye giderek (en çok 3 deneme) öncekini ara.
+        try:
+            d = datetime.fromisoformat(latest["issueTime"].replace("Z", "+00:00")) - timedelta(minutes=1)
+            for _ in range(3):
+                prev = await _fetch_taf(icao, d.strftime("%Y-%m-%dT%H:%M:%SZ"))
+                if prev and prev.get("issueTime") and prev["issueTime"] < latest["issueTime"]:
+                    tafs.append(prev)
+                    break
+                d -= timedelta(hours=3)
+        except (httpx.HTTPError, ValueError):
+            pass   # önceki TAF alınamazsa sadece en yenisiyle devam et
+    result = {"icao": icao, "taf": tafs[0] if tafs else None, "tafs": tafs}
     cache[key] = result
     return result
+
+
+# -------------------- STADYUMLAR --------------------
+@app.get("/stadiums")
+def get_stadiums():
+    """Herkese açık: Danışmanlık > Stadyum sekmesindeki hazır stadyum listesi."""
+    con = sqlite3.connect(DB_PATH)
+    con.row_factory = sqlite3.Row
+    rows = con.execute("SELECT id, name, city, lat, lon FROM stadiums ORDER BY name COLLATE NOCASE").fetchall()
+    con.close()
+    return {"stadiums": [dict(r) for r in rows]}
+
+
+@app.post("/stadiums")
+def add_stadium(payload: StadiumPayload, authorization: str | None = Header(default=None)):
+    check_admin(authorization)
+    name = payload.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Stadyum adı gerekli")
+    if not (-90 <= payload.lat <= 90 and -180 <= payload.lon <= 180):
+        raise HTTPException(status_code=400, detail="Koordinat geçersiz")
+    con = sqlite3.connect(DB_PATH)
+    con.execute(
+        "INSERT INTO stadiums (name, city, lat, lon) VALUES (?,?,?,?)",
+        (name[:120], (payload.city or "").strip()[:80] or None, round(payload.lat, 5), round(payload.lon, 5)),
+    )
+    con.commit()
+    con.close()
+    return {"ok": True}
+
+
+@app.delete("/stadiums/{stadium_id}")
+def delete_stadium(stadium_id: int, authorization: str | None = Header(default=None)):
+    check_admin(authorization)
+    con = sqlite3.connect(DB_PATH)
+    con.execute("DELETE FROM stadiums WHERE id=?", (stadium_id,))
+    con.commit()
+    con.close()
+    return {"ok": True}
 
 
 # -------------------- CONTENT (Tabs) --------------------

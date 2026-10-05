@@ -151,6 +151,13 @@
        görmezden geliyor — bu kural o listeyi de koyu temaya zorluyor. */
     select.loc-input option{background:#0f172a;color:#e2e8f0}
 
+    /* Havacılık: TAF zaman çizelgesi */
+    .av-tl{display:grid;gap:3px;align-items:stretch}
+    .av-cell{font-size:10px;line-height:1.2;padding:4px 3px;border-radius:5px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;display:flex;align-items:center;justify-content:center;gap:3px;min-height:28px;color:#cbd5e1;background:rgba(255,255,255,.04)}
+    .av-rowlabel{font-size:10px;color:#64748b;display:flex;align-items:center;position:sticky;left:0;z-index:1;background:#0b1626;padding-right:4px}
+    .av-hr{font-size:10px;color:#94a3b8;text-align:left;padding-left:2px}
+    .av-hatch{background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.10) 0 4px,transparent 4px 8px)}
+
     /* Harita çizim aracı */
     .draw-tool-btn{transition:all .15s}
     .draw-tool-btn.active{border-color:#38bdf8;color:#38bdf8;background:rgba(56,189,248,.14)}
@@ -970,6 +977,21 @@
       <div id="admin-notes-list" class="space-y-2 mt-4"></div>
     </div>
 
+    <!-- Stadyumlar -->
+    <div>
+      <h3 class="font-display text-xl font-700 text-white mb-1">⚽ Stadyumlar</h3>
+      <p class="text-slate-500 text-xs mb-4">Danışmanlık › Stadyum sekmesinde hazır seçenek olarak çıkar. Google Haritalar'da stadyuma sağ tıklayıp koordinatı (ör. <span class="font-mono">41.0745, 28.7660</span>) kopyalayıp aşağıya yapıştırın.</p>
+      <div class="glass rounded-2xl p-6 space-y-3">
+        <div class="grid sm:grid-cols-3 gap-3">
+          <input id="admin-st-name" type="text" placeholder="Stadyum adı" class="loc-input w-full">
+          <input id="admin-st-city" type="text" placeholder="İl / ilçe (isteğe bağlı)" class="loc-input w-full">
+          <input id="admin-st-coord" type="text" placeholder="Koordinat: 41.0745, 28.7660" class="loc-input w-full">
+        </div>
+        <button onclick="adminAddStadium()" class="btn-primary text-white text-sm px-5 py-2.5">Stadyum Ekle</button>
+        <div id="admin-stadium-list" class="space-y-2 pt-2"></div>
+      </div>
+    </div>
+
     <!-- Excel benzeri tablo düzenleyici -->
     <div>
       <h3 class="font-display text-xl font-700 text-white mb-4">📊 Veri Tablosu</h3>
@@ -1046,7 +1068,7 @@
   </div>
 
   <!-- Beton dökümü -->
-  <div class="mb-12">
+  <div id="concrete-section" class="mb-12">
     <h3 class="font-display text-2xl font-700 text-white mb-1">🧱 Beton Dökümü Uygunluğu</h3>
     <p class="text-slate-500 text-sm mb-5">TS EN 206'ya göre taze beton sıcaklığı 5–32°C aralığında olmalı, ideali 15–25°C'dir. 10°C altı ek koruma, TS 1248'e göre 3 gün üst üste ortalama 5°C altı "soğuk hava" sayılır ve donma riski taşır.</p>
     <div id="concrete-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
@@ -1055,7 +1077,7 @@
   </div>
 
   <!-- Vinç / yüksekte çalışma -->
-  <div class="mb-12">
+  <div id="crane-section" class="mb-12">
     <h3 class="font-display text-2xl font-700 text-white mb-1">🏗️ Vinç ve Yüksekte Çalışma Rüzgar Riski</h3>
     <p class="text-slate-500 text-sm mb-5">Türkiye'deki yaygın İSG uygulamasına göre kule vinçler 45 km/h (≈12,5 m/s) üzerinde durdurulur, 72 km/h (≈20 m/s) üzerinde vinç fırıldak moduna alınıp saha boşaltılır. Yüksekte çalışma için daha temkinli davranan şantiyeler 30 km/h (≈8,3 m/s) sınırını kullanır.</p>
     <div id="wind-risk-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
@@ -1064,7 +1086,7 @@
   </div>
 
   <!-- Şantiye çalışma takvimi -->
-  <div>
+  <div id="fieldwork-section">
     <h3 class="font-display text-2xl font-700 text-white mb-1">🚧 Genel Şantiye Çalışma Takvimi</h3>
     <p class="text-slate-500 text-sm mb-5">Kazı, sıva, boya ve dış cephe işleri için günlük uygunluk — yağış, rüzgar ve aşırı sıcaklık esas alınır.</p>
     <div id="construction-fieldwork-list" class="space-y-2"></div>
@@ -1104,15 +1126,17 @@
   </div>
 
   <div class="mb-10">
-    <h3 class="font-display text-2xl font-700 text-white mb-1">🛫 METAR — Anlık Rapor</h3>
-    <div id="metar-display" class="glass rounded-2xl p-6">
+    <h3 class="font-display text-2xl font-700 text-white mb-1">🛫 Son 3 METAR — Anlık Raporlar</h3>
+    <p class="text-slate-500 text-sm mb-4">Havaalanının en son üç gözlem raporu (genelde 30 dakika–1 saat arayla). Rüzgâr, görüş, tavan ve basınç çözümlenmiş olarak, ham metin kartın altında.</p>
+    <div id="metar-display">
       <p class="text-slate-500 text-sm">Bir havaalanı seçip "Getir"e basın.</p>
     </div>
   </div>
 
   <div>
-    <h3 class="font-display text-2xl font-700 text-white mb-1">📋 TAF — 24–30 Saatlik Tahmin</h3>
-    <div id="taf-display" class="glass rounded-2xl p-6">
+    <h3 class="font-display text-2xl font-700 text-white mb-1">📋 Son 2 TAF — 24–30 Saatlik Tahmin</h3>
+    <p class="text-slate-500 text-sm mb-4">En yeni ve bir önceki tahmin. Her TAF saat saat bir çizelgeye açılır: uçuş kategorisi, rüzgâr, görüş, bulut ve hava olayı; geçici (TEMPO/PROB) durumlar taralı gösterilir.</p>
+    <div id="taf-display">
       <p class="text-slate-500 text-sm">Bir havaalanı seçip "Getir"e basın.</p>
     </div>
   </div>
@@ -1126,7 +1150,22 @@
 
 <!-- Stadyum paneli şablonu -->
 <template id="stadium-template">
-  <p class="text-slate-400 text-sm leading-relaxed mb-8">Yıldırım/fırtına riski, sıcaklık ve zorunlu su molası eşiği, zemin durumu ve rüzgar — FIFA/FIFPro ve TFF talimatlarındaki eşiklere göre. Aşağıdan stadyumun bulunduğu yeri seçin.</p>
+  <p class="text-slate-400 text-sm leading-relaxed mb-8">Yıldırım/fırtına riski, sıcaklık ve zorunlu su molası eşiği, zemin durumu ve rüzgar — FIFA/FIFPro ve TFF talimatlarındaki eşiklere göre. Aşağıdan hazır bir stadyum seçin, haritadan bir nokta işaretleyin ya da şehir/ilçe yazın.</p>
+
+  <!-- Stadyum / nokta seçici -->
+  <div class="glass rounded-2xl p-5 mb-4">
+    <div class="flex flex-wrap items-end gap-3">
+      <div class="flex-1 min-w-[220px]">
+        <label class="text-slate-500 text-xs uppercase tracking-widest block mb-2">⚽ Hazır stadyum</label>
+        <select id="stadium-select" onchange="stadiumPick(this.value)" class="loc-input w-full"><option value="">Yükleniyor…</option></select>
+      </div>
+      <button onclick="stadiumTogglePickMap()" id="stadium-pick-btn" class="btn-outline text-slate-300 text-sm px-5 py-2.5 whitespace-nowrap">📍 Haritadan nokta seç</button>
+    </div>
+    <div id="stadium-pick-wrap" class="hidden mt-4">
+      <p class="text-slate-500 text-xs mb-2">Haritada istediğiniz noktaya tıklayın — sonuçlar o nokta için güncellenir. Mavi noktalar kayıtlı stadyumlardır, üzerlerine tıklayarak da seçebilirsiniz.</p>
+      <div id="stadium-pick-map" style="height:340px;border-radius:12px;overflow:hidden;background:#0f172a"></div>
+    </div>
+  </div>
 
   <div class="loc-bar glass rounded-2xl p-5 mb-10" data-loc-bar>
     <div class="loc-field" style="flex:2;position:relative">
@@ -4072,9 +4111,23 @@ async function fetchPlaceName(lat, lon) {
 /* ---------------------------------------------------------------
    HAVACILIK (METAR / TAF)
    FAA Aviation Weather Center — backend üzerinden geçiyor (CORS
-   garantisi olmadığı için). Ham metin her zaman gösterilir; alan
-   isimleri API'de değişse bile bu kısım hiçbir zaman bozulmaz.
+   garantisi olmadığı için). Son 3 METAR ve son 2 TAF getirilir;
+   hepsinin ham metni her zaman gösterilir, çözümlenmiş görsel kısım
+   alan isimleri değişse bile ham metni asla bozmaz.
 --------------------------------------------------------------- */
+const AV_CAT={
+  VFR: {rgb:'52,211,153',  tx:'#34d399', desc:'İyi görüş (tavan >3000 ft, görüş >5 SM)'},
+  MVFR:{rgb:'56,189,248',  tx:'#38bdf8', desc:'Sınırlı (tavan 1000–3000 ft veya görüş 3–5 SM)'},
+  IFR: {rgb:'251,146,60',  tx:'#fb923c', desc:'Düşük (tavan 500–1000 ft veya görüş 1–3 SM)'},
+  LIFR:{rgb:'248,113,113', tx:'#f87171', desc:'Çok düşük (tavan <500 ft veya görüş <1 SM)'},
+};
+const AV_WX={'MI':'sığ','BC':'parça parça','PR':'kısmi','DR':'sürüklenen','BL':'savrulan','SH':'sağanak','TS':'gök gürültülü','FZ':'donan','VC':'çevrede',
+  'RA':'yağmur','SN':'kar','DZ':'çise','GR':'dolu','GS':'küçük dolu','SG':'kar taneleri','PL':'buz parçacıkları','IC':'buz kristalleri','UP':'yağış',
+  'FG':'sis','BR':'pus','HZ':'hafif sis','FU':'duman','VA':'volkanik kül','DU':'toz','SA':'kum','SQ':'ani fırtına','FC':'hortum','SS':'kum fırtınası','DS':'toz fırtınası'};
+const AV_COVER={FEW:'az bulutlu',SCT:'dağınık',BKN:'parçalı',OVC:'kapalı',OVX:'gökyüzü görünmez',VV:'dikey görüş',NSC:'önemli bulut yok',SKC:'açık',CLR:'açık',CAVOK:'CAVOK'};
+
+function avEsc(s){ return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
 function aviationSelectChange(){
   const sel=document.getElementById('aviation-airport-select');
   const box=document.getElementById('aviation-icao-custom');
@@ -4082,6 +4135,80 @@ function aviationSelectChange(){
   box.classList.toggle('hidden', sel.value!=='custom');
 }
 
+/* ---- Yardımcılar ---- */
+function avParseVis(v){            /* AWC görüşü statute mile (SM) olarak verir: 6, "6+", "1/2", "1 1/2" */
+  if(v==null||v==='') return null;
+  if(typeof v==='number') return v;
+  let tot=0;
+  String(v).replace('+','').trim().split(/\s+/).forEach(p=>{
+    if(p.includes('/')){ const [a,b]=p.split('/').map(Number); if(b) tot+=a/b; } else tot+=parseFloat(p)||0;
+  });
+  return tot;
+}
+function avVisText(v){
+  const sm=avParseVis(v); if(sm==null) return '—';
+  if(typeof v==='string' && v.includes('+')) return '≥10 km';
+  const km=sm*1.609;
+  if(km>=5) return Math.round(km)+' km';
+  if(km>=1) return km.toFixed(1).replace('.',',')+' km';
+  return (Math.round(km*10)*100)+' m';
+}
+function avCeiling(clouds, vertVis){   /* tavan = en alçak BKN/OVC/VV katmanı (ft) */
+  let c=null;
+  (clouds||[]).forEach(l=>{
+    if(['BKN','OVC','OVX','VV'].includes(l.cover) && l.base!=null && (c==null||l.base<c)) c=l.base;
+  });
+  if(vertVis!=null && (c==null||vertVis<c)) c=vertVis;
+  return c;
+}
+function avCategory(visSM, ceilFt){
+  const v=visSM==null?99:visSM, c=ceilFt==null?99999:ceilFt;
+  if(v<1 || c<500) return 'LIFR';
+  if(v<3 || c<1000) return 'IFR';
+  if(v<=5 || c<=3000) return 'MVFR';
+  return 'VFR';
+}
+function avWxTR(wx){
+  if(!wx||wx==='NSW') return '';
+  return String(wx).trim().split(/\s+/).map(tok=>{
+    let pre='', t=tok;
+    if(t[0]==='+'){ pre='şiddetli '; t=t.slice(1); } else if(t[0]==='-'){ pre='hafif '; t=t.slice(1); }
+    const parts=[]; for(let i=0;i<t.length;i+=2){ const c=t.substr(i,2); parts.push(AV_WX[c]||c); }
+    return pre+parts.join(' ');
+  }).join(', ');
+}
+function avCloudCode(l){ return l.cover+(l.base!=null?String(Math.round(l.base/100)).padStart(3,'0'):''); }
+function avCloudsText(clouds){
+  if(!clouds||!clouds.length) return 'Bulut bilgisi yok';
+  return clouds.map(l=>{
+    const tr=AV_COVER[l.cover]||l.cover;
+    return l.base!=null ? `${tr} · ${l.base.toLocaleString('tr-TR')} ft` : tr;
+  }).join(', ');
+}
+const avFmtTR=(()=>{ try{ return new Intl.DateTimeFormat('tr-TR',{timeZone:'Europe/Istanbul',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:false}); }catch(_){ return null; } })();
+const avFmtZ =(()=>{ try{ return new Intl.DateTimeFormat('tr-TR',{timeZone:'UTC',hour:'2-digit',minute:'2-digit',hour12:false}); }catch(_){ return null; } })();
+const avFmtH =(()=>{ try{ return new Intl.DateTimeFormat('tr-TR',{timeZone:'Europe/Istanbul',hour:'2-digit',hour12:false}); }catch(_){ return null; } })();
+const avFmtD =(()=>{ try{ return new Intl.DateTimeFormat('tr-TR',{timeZone:'Europe/Istanbul',day:'2-digit',month:'2-digit'}); }catch(_){ return null; } })();
+function avTime(sec){            /* "05 Eki 15:20 TSİ (12:20Z)" */
+  const d=new Date(sec*1000);
+  return `${avFmtTR?avFmtTR.format(d):d.toISOString()} TSİ <span class="text-slate-600">(${avFmtZ?avFmtZ.format(d):''}Z)</span>`;
+}
+function avWindArrow(dir,size){
+  size=size||40;
+  if(dir==null||dir==='VRB'||isNaN(Number(dir))) return `<div class="flex items-center justify-center rounded-full border border-slate-700 text-[10px] text-slate-400" style="width:${size}px;height:${size}px">VRB</div>`;
+  const rot=(Number(dir)+180)%360;   /* rüzgârın estiği yön */
+  return `<svg width="${size}" height="${size}" viewBox="0 0 40 40" aria-hidden="true">
+    <circle cx="20" cy="20" r="18" fill="none" stroke="#334155"/>
+    <text x="20" y="9" text-anchor="middle" font-size="6" fill="#64748b">K</text>
+    <g transform="rotate(${rot} 20 20)"><path d="M20 7 L27 27 L20 22 L13 27 Z" fill="#38bdf8"/></g></svg>`;
+}
+const avKtToMs=kt=>kt==null?null:Math.round(kt*0.5144*10)/10;
+function avBadge(cat){
+  const c=AV_CAT[cat]; if(!c) return '';
+  return `<span class="font-display font-800 text-sm px-2 py-0.5 rounded-md" style="background:rgba(${c.rgb},.16);color:${c.tx};border:1px solid rgba(${c.rgb},.4)">${cat}</span>`;
+}
+
+/* ---- Yükleme ---- */
 async function loadAviationData(){
   const sel=document.getElementById('aviation-airport-select');
   if(!sel) return;
@@ -4090,75 +4217,336 @@ async function loadAviationData(){
     icao=(document.getElementById('aviation-icao-input').value||'').trim().toUpperCase();
     if(icao.length<3){ toast('Geçerli bir ICAO kodu girin (3-4 harf)','warn'); return; }
   }
-
   const metarEl=document.getElementById('metar-display');
   const tafEl=document.getElementById('taf-display');
   metarEl.innerHTML='<p class="text-slate-500 text-sm">Yükleniyor…</p>';
   tafEl.innerHTML='<p class="text-slate-500 text-sm">Yükleniyor…</p>';
 
-  try{
-    const m=await gFetch(`${BACKEND}/aviation/metar?icao=${icao}`);
-    renderMetar(m.metar, icao);
-  }catch(_){
-    metarEl.innerHTML=`<p class="text-slate-500 text-sm">${icao} için METAR alınamadı.</p>`;
-  }
-  try{
-    const t=await gFetch(`${BACKEND}/aviation/taf?icao=${icao}`);
-    renderTaf(t.taf, icao);
-  }catch(_){
-    tafEl.innerHTML=`<p class="text-slate-500 text-sm">${icao} için TAF alınamadı.</p>`;
-  }
+  const mp=gFetch(`${BACKEND}/aviation/metar?icao=${icao}`).then(m=>renderMetars(m.metars||(m.metar?[m.metar]:[]), icao))
+    .catch(()=>{ metarEl.innerHTML=`<p class="text-slate-500 text-sm">${avEsc(icao)} için METAR alınamadı.</p>`; });
+  const tp=gFetch(`${BACKEND}/aviation/taf?icao=${icao}`).then(t=>renderTafs(t.tafs||(t.taf?[t.taf]:[]), icao))
+    .catch(()=>{ tafEl.innerHTML=`<p class="text-slate-500 text-sm">${avEsc(icao)} için TAF alınamadı.</p>`; });
+  await Promise.all([mp,tp]);
 }
 
-function renderMetar(m, icao){
+/* ---- METAR: son 3 rapor, yan yana kartlar ---- */
+function avMetarCard(m, idx){
+  const clouds=m.clouds||[];
+  const vis=avParseVis(m.visib), ceil=avCeiling(clouds, m.vertVis);
+  const cat=m.fltCat||avCategory(vis,ceil);
+  const wspd=m.wspd, ms=avKtToMs(wspd);
+  const raw=m.rawOb||m.raw_text||m.rawText||m.raw||'';
+  const wx=avWxTR(m.wxString);
+  const stat=(l,v)=>`<div class="rounded-lg bg-black/20 px-3 py-2"><p class="text-slate-500 text-[10px] uppercase tracking-widest">${l}</p><p class="text-white text-sm font-600 leading-snug">${v}</p></div>`;
+  const when = m.obsTime ? avTime(m.obsTime) : (m.reportTime||'');
+  return `<div class="glass rounded-2xl p-5">
+    <div class="flex items-center justify-between gap-2 mb-1">
+      <span class="text-xs font-600 ${idx===0?'text-brand':'text-slate-500'}">${idx===0?'EN YENİ':idx===1?'ÖNCEKİ':'ÖNCEKİNDEN ÖNCE'}${m.metarType&&m.metarType!=='METAR'?' · '+avEsc(m.metarType):''}</span>
+      ${avBadge(cat)}
+    </div>
+    <p class="text-slate-400 text-xs mb-4">${when}</p>
+    <div class="flex items-center gap-4 mb-4">
+      ${avWindArrow(m.wdir,56)}
+      <div>
+        <p class="font-display text-2xl font-800 text-white leading-none">${wspd!=null?wspd:'—'}<span class="text-sm font-600 text-slate-400"> kt</span></p>
+        <p class="text-slate-500 text-xs mt-1">${ms!=null?'≈ '+String(ms).replace('.',',')+' m/s · ':''}${m.wdir==='VRB'?'değişken yön':(m.wdir!=null?m.wdir+'°':'—')}${m.wgst?` · hamle ${m.wgst} kt`:''}</p>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-2 mb-3">
+      ${stat('Sıcaklık / Çiy', (m.temp!=null?m.temp+'°C':'—')+' / '+(m.dewp!=null?m.dewp+'°C':'—'))}
+      ${stat('Basınç (QNH)', m.altim!=null?Math.round(m.altim)+' hPa':'—')}
+      ${stat('Görüş', avVisText(m.visib))}
+      ${stat('Tavan', ceil!=null?ceil.toLocaleString('tr-TR')+' ft':'Yok')}
+    </div>
+    <p class="text-slate-400 text-xs mb-1">☁️ ${avCloudsText(clouds)}</p>
+    ${wx?`<p class="text-amber-300 text-xs mb-1">⚠ ${avEsc(wx)}</p>`:''}
+    ${raw?`<p class="font-mono text-[11px] text-slate-400 bg-black/30 rounded-lg p-2.5 mt-3 break-all">${avEsc(raw)}</p>`:''}
+  </div>`;
+}
+function renderMetars(list, icao){
   const el=document.getElementById('metar-display');
   if(!el) return;
-  if(!m){ el.innerHTML=`<p class="text-slate-500 text-sm">${icao} için METAR verisi bulunamadı — küçük/özel havaalanları rapor vermeyebilir.</p>`; return; }
-
-  /* API alan isimleri sürüme göre değişebilir; birden fazla olası isim denenir. */
-  const raw = m.rawOb || m.raw_text || m.rawText || m.raw || '';
-  const flightCat = m.fltCat || m.flight_category || null;
-  const temp = m.temp ?? null;
-  const wdir = m.wdir ?? null;
-  const wspd = m.wspd ?? null;
-  const visib = m.visib ?? null;
-
-  const catColors={VFR:'text-emerald-400',MVFR:'text-sky-400',IFR:'text-orange-400',LIFR:'text-red-400'};
-  let html='';
-  if(flightCat){
-    html+=`<div class="flex items-center gap-3 mb-4">
-      <span class="font-display text-2xl font-800 ${catColors[flightCat]||'text-white'}">${flightCat}</span>
-      <span class="text-slate-500 text-xs">Uçuş kategorisi</span>
-    </div>`;
-  }
-  const stats=[];
-  if(temp!=null) stats.push(['Sıcaklık', temp+'°C']);
-  if(wdir!=null && wspd!=null) stats.push(['Rüzgar', `${wdir}° / ${wspd} kt`]);
-  if(visib!=null) stats.push(['Görüş', visib+' SM']);
-  if(stats.length){
-    html+='<div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">'+stats.map(([l,v])=>`
-      <div class="stat-card glass rounded-xl p-3">
-        <p class="text-slate-500 text-xs uppercase tracking-widest">${l}</p>
-        <p class="text-white font-700 text-lg">${v}</p>
-      </div>`).join('')+'</div>';
-  }
-  if(raw){
-    html+=`<p class="text-slate-500 text-xs uppercase tracking-widest mb-1">Ham METAR</p>
-            <p class="font-mono text-xs text-slate-300 bg-black/30 rounded-lg p-3 break-all">${raw}</p>`;
-  }
-  el.innerHTML = html || '<p class="text-slate-500 text-sm">Veri formatı tanınamadı.</p>';
+  if(!list||!list.length){ el.innerHTML=`<p class="text-slate-500 text-sm">${avEsc(icao)} için METAR verisi bulunamadı — küçük/özel havaalanları rapor vermeyebilir.</p>`; return; }
+  const name=list[0].name?`<p class="text-slate-400 text-sm mb-3">${avEsc(list[0].name)} — ${list.length} rapor</p>`:'';
+  el.innerHTML=name+`<div class="grid grid-cols-1 lg:grid-cols-3 gap-4">${list.map(avMetarCard).join('')}</div>
+    <p class="text-slate-600 text-[11px] mt-3">Uçuş kategorisi: ${Object.keys(AV_CAT).map(k=>`${avBadge(k)}`).join(' ')} — tavan ve görüşe göre. Rüzgâr okları rüzgârın estiği yönü gösterir.</p>`;
 }
 
-function renderTaf(t, icao){
+/* ---- TAF: çözümlenmiş zaman çizelgesi ---- */
+function avTafModel(taf){
+  const f=(taf.fcsts||[]).slice();
+  if(!f.length||!taf.validTimeFrom||!taf.validTimeTo) return null;
+  const isOverlay=e=>e.fcstChange==='TEMPO'||e.fcstChange==='PROB'||(e.probability&&e.fcstChange!=='FM'&&e.fcstChange!=='BECMG');
+  const mk=(e,prev)=>({
+    wdir:e.wdir??prev?.wdir??null, wspd:e.wspd??prev?.wspd??null, wgst:e.wgst??null,
+    visib:e.visib??prev?.visib??null,
+    clouds:(e.clouds&&e.clouds.length)?e.clouds:(prev?.clouds||[]),
+    vv:e.vertVis??null,
+    wx:(e.wxString&&e.wxString!=='NSW')?e.wxString:'',
+  });
+  /* kalıcı değişimler: temel grup, FM, BECMG (geçiş bittiğinde etkin) */
+  const perm=[]; let prev=null;
+  f.filter(e=>!isOverlay(e)).forEach(e=>{
+    const st=mk(e,prev); prev=st;
+    perm.push({from:(e.fcstChange==='BECMG'?(e.timeBec||e.timeFrom):e.timeFrom), st, e});
+  });
+  perm.sort((a,b)=>a.from-b.from);
+  const overlays=f.filter(isOverlay);
+  const hours=[];
+  for(let t=taf.validTimeFrom;t<taf.validTimeTo;t+=3600){
+    let cur=perm[0]?.st||null;
+    perm.forEach(p=>{ if(p.from<=t) cur=p.st; });
+    const cat=cur?avCategory(avParseVis(cur.visib), avCeiling(cur.clouds,cur.vv)):'VFR';
+    let ov=null;
+    overlays.forEach(e=>{
+      if(e.timeFrom<=t && t<e.timeTo){
+        const st=mk(e,cur);
+        const label=(e.fcstChange==='TEMPO'?'TEMPO':'')+(e.probability?(e.fcstChange==='TEMPO'?' ':'')+'PROB'+e.probability:'') || 'GEÇİCİ';
+        ov={label, st, cat:avCategory(avParseVis(st.visib), avCeiling(st.clouds,st.vv))};
+      }
+    });
+    hours.push({t,st:cur,cat,ov});
+  }
+  return {hours, perm, overlays, f};
+}
+function avRuns(hours, keyFn){
+  const runs=[]; hours.forEach((h,i)=>{
+    const k=keyFn(h);
+    const last=runs[runs.length-1];
+    if(last && last.k===k) last.len++; else runs.push({k,i,len:1,h});
+  });
+  return runs;
+}
+function avTafTimeline(taf){
+  const mdl=avTafModel(taf);
+  if(!mdl) return '';
+  const {hours}=mdl, N=hours.length;
+  const hasWx=hours.some(h=>h.st&&h.st.wx);
+  const hasOv=hours.some(h=>h.ov);
+  let row=1, cells='';
+  /* place(satır, başlangıç sütunu, uzunluk, içerik, {cls, style, title}) */
+  const place=(r,c,len,inner,o)=>{
+    o=o||{};
+    return `<div class="av-cell ${o.cls||''}" ${o.title?`title="${avEsc(o.title)}"`:''} style="grid-row:${r};grid-column:${c+2} / span ${len};${o.style||''}">${inner}</div>`;
+  };
+  const label=(r,t)=>`<div class="av-rowlabel" style="grid-row:${r};grid-column:1">${t}</div>`;
+
+  /* saat başlıkları (TSİ) — gün değişince tarih */
+  cells+=label(row,'Saat (TSİ)');
+  hours.forEach((h,i)=>{
+    const d=new Date(h.t*1000);
+    const hh=avFmtH?avFmtH.format(d):'';
+    const newDay = i===0 || hh==='00';
+    cells+=`<div class="av-hr" style="grid-row:${row};grid-column:${i+2}">${hh}${newDay?`<div class="text-slate-600">${avFmtD?avFmtD.format(d):''}</div>`:''}</div>`;
+  });
+  row++;
+
+  cells+=label(row,'Kategori');
+  avRuns(hours,h=>h.cat).forEach(r=>{
+    const c=AV_CAT[r.k];
+    cells+=place(row,r.i,r.len,`<b style="color:${c.tx}">${r.k}</b>`,{style:`background:rgba(${c.rgb},.18);border:1px solid rgba(${c.rgb},.45);`});
+  });
+  row++;
+
+  cells+=label(row,'Rüzgâr (kt)');
+  avRuns(hours,h=>`${h.st?.wdir}|${h.st?.wspd}|${h.st?.wgst}`).forEach(r=>{
+    const s=r.h.st||{};
+    const dirOk=!(s.wdir==null||s.wdir==='VRB'||isNaN(Number(s.wdir)));
+    const arrow=dirOk?`<svg width="12" height="12" viewBox="0 0 40 40"><g transform="rotate(${(Number(s.wdir)+180)%360} 20 20)"><path d="M20 4 L30 32 L20 25 L10 32 Z" fill="#38bdf8"/></g></svg>`:'';
+    const tip=`${s.wdir==='VRB'?'Değişken':(s.wdir!=null?s.wdir+'°':'')} ${s.wspd!=null?s.wspd:''}${s.wgst?' hamle '+s.wgst:''} kt`.trim();
+    cells+=place(row,r.i,r.len,`${arrow}<span>${s.wspd!=null?s.wspd:'—'}${s.wgst?'G'+s.wgst:''}</span>`,{title:tip});
+  });
+  row++;
+
+  cells+=label(row,'Görüş');
+  avRuns(hours,h=>avVisText(h.st?.visib)).forEach(r=>{ cells+=place(row,r.i,r.len,avEsc(r.k)); });
+  row++;
+
+  cells+=label(row,'Bulut');
+  avRuns(hours,h=>(h.st?.clouds||[]).map(avCloudCode).join(' ')+'|'+(h.st?.vv??'')).forEach(r=>{
+    const code=(r.h.st?.clouds||[]).map(avCloudCode).join(' ')||'—';
+    cells+=place(row,r.i,r.len,avEsc(code),{title:avCloudsText(r.h.st?.clouds)});
+  });
+  row++;
+
+  if(hasWx){
+    cells+=label(row,'Hava olayı');
+    avRuns(hours,h=>h.st?.wx||'').forEach(r=>{
+      if(!r.k) return;
+      cells+=place(row,r.i,r.len,`⚠ ${avEsc(avWxTR(r.k))}`,{style:'background:rgba(251,191,36,.14);border:1px solid rgba(251,191,36,.4);color:#fcd34d;'});
+    });
+    row++;
+  }
+  if(hasOv){
+    cells+=label(row,'TEMPO / PROB');
+    avRuns(hours,h=>h.ov?[h.ov.label,h.ov.cat,h.ov.st.wx||'',h.ov.st.visib,(h.ov.st.clouds||[]).map(avCloudCode).join('')].join('|'):'').forEach(r=>{
+      if(!r.k) return;
+      const o=r.h.ov, c=AV_CAT[o.cat];
+      const tip=[o.label, avWxTR(o.st.wx), (o.st.visib!=null?'görüş '+avVisText(o.st.visib):''), o.st.wspd!=null?(o.st.wspd+(o.st.wgst?'G'+o.st.wgst:'')+' kt'):'', o.cat].filter(Boolean).join(' · ');
+      cells+=place(row,r.i,r.len,avEsc(o.label+(o.st.wx?' '+avWxTR(o.st.wx):'')),{cls:'av-hatch',title:tip,style:`border:1px dashed rgba(${c.rgb},.8);color:${c.tx};`});
+    });
+    row++;
+  }
+  return `<div class="overflow-x-auto pb-2"><div class="av-tl" style="grid-template-columns:78px repeat(${N},minmax(30px,1fr));min-width:${78+N*30}px">${cells}</div></div>`;
+}
+
+function avPeriodCards(taf){
+  const mdl=avTafModel(taf); if(!mdl) return '';
+  const hm=t=>{ const d=new Date(t*1000); return `${avFmtD?avFmtD.format(d):''} ${avFmtH?avFmtH.format(d):''}:00`; };
+  let prev=null;
+  const cards=mdl.f.map((e,i)=>{
+    const ov=(e.fcstChange==='TEMPO'||e.fcstChange==='PROB'||(e.probability&&e.fcstChange!=='FM'&&e.fcstChange!=='BECMG'));
+    const st={
+      wdir:e.wdir??null, wspd:e.wspd??null, wgst:e.wgst??null, visib:e.visib??prev?.visib??null,
+      clouds:(e.clouds&&e.clouds.length)?e.clouds:(prev?.clouds||[]), vv:e.vertVis??null,
+    };
+    if(!ov) prev=st;
+    const cat=avCategory(avParseVis(st.visib), avCeiling(st.clouds,st.vv));
+    let title, when;
+    if(i===0 && !e.fcstChange){ title='Başlangıç durumu'; when=`${hm(e.timeFrom)} → ${hm(e.timeTo)}`; }
+    else if(e.fcstChange==='FM'){ title='FM — Kalıcı değişim'; when=`${hm(e.timeFrom)} itibarıyla`; }
+    else if(e.fcstChange==='BECMG'){ title='BECMG — Kademeli değişim'; when=`${hm(e.timeFrom)} → ${hm(e.timeBec||e.timeTo)} arasında`; }
+    else { title=(e.fcstChange==='TEMPO'?'TEMPO — Geçici':'')+(e.probability?(e.fcstChange==='TEMPO'?' · ':'')+'%'+e.probability+' olasılık':''); when=`${hm(e.timeFrom)} → ${hm(e.timeTo)}`; }
+    const wx=avWxTR(e.wxString);
+    return `<div class="rounded-xl border border-slate-800 bg-black/20 p-3 ${ov?'av-hatch':''}">
+      <div class="flex items-center justify-between gap-2 mb-1"><span class="text-white text-xs font-700">${avEsc(title)}</span>${avBadge(cat)}</div>
+      <p class="text-slate-500 text-[11px] mb-2">${avEsc(when)} (TSİ)</p>
+      <p class="text-slate-300 text-xs">💨 ${e.wdir==null?'—':(e.wdir==='VRB'?'Değişken':e.wdir+'°')} ${e.wspd!=null?e.wspd+' kt':''}${e.wgst?` (hamle ${e.wgst} kt)`:''} · 👁 ${avVisText(st.visib)}</p>
+      <p class="text-slate-400 text-xs mt-0.5">☁️ ${avCloudsText(e.clouds&&e.clouds.length?e.clouds:null)}</p>
+      ${wx?`<p class="text-amber-300 text-xs mt-0.5">⚠ ${avEsc(wx)}</p>`:''}
+    </div>`;
+  });
+  return `<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2 mt-4">${cards.join('')}</div>`;
+}
+
+function renderTafs(list, icao){
   const el=document.getElementById('taf-display');
   if(!el) return;
-  if(!t){ el.innerHTML=`<p class="text-slate-500 text-sm">${icao} için TAF verisi bulunamadı — küçük havaalanlarında TAF genelde yayınlanmaz.</p>`; return; }
-  const raw = t.rawTAF || t.raw_text || t.rawText || t.raw || '';
-  el.innerHTML = raw
-    ? `<p class="font-mono text-xs text-slate-300 bg-black/30 rounded-lg p-3 whitespace-pre-wrap break-all">${raw}</p>`
-    : '<p class="text-slate-500 text-sm">Veri formatı tanınamadı.</p>';
+  if(!list||!list.length){ el.innerHTML=`<p class="text-slate-500 text-sm">${avEsc(icao)} için TAF verisi bulunamadı — küçük havaalanlarında TAF genelde yayınlanmaz.</p>`; return; }
+  el.innerHTML=list.map((t,idx)=>{
+    const raw=t.rawTAF||t.raw_text||t.rawText||t.raw||'';
+    const tl=avTafTimeline(t);
+    const valid=(t.validTimeFrom&&t.validTimeTo)?`Geçerlilik: ${avTime(t.validTimeFrom)} → ${avTime(t.validTimeTo)}`:'';
+    return `<div class="glass rounded-2xl p-5 ${idx>0?'mt-5':''}">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
+        <span class="text-xs font-600 ${idx===0?'text-brand':'text-slate-500'}">${idx===0?'EN YENİ TAF':'ÖNCEKİ TAF'}${t.name?' · '+avEsc(t.name):''}</span>
+        <span class="text-slate-500 text-xs">${t.issueTime?'Yayın: '+avTime(Math.floor(new Date(t.issueTime).getTime()/1000)):''}</span>
+      </div>
+      <p class="text-slate-500 text-xs mb-4">${valid}</p>
+      ${tl||'<p class="text-slate-500 text-sm">Zaman çizelgesi oluşturulamadı; ham metne bakın.</p>'}
+      ${avPeriodCards(t)}
+      ${raw?`<p class="text-slate-500 text-[10px] uppercase tracking-widest mt-4 mb-1">Ham TAF</p><p class="font-mono text-xs text-slate-300 bg-black/30 rounded-lg p-3 whitespace-pre-wrap break-all">${avEsc(raw)}</p>`:''}
+    </div>`;
+  }).join('')+`<p class="text-slate-600 text-[11px] mt-3">Kategori renkleri: ${Object.keys(AV_CAT).map(k=>avBadge(k)+' <span class="text-slate-500">'+AV_CAT[k].desc+'</span>').join(' &nbsp;·&nbsp; ')}. Saatler TSİ'dir; taralı kutular geçici (TEMPO/PROB) durumlardır. kt = knot (1 kt ≈ 0,51 m/s).</p>`;
 }
 
+
+/* ---------------------------------------------------------------
+   STADYUM SEÇİCİ — hazır stadyum listesi (admin panelinden yönetilir)
+   ve haritadan nokta seçme. Seçim, sitedeki ortak konum mekanizmasına
+   (loadAll) bağlanır; böylece tüm paneller o noktaya göre güncellenir.
+--------------------------------------------------------------- */
+let STADIUMS=[];
+let stadiumPickMap=null, stadiumPickMarker=null, stadiumPickLayer=null;
+
+async function loadStadiums(){
+  try{ STADIUMS=(await gFetch(`${BACKEND}/stadiums`)).stadiums||[]; }
+  catch(_){ STADIUMS=[]; }
+  const sel=document.getElementById('stadium-select');
+  if(sel){
+    sel.innerHTML = STADIUMS.length
+      ? '<option value="">— Stadyum seçin —</option>'+STADIUMS.map(s=>`<option value="${s.id}">${avEsc(s.name)}${s.city?' — '+avEsc(s.city):''}</option>`).join('')
+      : '<option value="">Henüz hazır stadyum yok — haritadan nokta seçebilirsiniz</option>';
+  }
+  stadiumDrawPickMarkers();
+  adminRenderStadiums();
+}
+
+async function stadiumApplyPoint(lat, lon, label){
+  if(marker) marker.setLatLng([lat,lon]); else marker=L.marker([lat,lon],{icon:mIcon}).addTo(map);
+  map.setView([lat,lon], Math.max(map.getZoom(),11));
+  document.querySelectorAll('.loc-search').forEach(i=>{ i.value=label; });
+  await loadAll(lat,lon,{noScroll:true});
+  syncLocPlace(label);
+  if(stadiumPickMap){
+    if(stadiumPickMarker) stadiumPickMarker.setLatLng([lat,lon]);
+    else stadiumPickMarker=L.circleMarker([lat,lon],{radius:8,color:'#fff',weight:2,fillColor:'#ef4444',fillOpacity:1}).addTo(stadiumPickMap);
+  }
+}
+function stadiumPick(id){
+  const s=STADIUMS.find(x=>String(x.id)===String(id)); if(!s) return;
+  stadiumApplyPoint(s.lat, s.lon, s.name+(s.city?', '+s.city:''));
+  if(stadiumPickMap) stadiumPickMap.setView([s.lat,s.lon],13);
+}
+function stadiumDrawPickMarkers(){
+  if(!stadiumPickMap) return;
+  if(stadiumPickLayer) stadiumPickLayer.remove();
+  stadiumPickLayer=L.layerGroup().addTo(stadiumPickMap);
+  STADIUMS.forEach(s=>{
+    L.circleMarker([s.lat,s.lon],{radius:7,color:'#fff',weight:2,fillColor:'#38bdf8',fillOpacity:1})
+      .bindTooltip(s.name,{direction:'top'})
+      .on('click',e=>{ L.DomEvent.stopPropagation(e); const sel=document.getElementById('stadium-select'); if(sel) sel.value=String(s.id); stadiumPick(s.id); })
+      .addTo(stadiumPickLayer);
+  });
+}
+function stadiumTogglePickMap(){
+  const wrap=document.getElementById('stadium-pick-wrap'); if(!wrap) return;
+  wrap.classList.toggle('hidden');
+  if(wrap.classList.contains('hidden')) return;
+  if(!stadiumPickMap){
+    stadiumPickMap=L.map('stadium-pick-map',{center:[39.0,35.0],zoom:5});
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18,attribution:'&copy; OpenStreetMap katkıda bulunanlar'}).addTo(stadiumPickMap);
+    stadiumPickMap.on('click',e=>{
+      const lat=+e.latlng.lat.toFixed(5), lon=+e.latlng.lng.toFixed(5);
+      const sel=document.getElementById('stadium-select'); if(sel) sel.value='';
+      stadiumApplyPoint(lat,lon,`Seçilen nokta (${lat.toFixed(4)}, ${lon.toFixed(4)})`);
+    });
+    stadiumDrawPickMarkers();
+    if(lastCoords){ stadiumPickMap.setView([lastCoords.lat,lastCoords.lon],10); }
+  }
+  setTimeout(()=>stadiumPickMap.invalidateSize(),120);
+}
+
+/* --- Admin: stadyum listesi yönetimi --- */
+function parseLatLon(str){
+  const t=String(str||'').trim(); let parts;
+  if(t.includes(';')) parts=t.split(';');
+  else if(/\s/.test(t) && !/,\s/.test(t)) parts=t.split(/\s+/);      /* "41,07 28,76" */
+  else parts=t.split(/,\s*/);                                          /* "41.07, 28.76" */
+  if(parts.length!==2) return null;
+  const a=parseFloat(parts[0].replace(',','.')), b=parseFloat(parts[1].replace(',','.'));
+  if(!isFinite(a)||!isFinite(b)||Math.abs(a)>90||Math.abs(b)>180) return null;
+  return [a,b];
+}
+function adminRenderStadiums(){
+  const el=document.getElementById('admin-stadium-list'); if(!el) return;
+  el.innerHTML = STADIUMS.map(s=>`
+    <div class="flex items-center justify-between gap-3 rounded-xl border border-slate-800 px-4 py-2.5">
+      <div class="min-w-0">
+        <p class="text-white text-sm font-600 truncate">${avEsc(s.name)}${s.city?` <span class="text-slate-500 font-400">— ${avEsc(s.city)}</span>`:''}</p>
+        <p class="text-slate-500 text-xs font-mono">${s.lat}, ${s.lon}</p>
+      </div>
+      <button onclick="adminDeleteStadium(${s.id})" class="text-red-400 text-xs hover:text-red-300 whitespace-nowrap">Sil</button>
+    </div>`).join('') || '<p class="text-slate-600 text-xs">Henüz stadyum yok.</p>';
+}
+async function adminAddStadium(){
+  const name=document.getElementById('admin-st-name').value.trim();
+  const city=document.getElementById('admin-st-city').value.trim();
+  const ll=parseLatLon(document.getElementById('admin-st-coord').value);
+  if(!name){ toast('Stadyum adı gerekli','warn'); return; }
+  if(!ll){ toast('Koordinatı "41.0745, 28.7660" biçiminde yazın','warn'); return; }
+  try{
+    await adminApi('/stadiums','POST',{name,city:city||null,lat:ll[0],lon:ll[1]});
+    ['admin-st-name','admin-st-city','admin-st-coord'].forEach(id=>document.getElementById(id).value='');
+    toast('Stadyum eklendi ✓','success');
+    loadStadiums();
+  }catch(_){ toast('Eklenemedi, tekrar deneyin','error'); }
+}
+async function adminDeleteStadium(id){
+  if(!confirm('Bu stadyum listeden silinsin mi?')) return;
+  try{ await adminApi(`/stadiums/${id}`,'DELETE'); toast('Silindi','success'); loadStadiums(); }
+  catch(_){ toast('Silinemedi','error'); }
+}
 
 /* ---------------------------------------------------------------
    CHARTS
@@ -4434,6 +4822,7 @@ function checkAdminAuth(){
     adminLoadNotesList();
     adminLoadTable();
     initDrawMap();
+    loadStadiums();
   } else {
     loginBox.classList.remove('hidden');
     panelBox.classList.add('hidden');
@@ -5817,6 +6206,7 @@ async function loadContent() {
   const stTmpl = document.getElementById('stadium-template');
   if(stTmpl) stPanel.innerHTML=stTmpl.innerHTML;
   panelC.appendChild(stPanel);
+  loadStadiums();
 
   /* Kayak Merkezleri: Canlı Panel */
   const skiBtn=document.createElement('button');
@@ -6157,7 +6547,11 @@ const SECTOR_MENU=[
     {key:'energy-live', icon:'☀️', label:'GES (Güneş)', anchor:'ges-section'},
     {key:'energy-live', icon:'🌬️', label:'RES (Rüzgar)', anchor:'res-section'},
   ]},
-  {type:'leaf', key:'construction', icon:'🏗️', label:'İnşaat'},
+  {type:'group', key:'insaat', icon:'🏗️', label:'İnşaat', children:[
+    {key:'construction', icon:'🧱', label:'Beton Döküm',            anchor:'concrete-section'},
+    {key:'construction', icon:'🏗️', label:'Vinç ve Yüksekte Çalışma', anchor:'crane-section'},
+    {key:'construction', icon:'🚧', label:'Şantiye Çalışması',       anchor:'fieldwork-section'},
+  ]},
   {type:'leaf', key:'aviation',    icon:'✈️',  label:'Havacılık'},
   {type:'leaf', key:'stadium',     icon:'⚽',  label:'Stadyum'},
   {type:'leaf', key:'ski',         icon:'⛷️',  label:'Kayak'},
