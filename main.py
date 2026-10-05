@@ -27,7 +27,8 @@ DB_PATH = os.environ.get("DB_PATH", "meteo.db")
 UPLOADS_DIR = os.path.join(os.path.dirname(os.path.abspath(DB_PATH)) or ".", "uploads")
 os.makedirs(UPLOADS_DIR, exist_ok=True)
 
-MAX_UPLOAD_BYTES = 6 * 1024 * 1024  # 6 MB üst sınır (resim)
+MAX_UPLOAD_BYTES = 12 * 1024 * 1024  # 12 MB üst sınır (resim; yüksek çözünürlüklü ekran görüntüleri için)
+MAX_DRAWING_JSON_CHARS = 600_000  # çizim verisi (JSON) üst sınırı
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 
 MAX_PDF_BYTES = 20 * 1024 * 1024  # 20 MB üst sınır (pdf raporlar resimden büyük olabilir)
@@ -86,6 +87,14 @@ def init_db():
     # değerlendirme metnine ek olarak orijinal rapor/döküman eklenebilsin diye)
     try:
         con.execute("ALTER TABLE expert_notes ADD COLUMN pdf_url TEXT")
+    except sqlite3.OperationalError:
+        pass  # sütun zaten var
+
+    # drawing_json: "Harita Çiz" aracıyla hazırlanan çizimin düzenlenebilir hali
+    # (şekiller + harita görünümü). Yayınlanmış notu sonradan düzenlerken
+    # çizimi sıfırdan yapmamak için saklanır.
+    try:
+        con.execute("ALTER TABLE expert_notes ADD COLUMN drawing_json TEXT")
     except sqlite3.OperationalError:
         pass  # sütun zaten var
 
@@ -225,6 +234,7 @@ class NotePayload(BaseModel):
     image_url: str | None = None
     body_html: str | None = None
     pdf_url: str | None = None
+    drawing_json: str | None = None
 
 
 class TablePayload(BaseModel):
@@ -451,13 +461,28 @@ def admin_login(payload: LoginPayload):
     return {"ok": True, "token": ADMIN_PASSWORD}
 
 
+def check_drawing(raw: str | None) -> str | None:
+    """Çizim verisi geçerli bir JSON ve makul boyutta olmalı."""
+    if not raw:
+        return None
+    if len(raw) > MAX_DRAWING_JSON_CHARS:
+        raise HTTPException(status_code=400, detail="Çizim verisi çok büyük")
+    try:
+        json.loads(raw)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Çizim verisi geçersiz")
+    return raw
+
+
 @app.get("/notes")
 def get_notes():
     """Herkese açık: yayınlanmış uzman değerlendirme notları, en yeni önce."""
     con = sqlite3.connect(DB_PATH)
     con.row_factory = sqlite3.Row
     rows = con.execute(
-        "SELECT id, title, body, created_at, image_url, body_html, pdf_url FROM expert_notes ORDER BY created_at DESC"
+        """SELECT id, title, body, created_at, image_url, body_html, pdf_url,
+                  (drawing_json IS NOT NULL) AS has_drawing
+           FROM expert_notes ORDER BY created_at DESC"""
     ).fetchall()
     con.close()
     return {"notes": [dict(r) for r in rows]}
@@ -470,13 +495,51 @@ def add_note(payload: NotePayload, authorization: str | None = Header(default=No
     body = payload.body.strip()
     if not title or not body:
         raise HTTPException(status_code=400, detail="Başlık ve metin gerekli")
+    drawing = check_drawing(payload.drawing_json)
     con = sqlite3.connect(DB_PATH)
     con.execute(
-        "INSERT INTO expert_notes (title, body, created_at, image_url, body_html, pdf_url) VALUES (?,?,?,?,?,?)",
-        (title, body, datetime.now(timezone.utc).isoformat(), payload.image_url, payload.body_html, payload.pdf_url),
+        "INSERT INTO expert_notes (title, body, created_at, image_url, body_html, pdf_url, drawing_json) VALUES (?,?,?,?,?,?,?)",
+        (title, body, datetime.now(timezone.utc).isoformat(), payload.image_url, payload.body_html, payload.pdf_url, drawing),
     )
     con.commit()
     con.close()
+    return {"ok": True}
+
+
+@app.get("/admin/notes/{note_id}")
+def get_note_for_edit(note_id: int, authorization: str | None = Header(default=None)):
+    """Yönetici: düzenleme için notun tamamı (çizim verisi dahil)."""
+    check_admin(authorization)
+    con = sqlite3.connect(DB_PATH)
+    con.row_factory = sqlite3.Row
+    row = con.execute(
+        "SELECT id, title, body, created_at, image_url, body_html, pdf_url, drawing_json FROM expert_notes WHERE id=?",
+        (note_id,),
+    ).fetchone()
+    con.close()
+    if not row:
+        raise HTTPException(status_code=404, detail="Not bulunamadı")
+    return dict(row)
+
+
+@app.put("/notes/{note_id}")
+def update_note(note_id: int, payload: NotePayload, authorization: str | None = Header(default=None)):
+    """Yayınlanmış notu günceller (tarihi korunur). Gönderilen alanlar notun yeni hali olur."""
+    check_admin(authorization)
+    title = payload.title.strip()
+    body = payload.body.strip()
+    if not title or not body:
+        raise HTTPException(status_code=400, detail="Başlık ve metin gerekli")
+    drawing = check_drawing(payload.drawing_json)
+    con = sqlite3.connect(DB_PATH)
+    cur = con.execute(
+        "UPDATE expert_notes SET title=?, body=?, image_url=?, body_html=?, pdf_url=?, drawing_json=? WHERE id=?",
+        (title, body, payload.image_url, payload.body_html, payload.pdf_url, drawing, note_id),
+    )
+    con.commit()
+    con.close()
+    if cur.rowcount == 0:
+        raise HTTPException(status_code=404, detail="Not bulunamadı")
     return {"ok": True}
 
 
@@ -500,7 +563,7 @@ async def upload_image(file: UploadFile = File(...), authorization: str | None =
 
     data = await file.read()
     if len(data) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=400, detail="Dosya çok büyük (üst sınır 6 MB)")
+        raise HTTPException(status_code=400, detail="Dosya çok büyük (üst sınır 12 MB)")
 
     ext = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp", "image/gif": ".gif"}[file.content_type]
     filename = f"{uuid.uuid4().hex}{ext}"
