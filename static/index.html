@@ -918,7 +918,7 @@
         <p id="draw-hint" class="text-slate-500 text-xs mb-3">Bir araç seçip haritaya tıklayın.</p>
         <div id="draw-map" style="height:420px;border-radius:12px;overflow:hidden;background:#0f172a"></div>
         <div class="flex justify-end mt-3">
-          <button onclick="exportDrawingToNote()" class="btn-primary text-white text-sm px-5 py-2.5">🖼️ Görseli Değerlendirme Formuna Ekle</button>
+          <button onclick="exportDrawingToNote()" class="btn-primary text-white text-sm px-5 py-2.5">🖼️ Görseli Değerlendirme Formuna Ekle / Yenile</button>
         </div>
       </div>
     </div>
@@ -927,6 +927,9 @@
     <div>
       <h3 class="font-display text-xl font-700 text-white mb-4">📝 Yeni Değerlendirme Ekle</h3>
       <div class="glass rounded-2xl p-6 space-y-3">
+        <div id="admin-edit-banner" class="hidden rounded-xl border border-brand/40 bg-brand/10 px-4 py-2.5 text-xs text-slate-300">
+          ✏️ Düzenleme modu: <b id="admin-edit-banner-title" class="text-white"></b> — değişiklikleri yapıp "Güncelle"ye basın. Yayın tarihi korunur.
+        </div>
         <input id="admin-note-title" type="text" placeholder="Başlık (örn: Bu Hafta Doğu Karadeniz İçin Değerlendirme)" class="loc-input w-full">
         <textarea id="admin-note-body" rows="6" placeholder="Değerlendirme metni…" class="loc-input w-full" style="resize:vertical"></textarea>
 
@@ -959,7 +962,10 @@
           <p id="admin-pdf-status" class="text-slate-600 text-xs mt-1"></p>
         </div>
 
-        <button onclick="adminAddNote()" id="admin-note-submit-btn" class="btn-primary text-white text-sm px-5 py-2.5">Yayınla</button>
+        <div class="flex items-center gap-3">
+          <button onclick="adminAddNote()" id="admin-note-submit-btn" class="btn-primary text-white text-sm px-5 py-2.5">Yayınla</button>
+          <button onclick="adminCancelEdit()" id="admin-note-cancel-btn" class="hidden glass rounded-lg px-4 py-2.5 text-sm text-slate-300">Vazgeç</button>
+        </div>
       </div>
       <div id="admin-notes-list" class="space-y-2 mt-4"></div>
     </div>
@@ -3362,11 +3368,9 @@ function amapRenderLegend(){
 
 function amapRefreshLabels(){
   if(!amap) return;
-  const zoomedIn = amap.getZoom() >= 7;
   Object.keys(amapLabels).forEach(plate=>{
     const el=amapLabels[plate].getElement()?.querySelector('.il-label'); if(!el) return;
-    const show = zoomedIn || amapCell(plate).rank>=1 || plate===amapSel;
-    el.classList.toggle('il-label-off', !show);
+    el.classList.remove('il-label-off'); // tüm il adları her zaman görünür
   });
 }
 
@@ -4387,7 +4391,7 @@ async function loadExpertContent(){
             <h4 class="font-display text-lg font-700 text-white">${note.title}</h4>
             <span class="text-slate-500 text-xs whitespace-nowrap ml-3">${fmtNoteDate(note.created_at)}</span>
           </div>
-          ${note.image_url?`<img src="${BACKEND}${note.image_url}" class="rounded-xl w-full max-h-96 object-cover mb-4" loading="lazy">`:''}
+          ${note.image_url?`<a href="${BACKEND}${note.image_url}" target="_blank" rel="noopener" title="Tam boyutta aç"><img src="${BACKEND}${note.image_url}" class="rounded-xl w-full max-h-[34rem] object-contain bg-slate-900/50 mb-4" loading="lazy"></a>`:''}
           ${note.body_html
             ? `<div class="expert-note-html text-slate-400 text-sm leading-relaxed">${note.body_html}</div>`
             : `<p class="text-slate-400 text-sm leading-relaxed whitespace-pre-line">${note.body}</p>`}
@@ -4879,7 +4883,7 @@ let drawMap=null;
 let drawMode=null;          // null | 'freehand' | 'fill' | 'circle' | 'line' | 'emoji'
 let drawColor='#38bdf8';
 let drawEmoji=null;
-let drawnLayers=[];         // geri al / temizle için tüm katmanlar
+let drawnShapes=[];         // {data, layers} — geri al / temizle / kaydet için
 let circleFirst=null;       // daire için merkez noktası
 let lineFirst=null;         // çizgi için başlangıç noktası
 let drawTempMarker=null;    // ilk tık sonrası geçici işaretçi (daire/çizgi)
@@ -4901,6 +4905,8 @@ const WEATHER_ICON_LABELS={
 let svgIconCounter=0;
 function makeUniqueSvg(svgMarkup){
   const suffix='wi'+(svgIconCounter++);
+  /* viewBox yoksa simge küçültülünce ölçeklenmez, köşesi kırpılır — ekle */
+  svgMarkup=svgMarkup.replace('<svg width="56" height="48"','<svg viewBox="0 0 56 48" width="56" height="48"');
   return svgMarkup.replace(/id="([^"]+)"/g,(m,id)=>`id="${id}-${suffix}"`)
                    .replace(/url\(#([^)]+)\)/g,(m,id)=>`url(#${id}-${suffix})`);
 }
@@ -4983,12 +4989,64 @@ function onFreehandEnd(){
   isDrawingFreehand=false;
   if(freehandPreview){ drawMap.removeLayer(freehandPreview); freehandPreview=null; }
   if(freehandPoints.length>=3){
-    /* Dolgu YOK (fillOpacity:0) — "Doldur" aracıyla ayrı bir adımda renklendirilir. */
-    const polygon=L.polygon(freehandPoints,{color:drawColor,weight:2,fillOpacity:0}).addTo(drawMap);
-    drawnLayers.push(polygon);
+    /* Fare hareketinden gelen yüzlerce noktayı sadeleştir (veri küçük kalsın,
+       çizgi daha düzgün görünsün). Dolgu YOK — "Doldur" aracıyla ayrı adımda. */
+    let pts=freehandPoints;
+    try{
+      const sp=L.LineUtil.simplify(pts.map(p=>drawMap.latLngToLayerPoint(p)),1);
+      if(sp.length>=3) pts=sp.map(p=>drawMap.layerPointToLatLng(p));
+    }catch(_){}
+    addShape({t:'poly', pts:pts.map(p=>[+p.lat.toFixed(5),+p.lng.toFixed(5)]), color:drawColor, fill:null});
   }
   freehandPoints=[];
 }
+
+/* ---------------------------------------------------------------
+   Şekil modeli: her çizim önce düz bir "veri" nesnesidir (data), harita
+   katmanları bundan üretilir. Böylece çizim JSON olarak kaydedilip
+   yayınlanmış bir notu düzenlerken aynen geri yüklenebilir.
+     poly   {t,pts:[[lat,lng]..],color,fill}
+     circle {t,c:[lat,lng],r(metre),color,fill}
+     line   {t,a:[lat,lng],b:[lat,lng],color}      (bitişte ok ucu)
+     emoji  {t,key,p:[lat,lng]}
+--------------------------------------------------------------- */
+function arrowAngle(a,b){ return Math.atan2(b[0]-a[0], b[1]-a[1])*180/Math.PI; }
+
+function addShape(data){
+  const layers=[];
+  if(data.t==='poly'){
+    const p=L.polygon(data.pts,{color:data.color,weight:2,fillOpacity:0}).addTo(drawMap);
+    if(data.fill) p.setStyle({fillColor:data.fill,fillOpacity:.4});
+    layers.push(p);
+  } else if(data.t==='circle'){
+    const c=L.circle(data.c,{radius:data.r,color:data.color,weight:2,fillOpacity:0}).addTo(drawMap);
+    if(data.fill) c.setStyle({fillColor:data.fill,fillOpacity:.4});
+    layers.push(c);
+  } else if(data.t==='line'){
+    layers.push(L.polyline([data.a,data.b],{color:data.color,weight:3}).addTo(drawMap));
+    const ang=arrowAngle(data.a,data.b);
+    const icon=L.divIcon({
+      html:`<div style="width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:14px solid ${data.color};transform:rotate(${90-ang}deg)"></div>`,
+      className:'', iconSize:[14,14], iconAnchor:[7,7],
+    });
+    layers.push(L.marker(data.b,{icon,interactive:false}).addTo(drawMap));
+  } else if(data.t==='emoji'){
+    const icon=L.divIcon({
+      html:`<div class="draw-emoji-marker">
+              <div class="draw-emoji-marker-svg">${makeUniqueSvg(WEATHER_ICON_SVGS[data.key])}</div>
+              <div class="draw-emoji-marker-label">${WEATHER_ICON_LABELS[data.key]}</div>
+            </div>`,
+      className:'', iconSize:[80,66], iconAnchor:[40,18],
+    });
+    const m=L.marker(data.p,{icon,draggable:true}).addTo(drawMap);
+    m.on('dragend',()=>{ const ll=m.getLatLng(); data.p=[+ll.lat.toFixed(5),+ll.lng.toFixed(5)]; });
+    layers.push(m);
+  } else return null;
+  const shape={data,layers};
+  drawnShapes.push(shape);
+  return shape;
+}
+function removeShape(sh){ sh.layers.forEach(l=>drawMap.removeLayer(l)); }
 
 /* --- Doldurma aracı: tıklanan nokta hangi çizili şeklin içindeyse
    onun dolgusunu seçili renkle günceller (poligon veya daire). */
@@ -5002,19 +5060,15 @@ function pointInPolygon(pt, vs){
   return inside;
 }
 function fillShapeAt(latlng){
-  for(let i=drawnLayers.length-1;i>=0;i--){
-    const layer=drawnLayers[i];
-    if(layer instanceof L.Polygon){
-      const vs=layer.getLatLngs()[0];
-      if(pointInPolygon(latlng, vs)){
-        layer.setStyle({fillColor:drawColor, fillOpacity:.4});
-        return true;
-      }
-    } else if(layer instanceof L.Circle){
-      if(layer.getLatLng().distanceTo(latlng) <= layer.getRadius()){
-        layer.setStyle({fillColor:drawColor, fillOpacity:.4});
-        return true;
-      }
+  for(let i=drawnShapes.length-1;i>=0;i--){
+    const sh=drawnShapes[i], d=sh.data, layer=sh.layers[0];
+    let hit=false;
+    if(d.t==='poly') hit=pointInPolygon(latlng, layer.getLatLngs()[0]);
+    else if(d.t==='circle') hit=layer.getLatLng().distanceTo(latlng) <= layer.getRadius();
+    if(hit){
+      d.fill=drawColor;
+      layer.setStyle({fillColor:drawColor, fillOpacity:.4});
+      return true;
     }
   }
   return false;
@@ -5023,6 +5077,7 @@ function fillShapeAt(latlng){
 function onDrawMapClick(e){
   if(!drawMode || drawMode==='freehand') return;   /* serbest çizim kendi mousedown/up akışını kullanır */
   const ll=e.latlng;
+  const pt=[+ll.lat.toFixed(5),+ll.lng.toFixed(5)];
 
   if(drawMode==='fill'){
     if(!fillShapeAt(ll)) toast('Buraya tıkladığınızda dolduracak çizili bir bölge bulunamadı','warn');
@@ -5034,8 +5089,7 @@ function onDrawMapClick(e){
       drawTempMarker=L.circleMarker(ll,{radius:5,color:drawColor}).addTo(drawMap);
     } else {
       const radiusM=circleFirst.distanceTo(ll);
-      const circle=L.circle(circleFirst,{radius:radiusM,color:drawColor,weight:2,fillOpacity:0}).addTo(drawMap);
-      drawnLayers.push(circle);
+      addShape({t:'circle', c:[+circleFirst.lat.toFixed(5),+circleFirst.lng.toFixed(5)], r:Math.round(radiusM), color:drawColor, fill:null});
       if(drawTempMarker){ drawMap.removeLayer(drawTempMarker); drawTempMarker=null; }
       circleFirst=null;
     }
@@ -5046,15 +5100,7 @@ function onDrawMapClick(e){
       lineFirst=ll;
       drawTempMarker=L.circleMarker(ll,{radius:5,color:drawColor}).addTo(drawMap);
     } else {
-      const line=L.polyline([lineFirst,ll],{color:drawColor,weight:3}).addTo(drawMap);
-      /* Basit ok ucu: bitiş noktasına yönü hesaplanmış küçük bir üçgen */
-      const angle=Math.atan2(ll.lat-lineFirst.lat, ll.lng-lineFirst.lng)*180/Math.PI;
-      const arrowIcon=L.divIcon({
-        html:`<div style="width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:14px solid ${drawColor};transform:rotate(${90-angle}deg)"></div>`,
-        className:'', iconSize:[14,14], iconAnchor:[7,7],
-      });
-      const arrowMarker=L.marker(ll,{icon:arrowIcon}).addTo(drawMap);
-      drawnLayers.push(line, arrowMarker);
+      addShape({t:'line', a:[+lineFirst.lat.toFixed(5),+lineFirst.lng.toFixed(5)], b:pt, color:drawColor});
       if(drawTempMarker){ drawMap.removeLayer(drawTempMarker); drawTempMarker=null; }
       lineFirst=null;
     }
@@ -5062,72 +5108,208 @@ function onDrawMapClick(e){
 
   else if(drawMode==='emoji'){
     if(!drawEmoji){ toast('Önce bir hava durumu ikonu seçin','warn'); return; }
-    const svg=makeUniqueSvg(WEATHER_ICON_SVGS[drawEmoji]);
-    const label=WEATHER_ICON_LABELS[drawEmoji];
-    const icon=L.divIcon({
-      html:`<div class="draw-emoji-marker">
-              <div class="draw-emoji-marker-svg">${svg}</div>
-              <div class="draw-emoji-marker-label">${label}</div>
-            </div>`,
-      className:'', iconSize:[80,66], iconAnchor:[40,18],
-    });
-    const marker=L.marker(ll,{icon,draggable:true}).addTo(drawMap);
-    drawnLayers.push(marker);
+    addShape({t:'emoji', key:drawEmoji, p:pt});
   }
 }
 
 function undoLastDrawing(){
-  const last=drawnLayers.pop();
-  if(last) drawMap.removeLayer(last);
+  const last=drawnShapes.pop();
+  if(last) removeShape(last);
   else toast('Geri alınacak bir şey yok','info');
 }
-function clearAllDrawings(){
-  drawnLayers.forEach(l=>drawMap.removeLayer(l));
-  drawnLayers=[];
+function clearShapesSilently(){
+  drawnShapes.forEach(removeShape);
+  drawnShapes=[];
   if(freehandPreview){ drawMap.removeLayer(freehandPreview); freehandPreview=null; }
   freehandPoints=[]; isDrawingFreehand=false;
+}
+function clearAllDrawings(){
+  clearShapesSilently();
   toast('Çizimler temizlendi','info');
+}
+
+/* Kaydedilebilir çizim verisi + yayınlanan görselin çerçevesi */
+function serializeDrawing(view){
+  return JSON.stringify({
+    v:1,
+    view:{c:[+view.center.lat.toFixed(5),+view.center.lng.toFixed(5)], z:view.zoom},
+    shapes:drawnShapes.map(s=>s.data),
+  });
+}
+/* Yayınlanmış bir notun çizimini haritaya geri yükler (düzenleme için) */
+function loadDrawingJson(raw){
+  initDrawMap();
+  if(!drawMap) return;
+  clearShapesSilently();
+  try{
+    const d=JSON.parse(raw);
+    drawMap.invalidateSize();
+    if(d.view) drawMap.setView(d.view.c, d.view.z, {animate:false});
+    (d.shapes||[]).forEach(addShape);
+  }catch(err){ console.error('Çizim yüklenemedi', err); toast('Çizim verisi okunamadı','error'); }
+}
+
+/* ---------------------------------------------------------------
+   GÖRSEL ÜRETİMİ — haritayı "ekran görüntüsü" ile değil, kendimiz
+   çiziyoruz: karoları ve şekilleri aynı koordinat dönüşümüyle bir
+   canvas'a yerleştiriyoruz. Böylece (1) şekiller zeminden asla
+   kaymaz, (2) çözünürlük ekrandakinin 2 katı olur.
+--------------------------------------------------------------- */
+const DRAW_TILE_URL='https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+const DRAW_EXPORT_SCALE=2;
+
+function shapePoints(){
+  const pts=[];
+  drawnShapes.forEach(({data:d,layers})=>{
+    if(d.t==='poly') d.pts.forEach(p=>pts.push(L.latLng(p)));
+    else if(d.t==='circle'){ const b=layers[0].getBounds(); pts.push(b.getSouthWest(), b.getNorthEast()); }
+    else if(d.t==='line') pts.push(L.latLng(d.a), L.latLng(d.b));
+    else if(d.t==='emoji'){
+      const q=drawMap.latLngToLayerPoint(d.p);   /* simge noktanın etrafında ~90x85 px yer kaplar */
+      [[-48,-28],[48,62]].forEach(o=>pts.push(drawMap.layerPointToLatLng(q.add(o))));
+    }
+  });
+  return pts;
+}
+/* Ekrandaki kadraj; çizimlerin tümü sığmıyorsa sadece uzaklaşır (harita hareket etmez). */
+function computeExportView(){
+  const size=drawMap.getSize();
+  let center=drawMap.getCenter(), zoom=drawMap.getZoom();
+  const pts=shapePoints();
+  if(pts.length){
+    const b=L.latLngBounds(pts);
+    if(!drawMap.getBounds().contains(b)){
+      zoom=Math.min(zoom, drawMap.getBoundsZoom(b.pad(0.12)));
+      center=b.getCenter();
+    }
+  }
+  return {center,zoom,size};
+}
+function loadImgCors(url){
+  return new Promise(resolve=>{
+    const im=new Image(); im.crossOrigin='anonymous';
+    const t=setTimeout(()=>resolve(null),15000);
+    im.onload=()=>{ clearTimeout(t); resolve(im); };
+    im.onerror=()=>{ clearTimeout(t); resolve(null); };
+    im.src=url;
+  });
+}
+function loadSvgImage(svgMarkup){
+  return new Promise(resolve=>{
+    const im=new Image();
+    im.onload=()=>resolve(im); im.onerror=()=>resolve(null);
+    im.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svgMarkup);
+  });
+}
+
+async function renderDrawingCanvas(view){
+  const S=DRAW_EXPORT_SCALE, crs=drawMap.options.crs, z=view.zoom, size=view.size;
+  const origin=crs.latLngToPoint(view.center,z).subtract(size.divideBy(2));  /* sol-üst, dünya pikseli (z) */
+  const W=Math.round(size.x*S), H=Math.round(size.y*S);
+  const cv=document.createElement('canvas'); cv.width=W; cv.height=H;
+  const ctx=cv.getContext('2d');
+  ctx.fillStyle='#0f172a'; ctx.fillRect(0,0,W,H);
+  const P=ll=>{ const q=crs.latLngToPoint(L.latLng(ll),z); return [(q.x-origin.x)*S,(q.y-origin.y)*S]; };
+
+  /* 1) Harita karoları — ekrandakinden bir seviye daha detaylı */
+  const Zt=Math.min(z+1,18), f=Math.pow(2,Zt-z), n=Math.pow(2,Zt);
+  const tx0=Math.floor(origin.x*f/256), tx1=Math.floor((origin.x+size.x)*f/256);
+  const ty0=Math.max(0,Math.floor(origin.y*f/256)), ty1=Math.min(n-1,Math.floor((origin.y+size.y)*f/256));
+  const jobs=[];
+  for(let tx=tx0;tx<=tx1;tx++) for(let ty=ty0;ty<=ty1;ty++){
+    const wx=((tx%n)+n)%n;
+    jobs.push(loadImgCors(DRAW_TILE_URL.replace('{z}',Zt).replace('{x}',wx).replace('{y}',ty)).then(im=>({im,tx,ty})));
+  }
+  const tiles=await Promise.all(jobs);
+  const ok=tiles.filter(t=>t.im).length;
+  if(!ok) throw new Error('tile');
+  const ts=256/f;
+  tiles.forEach(({im,tx,ty})=>{
+    if(!im) return;
+    const dx=(tx*ts-origin.x)*S, dy=(ty*ts-origin.y)*S, dw=ts*S;
+    ctx.drawImage(im, Math.floor(dx), Math.floor(dy), Math.ceil(dw)+1, Math.ceil(dw)+1);
+  });
+
+  /* 2) Şekiller — ekrandaki görünümle aynı stil (poligon/daire/çizgi, sonra oklar, sonra simgeler) */
+  ctx.lineJoin='round'; ctx.lineCap='round';
+  const mPerDeg=Math.PI*L.CRS.Earth.R/180;
+  drawnShapes.forEach(({data:d})=>{
+    if(d.t==='poly'){
+      ctx.beginPath(); d.pts.forEach((p,i)=>{ const [x,y]=P(p); i?ctx.lineTo(x,y):ctx.moveTo(x,y); }); ctx.closePath();
+      if(d.fill){ ctx.globalAlpha=.4; ctx.fillStyle=d.fill; ctx.fill(); ctx.globalAlpha=1; }
+      ctx.lineWidth=2*S; ctx.strokeStyle=d.color; ctx.stroke();
+    } else if(d.t==='circle'){
+      const [cx,cy]=P(d.c);
+      const [ex]=P([d.c[0], d.c[1]+d.r/(mPerDeg*Math.cos(d.c[0]*Math.PI/180))]);
+      ctx.beginPath(); ctx.arc(cx,cy,Math.abs(ex-cx),0,Math.PI*2);
+      if(d.fill){ ctx.globalAlpha=.4; ctx.fillStyle=d.fill; ctx.fill(); ctx.globalAlpha=1; }
+      ctx.lineWidth=2*S; ctx.strokeStyle=d.color; ctx.stroke();
+    } else if(d.t==='line'){
+      const [ax,ay]=P(d.a), [bx,by]=P(d.b);
+      ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by); ctx.lineWidth=3*S; ctx.strokeStyle=d.color; ctx.stroke();
+    }
+  });
+  drawnShapes.forEach(({data:d})=>{
+    if(d.t!=='line') return;
+    const [bx,by]=P(d.b);
+    ctx.save(); ctx.translate(bx,by); ctx.rotate((90-arrowAngle(d.a,d.b))*Math.PI/180);
+    ctx.fillStyle=d.color; ctx.beginPath(); ctx.moveTo(0,-7*S); ctx.lineTo(-7*S,7*S); ctx.lineTo(7*S,7*S); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  });
+  const fontFam=getComputedStyle(document.body).fontFamily||'sans-serif';
+  for(const {data:d} of drawnShapes){
+    if(d.t!=='emoji') continue;
+    const [px,py]=P(d.p);
+    /* simge kutusu: noktanın (-18,-18) ofsetinde 36x30 px; etiket 2px altında, ortalı */
+    const img=await loadSvgImage(makeUniqueSvg(WEATHER_ICON_SVGS[d.key]));
+    if(img){
+      ctx.save(); ctx.shadowColor='rgba(0,0,0,.7)'; ctx.shadowBlur=3*S; ctx.shadowOffsetY=1*S;
+      ctx.drawImage(img, px-18*S, py-18*S, 36*S, 30*S); ctx.restore();
+    }
+    const label=WEATHER_ICON_LABELS[d.key];
+    ctx.font=`600 ${9*S}px ${fontFam}`; ctx.textAlign='center'; ctx.textBaseline='middle';
+    const maxW=62*S, words=label.split(' '), lines=[]; let cur='';
+    words.forEach(w=>{ const t=cur?cur+' '+w:w; if(ctx.measureText(t).width>maxW && cur){ lines.push(cur); cur=w; } else cur=t; });
+    lines.push(cur);
+    const lh=9*1.15*S, tw=Math.max(...lines.map(l=>ctx.measureText(l).width)), bw=tw+12*S, bh=lines.length*lh+4*S;
+    const bx=px-bw/2, by=py+14*S;
+    ctx.fillStyle='rgba(15,23,42,.88)'; ctx.beginPath();
+    if(ctx.roundRect) ctx.roundRect(bx,by,bw,bh,5*S); else ctx.rect(bx,by,bw,bh);
+    ctx.fill();
+    ctx.fillStyle='#fff';
+    lines.forEach((l,i)=>ctx.fillText(l, px, by+2*S+lh*(i+.5)));
+  }
+
+  /* 3) OpenStreetMap kaynak belirtimi (lisans gereği) */
+  const attr='© OpenStreetMap katkıda bulunanlar';
+  ctx.font=`${10*S}px ${fontFam}`; ctx.textAlign='right'; ctx.textBaseline='bottom';
+  const aw=ctx.measureText(attr).width+10*S;
+  ctx.fillStyle='rgba(255,255,255,.75)'; ctx.fillRect(W-aw,H-16*S,aw,16*S);
+  ctx.fillStyle='#333'; ctx.fillText(attr, W-5*S, H-3*S);
+  return {canvas:cv, tilesOk:ok, tilesTotal:tiles.length};
 }
 
 async function exportDrawingToNote(){
   if(!drawMap){ toast('Harita henüz hazır değil','warn'); return; }
   if(isDrawingFreehand) onFreehandEnd();
-
-  /* Çizerken haritada gezinmiş/yakınlaşmış olabilirsiniz — dışa aktarım
-     anında sadece o an ekranda görünen kısım değil, TÜM çizimlerin
-     sığacağı şekilde harita otomatik uzaklaşır/ortalanır.
-     ÖNEMLİ: animate:false ile ANLIK sıçratıyoruz — animasyonlu geçiş
-     kullanılırsa html2canvas geçiş ortasında bir kare yakalayabiliyor,
-     bu da işaretlerin zeminden kaymış görünmesine yol açıyordu.
-     moveend olayını bekleyerek haritanın gerçekten durduğundan emin
-     oluyoruz (sabit bir süre beklemek yerine). */
-  if(drawnLayers.length){
-    const group=L.featureGroup(drawnLayers);
-    await new Promise(resolve=>{
-      let done=false;
-      const finish=()=>{ if(done) return; done=true; resolve(); };
-      drawMap.once('moveend', ()=> setTimeout(finish, 400));  /* + karoların yüklenmesi için ek pay */
-      setTimeout(finish, 2000);   /* moveend hiç tetiklenmezse sonsuza kadar beklemeyelim */
-      drawMap.fitBounds(group.getBounds(), {padding:[40,40], animate:false});
-    });
-  }
-
   toast('Görsel hazırlanıyor…','info');
   try{
-    const el=document.getElementById('draw-map');
-    const canvas=await html2canvas(el,{useCORS:true,backgroundColor:'#0f172a'});
-    canvas.toBlob(blob=>{
-      if(!blob){ toast('Görsel oluşturulamadı, tekrar deneyin','error'); return; }
-      pendingImageBlob=blob;
-      document.getElementById('admin-note-image-preview-img').src=URL.createObjectURL(blob);
-      document.getElementById('admin-note-image-preview').classList.remove('hidden');
-      document.getElementById('admin-note-image-status').textContent=`Hazır (${(blob.size/1024).toFixed(0)} KB) — çizdiğiniz harita`;
-      document.getElementById('admin-note-title').scrollIntoView({behavior:'smooth',block:'center'});
-      toast('Görsel değerlendirme formuna eklendi ✓','success');
-    }, 'image/jpeg', .85);
+    const view=computeExportView();
+    const {canvas,tilesOk,tilesTotal}=await renderDrawingCanvas(view);
+    const blob=await new Promise(res=>canvas.toBlob(res,'image/jpeg',.93));
+    if(!blob){ toast('Görsel oluşturulamadı, tekrar deneyin','error'); return; }
+    pendingImageBlob=blob;
+    pendingDrawingJson=serializeDrawing(view);
+    document.getElementById('admin-note-image-preview-img').src=URL.createObjectURL(blob);
+    document.getElementById('admin-note-image-preview').classList.remove('hidden');
+    document.getElementById('admin-note-image-status').textContent=
+      `Hazır (${(blob.size/1024).toFixed(0)} KB, ${canvas.width}×${canvas.height}) — çizdiğiniz harita`
+      + (tilesOk<tilesTotal ? ` · ${tilesTotal-tilesOk} harita karosu yüklenemedi, görseli kontrol edin` : '');
+    document.getElementById('admin-note-title').scrollIntoView({behavior:'smooth',block:'center'});
+    toast(tilesOk<tilesTotal ? 'Görsel eklendi ama bazı harita parçaları eksik olabilir' : 'Görsel değerlendirme formuna eklendi ✓', tilesOk<tilesTotal?'warn':'success');
   }catch(err){
     console.error(err);
-    toast('Görsel oluşturulamadı — harita karoları tarayıcı güvenlik kısıtlaması yüzünden dışa aktarılamadı olabilir','error');
+    toast('Görsel oluşturulamadı — harita karoları yüklenemedi, internet bağlantısını kontrol edip tekrar deneyin','error');
   }
 }
 
@@ -5137,31 +5319,48 @@ async function exportDrawingToNote(){
    Hem "Dosya Seç" hem panodan yapıştırma (Ctrl+V) aynı fonksiyonu
    kullanır. */
 let pendingImageBlob=null;
+let pendingDrawingJson=null;   // son 'Görseli Ekle' ile üretilen çizimin düzenlenebilir verisi
+let editNote=null;             // düzenlenmekte olan yayınlanmış not (null = yeni not)
 
 function processImageFile(file){
   if(!file) return;
   const statusEl=document.getElementById('admin-note-image-status');
   statusEl.textContent='İşleniyor…';
+  /* Yeni bir resim seçildi: varsa eski çizim verisi artık bu görselle eşleşmez */
+  pendingDrawingJson=null;
+  if(editNote) editNote.drawing_json=null;
 
+  /* Ekran görüntüsü/fotoğraf kalitesi korunur: 3000 px'e kadar olan ve 4 MB'ı
+     aşmayan resimler HİÇ yeniden sıkıştırılmadan olduğu gibi yüklenir.
+     Daha büyükler 3000 px'e indirilip JPEG %92 ile kaydedilir. */
+  const MAX_DIM=3000, KEEP_ORIGINAL_BYTES=4*1024*1024;
+  const done=(blob,label)=>{
+    pendingImageBlob=blob;
+    document.getElementById('admin-note-image-preview-img').src=URL.createObjectURL(blob);
+    document.getElementById('admin-note-image-preview').classList.remove('hidden');
+    statusEl.textContent=`Hazır (${(blob.size/1024).toFixed(0)} KB${label?', '+label:''})`;
+  };
   const reader=new FileReader();
   reader.onload=(e)=>{
     const img=new Image();
     img.onload=()=>{
-      const MAX_DIM=1600;
       let {width,height}=img;
-      if(width>MAX_DIM || height>MAX_DIM){
+      const needsResize = width>MAX_DIM || height>MAX_DIM;
+      if(!needsResize && file.size<=KEEP_ORIGINAL_BYTES && /^image\/(png|jpeg|webp|gif)$/.test(file.type)){
+        done(file, `${width}×${height}, orijinal kalite`);
+        return;
+      }
+      if(needsResize){
         if(width>height){ height=Math.round(height*MAX_DIM/width); width=MAX_DIM; }
         else{ width=Math.round(width*MAX_DIM/height); height=MAX_DIM; }
       }
       const canvas=document.createElement('canvas');
       canvas.width=width; canvas.height=height;
-      canvas.getContext('2d').drawImage(img,0,0,width,height);
-      canvas.toBlob((blob)=>{
-        pendingImageBlob=blob;
-        document.getElementById('admin-note-image-preview-img').src=URL.createObjectURL(blob);
-        document.getElementById('admin-note-image-preview').classList.remove('hidden');
-        statusEl.textContent=`Hazır (${(blob.size/1024).toFixed(0)} KB)`;
-      }, 'image/jpeg', 0.82);
+      const ctx=canvas.getContext('2d');
+      ctx.imageSmoothingQuality='high';
+      ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,width,height);   /* şeffaf PNG'ler JPEG'de siyah olmasın */
+      ctx.drawImage(img,0,0,width,height);
+      canvas.toBlob((blob)=>done(blob, `${width}×${height}`), 'image/jpeg', 0.92);
     };
     img.src=e.target.result;
   };
@@ -5196,6 +5395,8 @@ document.addEventListener('paste', (event)=>{
 });
 function adminClearImageSelection(){
   pendingImageBlob=null;
+  pendingDrawingJson=null;
+  if(editNote){ editNote.image_url=null; editNote.drawing_json=null; }
   document.getElementById('admin-note-image-input').value='';
   document.getElementById('admin-note-image-preview').classList.add('hidden');
   document.getElementById('admin-note-image-status').textContent='';
@@ -5279,6 +5480,7 @@ function adminHandlePdfSelect(event){
 }
 function adminClearPdfSelection(){
   pendingPdfFile=null;
+  if(editNote) editNote.pdf_url=null;
   document.getElementById('admin-note-pdf-input').value='';
   document.getElementById('admin-pdf-clear-btn').classList.add('hidden');
   document.getElementById('admin-pdf-status').textContent='';
@@ -5294,29 +5496,85 @@ async function adminLoadNotesList(){
         <div class="flex items-center gap-3 min-w-0">
           ${note.image_url?`<img src="${BACKEND}${note.image_url}" class="w-10 h-10 rounded-lg object-cover flex-shrink-0">`:''}
           <div class="min-w-0">
-            <p class="text-white text-sm font-600 truncate">${note.title}${note.body_html?' <span class="text-slate-500 font-400">📄</span>':''}${note.pdf_url?' <span class="text-slate-500 font-400">📎</span>':''}</p>
+            <p class="text-white text-sm font-600 truncate">${note.title}${note.body_html?' <span class="text-slate-500 font-400">📄</span>':''}${note.pdf_url?' <span class="text-slate-500 font-400">📎</span>':''}${note.has_drawing?' <span class="text-slate-500 font-400" title="Düzenlenebilir çizim">🎨</span>':''}</p>
             <p class="text-slate-500 text-xs">${fmtNoteDate(note.created_at)}</p>
           </div>
         </div>
-        <button onclick="adminDeleteNote(${note.id})" class="text-red-400 text-xs hover:text-red-300 whitespace-nowrap flex-shrink-0">Sil</button>
+        <div class="flex items-center gap-3 flex-shrink-0">
+          <button onclick="adminEditNote(${note.id})" class="text-brand text-xs hover:text-white whitespace-nowrap">✏️ Düzenle</button>
+          <button onclick="adminDeleteNote(${note.id})" class="text-red-400 text-xs hover:text-red-300 whitespace-nowrap">Sil</button>
+        </div>
       </div>`).join('') || '<p class="text-slate-600 text-xs">Henüz not yok.</p>';
   }catch(_){
     listEl.innerHTML='<p class="text-slate-600 text-xs">Liste yüklenemedi.</p>';
   }
 }
+function adminSetEditMode(on){
+  document.getElementById('admin-note-submit-btn').textContent = on ? 'Güncelle' : 'Yayınla';
+  document.getElementById('admin-note-cancel-btn').classList.toggle('hidden', !on);
+  document.getElementById('admin-edit-banner').classList.toggle('hidden', !on);
+}
+function adminResetForm(){
+  editNote=null;
+  document.getElementById('admin-note-title').value='';
+  document.getElementById('admin-note-body').value='';
+  adminClearImageSelection();
+  adminClearDocxSelection();
+  adminClearPdfSelection();
+  adminSetEditMode(false);
+}
+function adminCancelEdit(){ adminResetForm(); toast('Düzenleme iptal edildi','info'); }
+
+/* Yayınlanmış bir notu forma (ve çizimi haritaya) geri yükler */
+async function adminEditNote(id){
+  try{
+    const n=await adminApi(`/admin/notes/${id}`,'GET');
+    adminResetForm();
+    editNote={id:n.id, image_url:n.image_url||null, pdf_url:n.pdf_url||null, drawing_json:n.drawing_json||null, created_at:n.created_at};
+    document.getElementById('admin-note-title').value=n.title;
+    document.getElementById('admin-note-body').value=n.body;
+    document.getElementById('admin-edit-banner-title').textContent=n.title;
+
+    if(n.image_url){
+      document.getElementById('admin-note-image-preview-img').src=`${BACKEND}${n.image_url}`;
+      document.getElementById('admin-note-image-preview').classList.remove('hidden');
+      document.getElementById('admin-note-image-status').textContent = n.drawing_json
+        ? 'Mevcut görsel. Çizimi aşağıdaki haritada düzenleyip "Görseli Değerlendirme Formuna Ekle"ye basarak görseli yenileyebilirsiniz.'
+        : 'Mevcut görsel (bu not eski olduğu için düzenlenebilir çizim verisi yok). Değiştirmek için yeni resim seçin veya yeni çizim ekleyin.';
+    }
+    if(n.body_html){
+      pendingBodyHtml=n.body_html;
+      const pv=document.getElementById('admin-docx-preview');
+      pv.innerHTML=n.body_html; pv.classList.remove('hidden');
+      document.getElementById('admin-docx-clear-btn').classList.remove('hidden');
+      document.getElementById('admin-docx-status').textContent='Biçimli (Word) metin korunuyor. Metni değiştirmek için "Kaldır"a basıp yukarıdaki düz metni düzenleyin.';
+    }
+    if(n.pdf_url){
+      document.getElementById('admin-pdf-clear-btn').classList.remove('hidden');
+      document.getElementById('admin-pdf-status').textContent='Mevcut PDF ekli. Değiştirmek için yeni PDF seçin, kaldırmak için "Kaldır"a basın.';
+    }
+    if(n.drawing_json) loadDrawingJson(n.drawing_json);
+    adminSetEditMode(true);
+    document.getElementById('admin-note-title').scrollIntoView({behavior:'smooth',block:'center'});
+  }catch(_){
+    toast('Not yüklenemedi','error');
+  }
+}
+
 async function adminAddNote(){
   const title=document.getElementById('admin-note-title').value.trim();
   const body=document.getElementById('admin-note-body').value.trim();
   if(!title||!body){ toast('Başlık ve metin gerekli','warn'); return; }
 
+  const editing=!!editNote;
   const btn=document.getElementById('admin-note-submit-btn');
-  btn.disabled=true; btn.textContent='Yayınlanıyor…';
+  btn.disabled=true; btn.textContent=editing?'Güncelleniyor…':'Yayınlanıyor…';
 
   try{
-    let imageUrl=null;
+    let imageUrl=editing ? editNote.image_url : null;
     if(pendingImageBlob){
       const fd=new FormData();
-      fd.append('file', pendingImageBlob, 'resim.jpg');
+      fd.append('file', pendingImageBlob, 'resim.'+(pendingImageBlob.type==='image/png'?'png':'jpg'));
       const r=await fetch(`${BACKEND}/admin/upload-image`,{
         method:'POST', headers:{'Authorization':`Bearer ${getAdminToken()}`}, body:fd,
       });
@@ -5324,7 +5582,7 @@ async function adminAddNote(){
       imageUrl=(await r.json()).url;
     }
 
-    let pdfUrl=null;
+    let pdfUrl=editing ? editNote.pdf_url : null;
     if(pendingPdfFile){
       btn.textContent='PDF yükleniyor…';
       const fd=new FormData();
@@ -5334,21 +5592,22 @@ async function adminAddNote(){
       });
       if(!r.ok) throw new Error('PDF yüklenemedi');
       pdfUrl=(await r.json()).url;
-      btn.textContent='Yayınlanıyor…';
+      btn.textContent=editing?'Güncelleniyor…':'Yayınlanıyor…';
     }
 
-    await adminApi('/notes','POST',{title,body,image_url:imageUrl,body_html:pendingBodyHtml,pdf_url:pdfUrl});
-    document.getElementById('admin-note-title').value='';
-    document.getElementById('admin-note-body').value='';
-    adminClearImageSelection();
-    adminClearDocxSelection();
-    adminClearPdfSelection();
-    toast('Değerlendirme yayınlandı ✓','success');
+    const drawingJson = pendingDrawingJson || (editing ? editNote.drawing_json : null);
+    const payload={title,body,image_url:imageUrl,body_html:pendingBodyHtml,pdf_url:pdfUrl,drawing_json:drawingJson};
+    if(editing) await adminApi(`/notes/${editNote.id}`,'PUT',payload);
+    else await adminApi('/notes','POST',payload);
+
+    adminResetForm();
+    toast(editing?'Değerlendirme güncellendi ✓':'Değerlendirme yayınlandı ✓','success');
     adminLoadNotesList();
   }catch(_){
     toast('Kaydedilemedi, tekrar deneyin','error');
+    btn.textContent=editing?'Güncelle':'Yayınla';
   }finally{
-    btn.disabled=false; btn.textContent='Yayınla';
+    btn.disabled=false;
   }
 }
 async function adminDeleteNote(id){
