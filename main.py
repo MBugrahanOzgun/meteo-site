@@ -1,3 +1,4 @@
+import asyncio
 import json
 import os
 import sqlite3
@@ -129,6 +130,8 @@ def archive_snapshot(lat: float, lon: float, current: dict):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    app.state.alerts_lock = asyncio.Lock()
+    app.state.alerts_last = None   # son başarılı Türkiye uyarı verisi (Open-Meteo düşerse bayat da olsa göster)
     app.state.http = httpx.AsyncClient(
         timeout=15,
         headers={"User-Agent": "meteo-site/1.0 (local dev)"},
@@ -279,6 +282,106 @@ async def hourly(lat: float = Query(..., ge=-90, le=90), lon: float = Query(...,
             "wind_speed_ms": h.get("wind_speed_10m", []),
         },
     }
+
+
+# -------------------- TÜRKİYE UYARI HARİTASI --------------------
+# 81 ilin merkez koordinatı static/tr-iller.json içinde (haritadaki sınırlarla
+# aynı dosya). Tek bir Open-Meteo çoklu-konum çağrısıyla 7 günlük veri alınır,
+# 1 saat cache'lenir: kaç kişi haritayı açarsa açsın saatte en fazla 1 çağrı.
+# Eşik/uyarı hesabı frontend'de (ALERT_DEFS) — burada sadece veri toplanır;
+# böylece "konum bazlı" sekme ile "harita" sekmesi aynı kuralları kullanır.
+ALERTS_TTL_SECONDS = 3600
+alerts_cache = TTLCache(maxsize=2, ttl=ALERTS_TTL_SECONDS)
+PROVINCES_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "tr-iller.json")
+_provinces_cache: list[dict] | None = None
+
+ALERT_DAILY_VARS = (
+    "weather_code,temperature_2m_max,temperature_2m_min,"
+    "apparent_temperature_max,apparent_temperature_min,precipitation_sum,"
+    "wind_speed_10m_max,wind_gusts_10m_max,uv_index_max"
+)
+
+
+def load_provinces() -> list[dict]:
+    global _provinces_cache
+    if _provinces_cache is None:
+        with open(PROVINCES_FILE, encoding="utf-8") as f:
+            gj = json.load(f)
+        _provinces_cache = [
+            {"n": ft["properties"]["n"], "name": ft["properties"]["name"],
+             "lat": ft["properties"]["lat"], "lon": ft["properties"]["lon"]}
+            for ft in gj["features"]
+        ]
+    return _provinces_cache
+
+
+def daily_min_from_hourly(hourly_times: list, values: list, day_list: list) -> list:
+    """Saatlik diziyi gün gün gruplayıp günlük minimum çıkarır (None'ları atlar)."""
+    per_day: dict[str, list[float]] = {}
+    for t, v in zip(hourly_times or [], values or []):
+        if v is not None:
+            per_day.setdefault(t[:10], []).append(v)
+    return [min(per_day[d]) if per_day.get(d) else None for d in day_list]
+
+
+@app.get("/alerts/turkey")
+async def alerts_turkey():
+    """81 il için 7 günlük uyarı girdileri (günlük değerler + günlük min nem/görüş)."""
+    key = ("alerts_turkey",)
+    if key in alerts_cache:
+        return alerts_cache[key]
+
+    async with app.state.alerts_lock:
+        if key in alerts_cache:          # kilidi beklerken başkası doldurmuş olabilir
+            return alerts_cache[key]
+        try:
+            provinces = load_provinces()
+        except (OSError, ValueError, KeyError) as e:
+            raise HTTPException(status_code=503, detail=f"İl listesi okunamadı: {e}")
+
+        params = {
+            "latitude": ",".join(str(p["lat"]) for p in provinces),
+            "longitude": ",".join(str(p["lon"]) for p in provinces),
+            "timezone": "auto",
+            "wind_speed_unit": "ms",
+            "forecast_days": 7,
+            "daily": ALERT_DAILY_VARS,
+            "hourly": "relative_humidity_2m,visibility",
+        }
+        try:
+            r = await app.state.http.get(OPEN_METEO_URL, params=params, timeout=40)
+            r.raise_for_status()
+            data = r.json()
+            if isinstance(data, dict):
+                data = [data]
+            if len(data) != len(provinces):
+                raise ValueError(f"{len(provinces)} il bekleniyordu, {len(data)} sonuç geldi")
+        except (httpx.HTTPError, ValueError) as e:
+            if app.state.alerts_last:    # bayat veri hiç yoktan iyidir
+                return {**app.state.alerts_last, "stale": True}
+            raise HTTPException(status_code=502, detail=f"Open-Meteo erişilemedi: {e}")
+
+        out = []
+        for prov, d in zip(provinces, data):
+            daily = d.get("daily", {}) or {}
+            hourly = d.get("hourly", {}) or {}
+            days = daily.get("time", [])
+            item = {"n": prov["n"], "name": prov["name"], "lat": prov["lat"], "lon": prov["lon"]}
+            for k in ALERT_DAILY_VARS.split(","):
+                item[k] = daily.get(k, [])
+            item["hum_min"] = daily_min_from_hourly(hourly.get("time"), hourly.get("relative_humidity_2m"), days)
+            item["vis_min"] = daily_min_from_hourly(hourly.get("time"), hourly.get("visibility"), days)
+            out.append(item)
+
+        result = {
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "days": (data[0].get("daily", {}) or {}).get("time", []),
+            "provinces": out,
+            "stale": False,
+        }
+        alerts_cache[key] = result
+        app.state.alerts_last = result
+        return result
 
 
 @app.get("/place")

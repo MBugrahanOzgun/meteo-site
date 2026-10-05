@@ -78,6 +78,17 @@
     .stat-card::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 120% 120%,rgba(56,189,248,.1),transparent 60%)}
 
     .tab-btn.active{background:rgba(56,189,248,.15);border-color:#38bdf8;color:#38bdf8}
+    .alerts-tab-btn{padding:10px 20px;font-size:14px;color:#cbd5e1;background:none;cursor:pointer;font-family:inherit}
+    .alerts-tab-btn.active{background:rgba(56,189,248,.15);border-color:#38bdf8;color:#38bdf8}
+    .alerts-tab-panel{display:none}
+    .alerts-tab-panel.active{display:block;animation:fadeUp .4s ease}
+    .amap-chip{padding:6px 12px;border-radius:999px;font-size:12.5px;font-weight:500;color:#cbd5e1;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);cursor:pointer;font-family:inherit;transition:background .15s,border-color .15s}
+    .amap-chip:hover{border-color:rgba(56,189,248,.5)}
+    .amap-chip.active{background:rgba(56,189,248,.16);border-color:#38bdf8;color:#38bdf8}
+    .il-label{position:absolute;transform:translate(-50%,-50%);font-size:9.5px;font-weight:600;color:#fff;text-shadow:0 0 3px #000,0 0 3px #000,0 0 2px #000;pointer-events:none;white-space:nowrap}
+    .il-label.il-label-off{display:none}
+    .amap-hover{background:rgba(4,17,31,.88);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:8px 12px;font-size:12px;color:#e2e8f0;max-width:240px;line-height:1.35}
+    .amap-dot{display:inline-block;width:10px;height:10px;border-radius:3px;flex-shrink:0}
     .tab-panel{display:none}
     .tab-panel.active{display:block;animation:fadeUp .4s ease}
     @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
@@ -441,21 +452,62 @@
     <p class="text-slate-400 mt-4 max-w-2xl">Seçtiğiniz konum için önümüzdeki 7 gün boyunca kuvvetli yağış, aşırı sıcak/soğuk, don, kuvvetli rüzgar/fırtına, yoğun sis, gök gürültülü fırtına/dolu, orman yangını riski ve yüksek UV uyarıları. Eşikler MGM'nin genel uyarı kategorileri ve uluslararası meteoroloji kurumlarının (NWS, WHO) yayımladığı referans değerlere dayanır; resmi ve bağlayıcı uyarı için MGM'nin kendi kanallarını takip edin.</p>
   </div>
 
-  <div class="loc-bar reveal glass rounded-2xl p-5 mb-8" data-loc-bar>
-    <div class="loc-field" style="flex:2;position:relative">
-      <label>Şehir / İlçe ara</label>
-      <input class="loc-input loc-search" type="text" placeholder="Örn: Ordu, Ünye, Giresun…" autocomplete="off">
-    </div>
-    <div class="loc-field"><label>Enlem</label><input class="loc-input loc-lat" type="text" inputmode="decimal" placeholder="40.9833"></div>
-    <div class="loc-field"><label>Boylam</label><input class="loc-input loc-lon" type="text" inputmode="decimal" placeholder="37.8833"></div>
-    <button class="loc-apply btn-primary text-white text-sm px-6 py-2.5 whitespace-nowrap">Uygula</button>
-    <div class="loc-current w-full text-xs text-slate-500 pt-1">Seçili konum: <span class="loc-current-text text-slate-300">—</span></div>
+  <!-- Uyarılar iki sekmeli: 1) seçili konum için ayrıntı, 2) Türkiye geneli il bazlı harita -->
+  <div id="alerts-tab-buttons" class="flex flex-wrap gap-3 mb-8">
+    <button class="alerts-tab-btn btn-outline active" data-alerts-tab="loc">📍 Konum Bazlı Uyarılar</button>
+    <button class="alerts-tab-btn btn-outline" data-alerts-tab="map">🗺️ Türkiye Uyarı Haritası</button>
   </div>
 
-  <div id="alerts-summary" class="reveal mb-8"></div>
+  <!-- SEKME 1: konum bazlı (mevcut içerik) -->
+  <div id="alerts-tab-loc" class="alerts-tab-panel active">
+    <div class="loc-bar glass rounded-2xl p-5 mb-8" data-loc-bar>
+      <div class="loc-field" style="flex:2;position:relative">
+        <label>Şehir / İlçe ara</label>
+        <input class="loc-input loc-search" type="text" placeholder="Örn: Ordu, Ünye, Giresun…" autocomplete="off">
+      </div>
+      <div class="loc-field"><label>Enlem</label><input class="loc-input loc-lat" type="text" inputmode="decimal" placeholder="40.9833"></div>
+      <div class="loc-field"><label>Boylam</label><input class="loc-input loc-lon" type="text" inputmode="decimal" placeholder="37.8833"></div>
+      <button class="loc-apply btn-primary text-white text-sm px-6 py-2.5 whitespace-nowrap">Uygula</button>
+      <div class="loc-current w-full text-xs text-slate-500 pt-1">Seçili konum: <span class="loc-current-text text-slate-300">—</span></div>
+    </div>
 
-  <div id="alerts-sections" class="reveal space-y-10">
-    <div class="spinner"></div>
+    <div id="alerts-summary" class="mb-8"></div>
+
+    <div id="alerts-sections" class="space-y-10">
+      <div class="spinner"></div>
+    </div>
+  </div>
+
+  <!-- SEKME 2: Türkiye uyarı haritası -->
+  <div id="alerts-tab-map" class="alerts-tab-panel">
+    <p class="text-slate-400 text-sm mb-5 max-w-3xl">Bir uyarı türü ve gün seçin; 81 il, o gün için hesaplanan uyarı seviyesine göre renklenir. Bir ile tıklayarak tüm uyarılarını ve 7 günlük seyrini görebilirsiniz.</p>
+
+    <div id="amap-cats" class="flex flex-wrap gap-2 mb-3"></div>
+    <div id="amap-days" class="flex flex-wrap gap-2 mb-5"></div>
+
+    <div class="grid lg:grid-cols-[1fr_340px] gap-5 items-start">
+      <div>
+        <div class="relative">
+          <div id="alerts-map" style="height:540px;border-radius:16px;overflow:hidden"></div>
+          <div id="amap-loading" class="absolute inset-0 flex items-center justify-center rounded-2xl" style="background:rgba(4,17,31,.78);z-index:500">
+            <div class="text-center"><div class="spinner mx-auto mb-3"></div><p class="text-slate-400 text-sm">81 il için tahmin yükleniyor…</p></div>
+          </div>
+        </div>
+        <div id="amap-legend" class="flex flex-wrap items-center gap-x-5 gap-y-2 mt-4 text-xs text-slate-400"></div>
+        <p id="amap-meta" class="text-slate-600 text-xs mt-3"></p>
+        <p class="text-slate-600 text-xs mt-1 leading-relaxed">Bu harita Open-Meteo model tahminlerinden otomatik üretilir ve MGM'nin resmi sarı/turuncu/kırmızı kodlu uyarıları değildir. Her il için il merkezindeki tek bir tahmin noktası kullanılır; il içinde yükseklik ve kıyı farkları nedeniyle koşullar değişebilir.</p>
+      </div>
+
+      <div class="space-y-4">
+        <div id="amap-detail" class="glass rounded-2xl p-5">
+          <p class="text-slate-500 text-sm">Ayrıntı görmek için haritada bir ile tıklayın.</p>
+        </div>
+        <div class="glass rounded-2xl p-5">
+          <p id="amap-list-title" class="text-slate-300 text-sm font-600 mb-3">Uyarı olan iller</p>
+          <div id="amap-list" class="flex flex-wrap gap-1.5"></div>
+        </div>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -1436,6 +1488,7 @@ async function runComparison(){
 
     const p=new URLSearchParams({
       latitude:r.latitude, longitude:r.longitude, timezone:'auto',
+      wind_speed_unit:'ms',
       current:['temperature_2m','apparent_temperature','relative_humidity_2m','wind_speed_10m','pressure_msl','weather_code'].join(','),
       daily:['temperature_2m_max','temperature_2m_min'].join(','),
       forecast_days:1,
@@ -1729,6 +1782,7 @@ async function loadAll(lat, lon, opts={}) {
 async function fetchForecast(lat, lon) {
   const p = new URLSearchParams({
     latitude:lat, longitude:lon, timezone:'auto',
+    wind_speed_unit:'ms',   /* Open-Meteo varsayılanı km/h; site genelinde eşikler ve etiketler m/s */
     current:[
       'temperature_2m','apparent_temperature','relative_humidity_2m',
       'pressure_msl','wind_speed_10m','wind_direction_10m','wind_gusts_10m',
@@ -3221,6 +3275,273 @@ function renderAlerts(dl, hourly){
     }
   }
 }
+
+
+/* ---------------------------------------------------------------
+   TÜRKİYE UYARI HARİTASI  (Uyarılar → "Türkiye Uyarı Haritası" sekmesi)
+   ----------------------------------------------------------------
+   Backend /alerts/turkey 81 ilin 7 günlük girdilerini tek çağrıda
+   verir (1 saat cache'li). Seviye hesabı, "Konum Bazlı" sekmesiyle
+   AYNI kurallarla (ALERT_DEFS.score) burada yapılır — iki sekme hiçbir
+   zaman birbirinden farklı sonuç göstermez. İl sınırları
+   static/tr-iller.json; altlık harita yok, sadece iller çizilir.
+--------------------------------------------------------------- */
+const AMAP_COLORS={
+  emerald:{fill:'#10b981', op:.20, name:'Normal'},
+  amber:  {fill:'#facc15', op:.80, name:'Sarı — Dikkat'},
+  orange: {fill:'#f97316', op:.85, name:'Turuncu — Uyarı'},
+  red:    {fill:'#ef4444', op:.90, name:'Kırmızı — Tehlike'},
+  slate:  {fill:'#475569', op:.35, name:'Veri yok'},
+};
+const AMAP_RANK={slate:0, emerald:0, amber:1, orange:2, red:3};
+
+let amap=null, amapHoverEl=null, amapGeoLayer=null, amapData=null, amapFitted=false;
+let amapLayers={}, amapLabels={}, amapProv={};
+let amapCat='all', amapDay=0, amapSel=null, amapLoading=false;
+
+function amapCompute(item, nDays){
+  const agg={hum:(item.hum_min||[]).map(v=>({min:v})), vis:(item.vis_min||[]).map(v=>({min:v}))};
+  const res={};
+  ALERT_DEFS.forEach(def=>{
+    res[def.key]=[];
+    for(let i=0;i<nDays;i++) res[def.key].push(def.score(i, item, agg));
+  });
+  return res;
+}
+
+/* Bir ilin seçili kategori + gün için hücresi: {cls, rank, label, note, alerts:[{def,r,rank}]} */
+function amapCell(plate, day=amapDay){
+  const res=amapProv[plate]?.res; if(!res) return {cls:'slate', rank:0, label:'Veri yok', note:'', alerts:[]};
+  if(amapCat==='all'){
+    const alerts=[]; let anyData=false;
+    ALERT_DEFS.forEach(def=>{
+      const r=res[def.key][day]; if(!r) return;
+      if(r.cls!=='slate') anyData=true;
+      const rank=AMAP_RANK[r.cls]||0;
+      if(rank>=1) alerts.push({def, r, rank});
+    });
+    alerts.sort((a,b)=>b.rank-a.rank);
+    if(!alerts.length) return {cls:anyData?'emerald':'slate', rank:0, label:anyData?'Uyarı yok':'Veri yok', note:'', alerts};
+    const top=alerts[0];
+    return {cls:top.r.cls, rank:top.rank, label:alerts.map(a=>a.def.title).join(', '), note:'', alerts};
+  }
+  const def=ALERT_DEFS.find(d=>d.key===amapCat);
+  const r=res[amapCat][day] || {cls:'slate', label:'Veri yok', note:''};
+  const rank=AMAP_RANK[r.cls]||0;
+  return {cls:r.cls, rank, label:r.label, note:r.note, alerts: rank>=1 ? [{def, r, rank}] : []};
+}
+
+function amapStyleFor(plate){
+  const c=amapCell(plate), col=AMAP_COLORS[c.cls]||AMAP_COLORS.slate, sel=(plate===amapSel);
+  return {fillColor:col.fill, fillOpacity:col.op, color: sel?'#38bdf8':'rgba(255,255,255,.35)', weight: sel?2.6:.8};
+}
+
+function amapDayLabel(i){
+  const days=amapData?.days||[]; if(!days[i]) return '';
+  const dt=new Date(days[i]);
+  return `${i===0?'Bugün':AGRI_DAYS[dt.getDay()]} ${String(dt.getDate()).padStart(2,'0')}.${String(dt.getMonth()+1).padStart(2,'0')}`;
+}
+
+function amapRenderControls(){
+  const catsEl=document.getElementById('amap-cats'), daysEl=document.getElementById('amap-days');
+  catsEl.innerHTML=[{key:'all', icon:'🚨', title:'Tümü'}].concat(ALERT_DEFS).map(d=>
+    `<button class="amap-chip${amapCat===d.key?' active':''}" data-cat="${d.key}">${d.icon} ${d.title}</button>`).join('');
+  daysEl.innerHTML=(amapData?.days||[]).map((_,i)=>
+    `<button class="amap-chip${amapDay===i?' active':''}" data-day="${i}">${amapDayLabel(i)}</button>`).join('');
+}
+
+function amapRenderLegend(){
+  const el=document.getElementById('amap-legend');
+  const items=['emerald','amber','orange','red','slate'].map(k=>{
+    const c=AMAP_COLORS[k];
+    return `<span class="inline-flex items-center gap-1.5"><span class="amap-dot" style="background:${c.fill};opacity:${Math.max(c.op,.55)}"></span>${c.name}</span>`;
+  }).join('');
+  const def=ALERT_DEFS.find(d=>d.key===amapCat);
+  el.innerHTML=items + `<span class="w-full text-slate-500">${def ? (/^Eşik:/.test(def.source) ? def.source : 'Eşik: '+def.source) : 'Her il için seçili gündeki en yüksek uyarı seviyesi gösterilir.'}</span>`;
+}
+
+function amapRefreshLabels(){
+  if(!amap) return;
+  const zoomedIn = amap.getZoom() >= 7;
+  Object.keys(amapLabels).forEach(plate=>{
+    const el=amapLabels[plate].getElement()?.querySelector('.il-label'); if(!el) return;
+    const show = zoomedIn || amapCell(plate).rank>=1 || plate===amapSel;
+    el.classList.toggle('il-label-off', !show);
+  });
+}
+
+function amapRenderList(){
+  const listEl=document.getElementById('amap-list'), titleEl=document.getElementById('amap-list-title');
+  const rows=Object.keys(amapProv).map(pl=>({pl, c:amapCell(pl)})).filter(x=>x.c.rank>=1)
+    .sort((a,b)=>b.c.rank-a.c.rank || amapProv[a.pl].meta.name.localeCompare(amapProv[b.pl].meta.name,'tr'));
+  const catName = amapCat==='all' ? 'Tüm uyarılar' : ALERT_DEFS.find(d=>d.key===amapCat).title;
+  if(!rows.length){
+    titleEl.innerHTML=`<span class="text-emerald-400">✓ ${amapDayLabel(amapDay)}: ${catName} için uyarı olan il yok</span>`;
+    listEl.innerHTML=''; return;
+  }
+  titleEl.textContent=`${amapDayLabel(amapDay)} — ${catName}: ${rows.length} ilde uyarı`;
+  listEl.innerHTML=rows.map(({pl,c})=>{
+    const col=AMAP_COLORS[c.cls];
+    return `<button class="amap-chip" data-pick="${pl}" style="border-color:${col.fill}88"><span class="amap-dot" style="background:${col.fill};margin-right:6px"></span>${amapProv[pl].meta.name}</button>`;
+  }).join('');
+}
+
+function amapRenderDetail(plate){
+  const box=document.getElementById('amap-detail');
+  const P=amapProv[plate]; if(!P){ return; }
+  const rows=ALERT_DEFS.map(def=>{
+    const r=P.res[def.key][amapDay]; const col=AMAP_COLORS[r.cls]||AMAP_COLORS.slate;
+    return `<div class="flex items-start gap-2 py-1.5 border-b border-white/5 last:border-0">
+        <span class="amap-dot mt-1" style="background:${col.fill};opacity:${Math.max(col.op,.55)}"></span>
+        <div class="min-w-0"><p class="text-slate-300 text-xs font-600">${def.icon} ${def.title} <span style="color:${col.fill}">· ${r.label}</span></p>
+        ${AMAP_RANK[r.cls]>=1 ? `<p class="text-slate-500 text-[11px] leading-snug">${r.note}</p>`:''}</div></div>`;
+  }).join('');
+  const strip=(amapData.days||[]).map((_,i)=>{
+    const c=amapCell(plate,i), col=AMAP_COLORS[c.cls]||AMAP_COLORS.slate, dt=new Date(amapData.days[i]);
+    return `<button data-day="${i}" title="${amapDayLabel(i)} — ${c.label}" class="flex-1 rounded-md py-1.5 text-[10px] font-600 text-white" style="background:${col.fill}${c.rank>=1?'':'55'};${i===amapDay?'outline:2px solid #38bdf8;':''}border:none;cursor:pointer">${i===0?'Bgn':AGRI_DAYS[dt.getDay()].slice(0,3)}</button>`;
+  }).join('');
+  const catName = amapCat==='all' ? 'tüm uyarılar (en yüksek seviye)' : ALERT_DEFS.find(d=>d.key===amapCat).title;
+  box.innerHTML=`
+    <div class="flex items-start justify-between gap-3 mb-1">
+      <p class="font-display text-xl font-700 text-white">${P.meta.name}</p>
+      <button data-close-detail class="text-slate-500 hover:text-slate-300 text-sm" title="Kapat">✕</button>
+    </div>
+    <p class="text-slate-500 text-xs mb-3">${amapDayLabel(amapDay)} için</p>
+    <div class="mb-4">${rows}</div>
+    <p class="text-slate-500 text-[11px] mb-1.5">7 günlük seyir — ${catName}</p>
+    <div class="flex gap-1 mb-4">${strip}</div>
+    <button data-open-loc="${plate}" class="btn-primary text-white text-xs px-4 py-2 w-full">📍 ${P.meta.name} için konum bazlı uyarıları aç</button>`;
+}
+
+function amapRefresh(){
+  Object.keys(amapLayers).forEach(pl=>amapLayers[pl].setStyle(amapStyleFor(pl)));
+  if(amapSel && amapLayers[amapSel]) amapLayers[amapSel].bringToFront();
+  amapRefreshLabels(); amapRenderLegend(); amapRenderList(); amapRenderControls();
+  if(amapSel) amapRenderDetail(amapSel);
+}
+
+function amapSelect(plate, fly){
+  const prev=amapSel; amapSel=plate;
+  if(prev && amapLayers[prev]) amapLayers[prev].setStyle(amapStyleFor(prev));
+  if(amapLayers[plate]){ amapLayers[plate].setStyle(amapStyleFor(plate)); amapLayers[plate].bringToFront(); }
+  amapRenderDetail(plate); amapRefreshLabels();
+  if(fly && amapLayers[plate]) amap.flyToBounds(amapLayers[plate].getBounds(), {maxZoom:7.5, duration:.6, padding:[30,30]});
+}
+function amapClearSelection(){
+  const prev=amapSel; amapSel=null;
+  if(prev && amapLayers[prev]) amapLayers[prev].setStyle(amapStyleFor(prev));
+  document.getElementById('amap-detail').innerHTML='<p class="text-slate-500 text-sm">Ayrıntı görmek için haritada bir ile tıklayın.</p>';
+  amapRefreshLabels();
+}
+
+function amapHoverShow(plate){
+  if(!amapHoverEl) return;
+  const c=amapCell(plate), col=AMAP_COLORS[c.cls]||AMAP_COLORS.slate;
+  let body;
+  if(amapCat==='all') body = c.alerts.length ? c.alerts.map(a=>`${a.def.icon} ${a.def.title}: <span style="color:${AMAP_COLORS[a.r.cls].fill}">${a.r.label}</span>`).join('<br>') : 'Uyarı yok';
+  else body = `<span style="color:${col.fill}">${c.label}</span>${c.rank>=1 && c.note ? '<br><span style="color:#94a3b8">'+c.note+'</span>':''}`;
+  amapHoverEl.innerHTML=`<b>${amapProv[plate].meta.name}</b><br>${body}`;
+  amapHoverEl.style.display='block';
+}
+function amapHoverHide(){ if(amapHoverEl) amapHoverEl.style.display='none'; }
+
+function amapInitMap(){
+  if(amap) return;
+  amap=L.map('alerts-map',{zoomControl:true, attributionControl:false, minZoom:5, maxZoom:10, zoomSnap:.25, zoomDelta:.5});
+  amap.setMaxBounds([[33.0,22.0],[44.8,48.0]]);
+  const ctl=L.control({position:'topright'});
+  ctl.onAdd=()=>{ const d=L.DomUtil.create('div','amap-hover'); d.style.display='none'; amapHoverEl=d; return d; };
+  ctl.addTo(amap);
+  amap.on('zoomend', amapRefreshLabels);
+  amap.on('click', ()=>{ if(amapSel) amapClearSelection(); });   /* il poligonu tıklaması olayı durdurur; boş alan seçimi kaldırır */
+}
+
+function amapBuildLayers(geo){
+  if(amapGeoLayer) amap.removeLayer(amapGeoLayer);
+  amapLayers={};
+  amapGeoLayer=L.geoJSON(geo,{
+    style:f=>amapStyleFor(String(f.properties.n)),
+    onEachFeature:(f,layer)=>{
+      const pl=String(f.properties.n); amapLayers[pl]=layer;
+      layer.on('mouseover',()=>{ layer.setStyle({weight:2, color:'#fff'}); amapHoverShow(pl); });
+      layer.on('mouseout', ()=>{ layer.setStyle(amapStyleFor(pl)); amapHoverHide(); });
+      layer.on('click', e=>{ L.DomEvent.stopPropagation(e); amapSelect(pl,false); });
+    },
+  }).addTo(amap);
+  Object.values(amapLabels).forEach(m=>amap.removeLayer(m)); amapLabels={};
+  geo.features.forEach(f=>{
+    const pl=String(f.properties.n);
+    amapLabels[pl]=L.marker([f.properties.lat,f.properties.lon],{
+      interactive:false, keyboard:false,
+      icon:L.divIcon({className:'', html:`<span class="il-label il-label-off">${f.properties.name}</span>`, iconSize:[0,0]}),
+    }).addTo(amap);
+  });
+}
+
+async function amapEnsureLoaded(){
+  if(amapData || amapLoading) return;
+  amapLoading=true;
+  const loadEl=document.getElementById('amap-loading');
+  loadEl.style.display='flex';
+  loadEl.innerHTML='<div class="text-center"><div class="spinner mx-auto mb-3"></div><p class="text-slate-400 text-sm">81 il için tahmin yükleniyor…</p></div>';
+  try{
+    const [geo, data]=await Promise.all([gFetch(`${BACKEND}/static/tr-iller.json`), gFetch(`${BACKEND}/alerts/turkey`)]);
+    const nDays=(data.days||[]).length;
+    amapProv={};
+    (data.provinces||[]).forEach(it=>{
+      amapProv[String(it.n)]={meta:{name:it.name, lat:it.lat, lon:it.lon}, res:amapCompute(it, nDays)};
+    });
+    amapData=data;
+    amapBuildLayers(geo);
+    amapRefresh();
+    const t=data.generated_at ? new Date(data.generated_at) : null;
+    document.getElementById('amap-meta').textContent =
+      (data.stale ? '⚠️ Open-Meteo\'ya şu an ulaşılamadı; son başarılı veri gösteriliyor. ' : '') +
+      'Kaynak: Open-Meteo' + (t ? ` · veri ${t.toLocaleString('tr-TR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})} itibarıyla, saatte bir yenilenir` : '');
+    loadEl.style.display='none';
+  }catch(err){
+    console.error(err);
+    loadEl.innerHTML='<div class="text-center px-6"><p class="text-slate-300 text-sm mb-3">Harita verisi alınamadı.</p><button id="amap-retry" class="btn-primary text-white text-sm px-5 py-2">Tekrar dene</button></div>';
+    document.getElementById('amap-retry').onclick=()=>amapEnsureLoaded();
+  }finally{
+    amapLoading=false;
+  }
+}
+
+function amapOpen(){
+  amapInitMap();
+  setTimeout(()=>{
+    amap.invalidateSize();
+    if(!amapFitted){ amap.fitBounds([[35.7,25.6],[42.2,44.9]],{padding:[8,8]}); amapFitted=true; }
+    amapEnsureLoaded();
+  }, 60);
+}
+
+function setAlertsTab(tab){
+  document.querySelectorAll('.alerts-tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.alertsTab===tab));
+  document.querySelectorAll('.alerts-tab-panel').forEach(p=>p.classList.toggle('active', p.id==='alerts-tab-'+tab));
+  if(tab==='map') amapOpen();
+}
+
+function amapOpenLocation(plate){
+  const m=amapProv[plate]?.meta; if(!m) return;
+  if(marker) marker.setLatLng([m.lat,m.lon]); else marker=L.marker([m.lat,m.lon],{icon:mIcon}).addTo(map);
+  map.setView([m.lat,m.lon], Math.max(map.getZoom(),9));
+  setAlertsTab('loc');
+  loadAll(m.lat, m.lon, {noScroll:true});
+}
+
+/* Tüm tıklamalar tek yerden (kategori/gün çipleri, il listesi, detay paneli) */
+document.getElementById('alerts-tab-buttons').addEventListener('click', e=>{
+  const b=e.target.closest('.alerts-tab-btn'); if(b) setAlertsTab(b.dataset.alertsTab);
+});
+document.getElementById('alerts-tab-map').addEventListener('click', e=>{
+  const cat=e.target.closest('[data-cat]');   if(cat){ amapCat=cat.dataset.cat; amapRefresh(); return; }
+  const day=e.target.closest('[data-day]');   if(day){ amapDay=parseInt(day.dataset.day,10); amapRefresh(); return; }
+  const pick=e.target.closest('[data-pick]'); if(pick){ amapSelect(pick.dataset.pick,true); return; }
+  if(e.target.closest('[data-close-detail]')){ amapClearSelection(); return; }
+  const open=e.target.closest('[data-open-loc]'); if(open){ amapOpenLocation(open.dataset.openLoc); }
+});
 
 /* ---------------------------------------------------------------
    ÇOK ÜRÜNLÜ KARAR PANELİ MOTORU  (Buğday · Üzüm · Kayısı)
@@ -5521,7 +5842,7 @@ const PAGE_REFRESH = {
   kalite:   ()=> { if(aqiInst) aqiInst.resize(); },
   deniz:    ()=> { if(marineInst) marineInst.resize(); },
   admin:    ()=> { checkAdminAuth(); },
-  uyarilar: ()=> { if(lastAlertsDaily && lastAlertsDaily.time) renderAlerts(lastAlertsDaily, hourlyData); },
+  uyarilar: ()=> { if(lastAlertsDaily && lastAlertsDaily.time) renderAlerts(lastAlertsDaily, hourlyData); if(amap){ amap.invalidateSize(); } },
 };
 
 /* Harita tek bir Leaflet örneği olarak kalır; sadece kapsayıcı <div>'i
