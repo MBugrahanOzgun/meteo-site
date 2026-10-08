@@ -739,6 +739,110 @@ async def get_taf(icao: str = Query(..., min_length=3, max_length=4)):
     return result
 
 
+# -------------------- İKLİM PROJEKSİYONLARI --------------------
+# Open-Meteo Climate API: 1991-2050 günlük model çıktıları. Ham veri büyük
+# (3 model x 60 yıl x 365 gün), o yüzden sunucuda yıllık özetlere indirilir
+# ve konum (0,1° yuvarlanmış) başına 7 gün önbelleğe alınır.
+CLIMATE_MODELS = ["EC_Earth3P_HR", "MRI_AGCM3_2_S", "MPI_ESM1_2_XR"]
+climate_cache = TTLCache(maxsize=256, ttl=7 * 24 * 3600)
+
+
+@app.get("/climate")
+async def get_climate(lat: float = Query(..., ge=-90, le=90), lon: float = Query(..., ge=-180, le=180)):
+    key = (round(lat, 1), round(lon, 1))
+    if key in climate_cache:
+        return climate_cache[key]
+    try:
+        r = await app.state.http.get(
+            "https://climate-api.open-meteo.com/v1/climate",
+            params={
+                "latitude": key[0], "longitude": key[1],
+                "start_date": "1991-01-01", "end_date": "2050-12-31",
+                "models": ",".join(CLIMATE_MODELS),
+                "daily": "temperature_2m_mean,precipitation_sum",
+            },
+            timeout=60,
+        )
+        r.raise_for_status()
+        data = r.json()
+    except (httpx.HTTPError, ValueError) as e:
+        raise HTTPException(status_code=502, detail=f"İklim verisi alınamadı: {e}")
+
+    daily = data.get("daily") or {}
+    times = daily.get("time") or []
+    if not times:
+        raise HTTPException(status_code=502, detail="İklim verisi boş döndü")
+    years = sorted({int(t[:4]) for t in times})
+    out = {"lat": key[0], "lon": key[1], "years": years, "models": {}}
+    for m in CLIMATE_MODELS:
+        t = daily.get(f"temperature_2m_mean_{m}")
+        p = daily.get(f"precipitation_sum_{m}")
+        if t is None or p is None:
+            continue
+        acc = {y: {"ts": 0.0, "tn": 0, "ps": 0.0, "ss": 0.0, "sn": 0} for y in years}
+        for i, ts in enumerate(times):
+            y, mo = int(ts[:4]), int(ts[5:7])
+            a = acc[y]
+            if t[i] is not None:
+                a["ts"] += t[i]; a["tn"] += 1
+                if mo in (6, 7, 8):
+                    a["ss"] += t[i]; a["sn"] += 1
+            if p[i] is not None:
+                a["ps"] += p[i]
+        out["models"][m] = {
+            "temp": [round(acc[y]["ts"] / acc[y]["tn"], 2) if acc[y]["tn"] else None for y in years],
+            "summer": [round(acc[y]["ss"] / acc[y]["sn"], 2) if acc[y]["sn"] else None for y in years],
+            "precip": [round(acc[y]["ps"]) if acc[y]["tn"] else None for y in years],
+        }
+    if not out["models"]:
+        raise HTTPException(status_code=502, detail="İklim modeli verisi bulunamadı")
+    climate_cache[key] = out
+    return out
+
+
+# -------------------- UZAY HAVASI (NOAA SWPC) --------------------
+SWPC_BASE = "https://services.swpc.noaa.gov"
+space_cache = TTLCache(maxsize=1, ttl=300)
+
+
+async def _swpc(path: str):
+    try:
+        r = await app.state.http.get(SWPC_BASE + path, timeout=20)
+        r.raise_for_status()
+        return r.json()
+    except (httpx.HTTPError, ValueError):
+        return None
+
+
+@app.get("/space/weather")
+async def get_space_weather():
+    """NOAA Uzay Havası Tahmin Merkezi: G/S/R ölçekleri, Kp tahmini, güneş rüzgârı, X-ışını akısı."""
+    if "d" in space_cache:
+        return space_cache["d"]
+    scales, kp, wind, mag, xray = await asyncio.gather(
+        _swpc("/products/noaa-scales.json"),
+        _swpc("/products/noaa-planetary-k-index-forecast.json"),
+        _swpc("/products/summary/solar-wind-speed.json"),
+        _swpc("/products/summary/solar-wind-mag-field.json"),
+        _swpc("/json/goes/primary/xrays-6-hour.json"),
+    )
+    if all(x is None for x in (scales, kp, wind, mag, xray)):
+        raise HTTPException(status_code=502, detail="Uzay havası verisi alınamadı")
+    xr = None
+    if isinstance(xray, list):
+        longs = [x for x in xray if x.get("energy") == "0.1-0.8nm" and x.get("flux") is not None]
+        if longs:
+            xr = {"flux": longs[-1]["flux"], "time": longs[-1].get("time_tag"), "max6h": max(x["flux"] for x in longs)}
+    if isinstance(kp, list):
+        kp = kp[:1] + kp[-80:] if len(kp) > 81 else kp   # başlık satırı + son 80 satır
+    res = {
+        "scales": scales, "kp": kp, "wind": wind, "mag": mag, "xray": xr,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    space_cache["d"] = res
+    return res
+
+
 # -------------------- STADYUMLAR --------------------
 @app.get("/stadiums")
 def get_stadiums():

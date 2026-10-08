@@ -1158,6 +1158,8 @@
     </div>
   </div>
 
+  <div id="av-extras" class="mt-14"></div>
+
   <p class="text-slate-600 text-xs mt-10 leading-relaxed max-w-3xl">
     Veriler FAA Aviation Weather Center'dan (aviationweather.gov) alınır, dünya genelindeki havaalanları için geçerlidir.
     METAR gözlemleri genelde saatte bir, TAF tahminleri 6 saatte bir güncellenir. Bu bilgiler resmi uçuş planlaması
@@ -1836,6 +1838,7 @@ async function loadAll(lat, lon, opts={}) {
   /* Not: artık sekme tabanlı gezinme olduğu için otomatik kaydırma yok.
      Sonuçlar aktif sekmede (varsa) veya Özet'teki canlı şeritte görünür. */
   isLoading=false;
+  if(typeof npLocationChanged==='function') npLocationChanged();
 }
 
 /* ---------------------------------------------------------------
@@ -4244,6 +4247,7 @@ async function loadAviationData(){
   const tp=gFetch(`${BACKEND}/aviation/taf?icao=${icao}`).then(t=>renderTafs(t.tafs||(t.taf?[t.taf]:[]), icao))
     .catch(()=>{ tafEl.innerHTML=`<p class="text-slate-500 text-sm">${avEsc(icao)} için TAF alınamadı.</p>`; });
   await Promise.all([mp,tp]);
+  avExtrasRender();
 }
 
 /* ---- METAR: son 3 rapor, yan yana kartlar ---- */
@@ -4281,6 +4285,7 @@ function avMetarCard(m, idx){
   </div>`;
 }
 function renderMetars(list, icao){
+  AV_LAST.metars=list||[]; AV_LAST.icao=icao;
   const el=document.getElementById('metar-display');
   if(!el) return;
   if(!list||!list.length){ el.innerHTML=`<p class="text-slate-500 text-sm">${avEsc(icao)} için METAR verisi bulunamadı — küçük/özel havaalanları rapor vermeyebilir.</p>`; return; }
@@ -4437,6 +4442,7 @@ function avPeriodCards(taf){
 }
 
 function renderTafs(list, icao){
+  AV_LAST.tafs=list||[];
   const el=document.getElementById('taf-display');
   if(!el) return;
   if(!list||!list.length){ el.innerHTML=`<p class="text-slate-500 text-sm">${avEsc(icao)} için TAF verisi bulunamadı — küçük havaalanlarında TAF genelde yayınlanmaz.</p>`; return; }
@@ -4564,6 +4570,739 @@ async function adminDeleteStadium(id){
   try{ await adminApi(`/stadiums/${id}`,'DELETE'); toast('Silindi','success'); loadStadiums(); }
   catch(_){ toast('Silinemedi','error'); }
 }
+
+/* ===============================================================
+   YENİ SEKTÖR PANELLERİ — ortak altyapı
+   Toprak Nemi/Kuraklık · HES · Sel · Erozyon · İklim · Sigorta/Risk ·
+   Uzay Havası · Tüm Hizmetler
+   Her panel kendi verisini (seçili konum için) tembel yükler: sekmeye
+   ilk basıldığında ve konum değiştiğinde. Sonuçlar kısa süre önbelleğe
+   alınır. Grafikler Chart.js'e bağlı olmayan küçük bir SVG yardımcısıyla
+   çizilir.
+=============================================================== */
+const OM_FLOOD='https://flood-api.open-meteo.com/v1/flood';
+const npCache=new Map();
+async function npGet(url, ttl=600000){
+  const c=npCache.get(url);
+  if(c && Date.now()-c.t<ttl) return c.d;
+  const d=await gFetch(url);
+  npCache.set(url,{t:Date.now(),d});
+  return d;
+}
+const npQS=o=>new URLSearchParams(o).toString();
+const npN=(v,d=1)=>(v==null||isNaN(v))?'—':Number(v).toFixed(d).replace('.',',');
+const npDM=s=>{ const d=new Date(s); return String(d.getDate()).padStart(2,'0')+'.'+String(d.getMonth()+1).padStart(2,'0'); };
+const npISO=d=>{ const x=new Date(d); return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0'); };
+const npAvg=a=>{ const v=a.filter(x=>x!=null&&!isNaN(x)); return v.length?v.reduce((s,x)=>s+x,0)/v.length:null; };
+const npSum=a=>a.reduce((s,x)=>s+((x==null||isNaN(x))?0:x),0);
+const npMax=a=>{ const v=a.filter(x=>x!=null&&!isNaN(x)); return v.length?Math.max(...v):null; };
+const npMin=a=>{ const v=a.filter(x=>x!=null&&!isNaN(x)); return v.length?Math.min(...v):null; };
+const npRank={emerald:0,sky:0,slate:0,amber:1,orange:2,red:3};
+function npWorst(...cls){ return cls.reduce((a,b)=>(npRank[b]>npRank[a]?b:a),'emerald'); }
+
+/* Günlük gruplama: saatlik diziyi "YYYY-MM-DD" anahtarına göre toplar */
+function npByDay(times, values, fn){
+  const m={};
+  (times||[]).forEach((t,i)=>{ const k=String(t).slice(0,10); (m[k]=m[k]||[]).push(values?values[i]:null); });
+  const out={}; Object.keys(m).forEach(k=>out[k]=fn(m[k])); return out;
+}
+
+/* ---- Küçük SVG grafik: çizgi / alan / çubuk, bant, referans çizgisi, "bugün" işareti ----
+   opts: {labels, series:[{name,values,color,kind:'line'|'bar'|'area',dash,unit}],
+          h, min, max, zero, mark(index), refs:[{v,label,color}], band:{lo,hi,color}} */
+function npChart(o){
+  const W=820, H=o.h||210, pl=48, pr=12, pt=12, pb=26;
+  const n=(o.labels||[]).length; if(!n) return '<p class="text-slate-500 text-sm">Veri yok.</p>';
+  const all=[];
+  o.series.forEach(s=>s.values.forEach(v=>{ if(v!=null&&!isNaN(v)) all.push(v); }));
+  if(o.band){ o.band.lo.concat(o.band.hi).forEach(v=>{ if(v!=null) all.push(v); }); }
+  (o.refs||[]).forEach(r=>all.push(r.v));
+  if(!all.length) return '<p class="text-slate-500 text-sm">Veri yok.</p>';
+  let lo=Math.min(...all), hi=Math.max(...all);
+  if(o.zero||o.series.some(s=>s.kind==='bar')) lo=Math.min(0,lo);
+  if(o.min!=null) lo=o.min; if(o.max!=null) hi=o.max;
+  if(hi===lo){ hi+=1; lo-=1; }
+  const padv=(hi-lo)*.06; if(o.min==null && !(o.zero||o.series.some(s=>s.kind==='bar'))) lo-=padv; if(o.max==null) hi+=padv;
+  const hasBar=o.series.some(s=>s.kind==='bar');
+  const inner=W-pl-pr, slot=inner/n;
+  const X=i=> hasBar ? pl+slot*(i+.5) : pl+(n===1?inner/2:(i/(n-1))*inner);
+  const Y=v=> pt+(1-(v-lo)/(hi-lo))*(H-pt-pb);
+  const fmtT=v=>Math.abs(v)>=100?String(Math.round(v)):(Math.abs(hi-lo)>=8?String(Math.round(v)):v.toFixed(1).replace('.',','));
+  let g='';
+  for(let k=0;k<=4;k++){ const v=lo+(hi-lo)*k/4, y=Y(v);
+    g+=`<line x1="${pl}" x2="${W-pr}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}" stroke="rgba(255,255,255,.07)"/><text x="${pl-6}" y="${(y+4).toFixed(1)}" text-anchor="end" font-size="11" fill="#64748b">${fmtT(v)}</text>`; }
+  const step=Math.max(1,Math.round(n/7));
+  let xl=''; for(let i=0;i<n;i+=step) xl+=`<text x="${X(i).toFixed(1)}" y="${H-8}" text-anchor="middle" font-size="11" fill="#64748b">${o.labels[i]}</text>`;
+  let band='';
+  if(o.band){
+    const up=[],dn=[];
+    for(let i=0;i<n;i++){ if(o.band.hi[i]!=null&&o.band.lo[i]!=null){ up.push(`${X(i).toFixed(1)},${Y(o.band.hi[i]).toFixed(1)}`); dn.unshift(`${X(i).toFixed(1)},${Y(o.band.lo[i]).toFixed(1)}`); } }
+    if(up.length) band=`<polygon points="${up.concat(dn).join(' ')}" fill="${o.band.color||'#38bdf8'}" opacity=".16"/>`;
+  }
+  let refs=(o.refs||[]).map(r=>`<line x1="${pl}" x2="${W-pr}" y1="${Y(r.v).toFixed(1)}" y2="${Y(r.v).toFixed(1)}" stroke="${r.color||'#fbbf24'}" stroke-dasharray="5 4" opacity=".8"/><text x="${W-pr-2}" y="${(Y(r.v)-4).toFixed(1)}" text-anchor="end" font-size="10.5" fill="${r.color||'#fbbf24'}">${r.label||''}</text>`).join('');
+  let body='';
+  const nb=o.series.filter(s=>s.kind==='bar').length; let bi=0;
+  o.series.forEach(s=>{
+    if(s.kind==='bar'){
+      const bw=Math.max(2,slot*.7/nb), off=(bi-(nb-1)/2)*bw; bi++;
+      s.values.forEach((v,i)=>{ if(v==null) return; const y0=Y(0), y1=Y(v);
+        body+=`<rect x="${(X(i)+off-bw/2).toFixed(1)}" y="${Math.min(y0,y1).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1,Math.abs(y1-y0)).toFixed(1)}" rx="1.5" fill="${s.color}" opacity=".85"/>`; });
+    } else {
+      let d='',started=false, area=[];
+      s.values.forEach((v,i)=>{ if(v==null||isNaN(v)){ started=false; return; } d+=(started?'L':'M')+X(i).toFixed(1)+','+Y(v).toFixed(1); started=true; area.push([X(i),Y(v)]); });
+      if(s.kind==='area'&&area.length>1){
+        body+=`<path d="${d} L${area[area.length-1][0].toFixed(1)},${Y(Math.max(lo,0)).toFixed(1)} L${area[0][0].toFixed(1)},${Y(Math.max(lo,0)).toFixed(1)} Z" fill="${s.color}" opacity=".13"/>`;
+      }
+      body+=`<path d="${d}" fill="none" stroke="${s.color}" stroke-width="${s.w||2.2}" ${s.dash?`stroke-dasharray="${s.dash}"`:''} stroke-linejoin="round" stroke-linecap="round"/>`;
+    }
+  });
+  let mark='';
+  if(o.mark!=null && o.mark>=0 && o.mark<n){
+    const x=X(o.mark).toFixed(1);
+    mark=`<line x1="${x}" x2="${x}" y1="${pt}" y2="${H-pb}" stroke="#94a3b8" stroke-dasharray="3 3" opacity=".7"/><text x="${x}" y="${pt+9}" text-anchor="middle" font-size="10" fill="#94a3b8" dy="-1">${o.markLabel||'bugün'}</text>`;
+  }
+  let hits='';
+  for(let i=0;i<n;i++){
+    const tip=[o.labels[i]].concat(o.series.map(s=>{ const v=s.values[i]; return v==null?null:`${s.name}: ${npN(v,Math.abs(v)>=100?0:1)}${s.unit||o.unit||''}`; }).filter(Boolean)).join(' · ');
+    hits+=`<rect x="${(X(i)-(hasBar?slot/2:inner/n/2)).toFixed(1)}" y="${pt}" width="${(hasBar?slot:Math.max(inner/n,4)).toFixed(1)}" height="${H-pt-pb}" fill="transparent"><title>${tip}</title></rect>`;
+  }
+  const legend='<div class="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-slate-400">'+
+    o.series.map(s=>`<span class="inline-flex items-center gap-1.5"><span style="display:inline-block;width:12px;height:${s.kind==='bar'?'8':'3'}px;background:${s.color};border-radius:2px;${s.dash?'opacity:.7':''}"></span>${s.name}</span>`).join('')+
+    (o.band?`<span class="inline-flex items-center gap-1.5"><span style="display:inline-block;width:12px;height:8px;background:${o.band.color||'#38bdf8'};opacity:.35;border-radius:2px"></span>${o.band.name||'Aralık'}</span>`:'')+'</div>';
+  return `<svg viewBox="0 0 ${W} ${H}" class="w-full" style="height:auto;max-height:${H+40}px" role="img">${g}${band}${refs}${body}${mark}${xl}${hits}</svg>${legend}`;
+}
+
+/* ---- Ortak arayüz parçaları ---- */
+function npLocBar(ph){
+  return `<div class="loc-bar glass rounded-2xl p-5 mb-8" data-loc-bar>
+    <div class="loc-field" style="flex:2;position:relative"><label>Şehir / İlçe / Konum ara</label>
+      <input class="loc-input loc-search" type="text" placeholder="${ph||'Konumu yazın…'}" autocomplete="off"></div>
+    <div class="loc-field"><label>Enlem</label><input class="loc-input loc-lat" type="text" inputmode="decimal" placeholder="39.93"></div>
+    <div class="loc-field"><label>Boylam</label><input class="loc-input loc-lon" type="text" inputmode="decimal" placeholder="32.86"></div>
+    <button class="loc-apply btn-primary text-white text-sm px-6 py-2.5 whitespace-nowrap">Uygula</button>
+    <div class="loc-current w-full text-xs text-slate-500 pt-1">Seçili konum: <span class="loc-current-text text-slate-300">—</span></div>
+  </div>`;
+}
+function npStat(label,value,sub,tx){
+  return `<div class="stat-card glass rounded-2xl p-5"><p class="text-slate-500 text-xs uppercase tracking-widest leading-tight mb-2">${label}</p>
+    <p class="font-display text-2xl font-700 ${tx||'text-white'}">${value}</p>${sub?`<p class="text-slate-500 text-xs mt-1.5 leading-snug">${sub}</p>`:''}</div>`;
+}
+function npDayGrid(items){        /* items: [{day,date,val,label,note,cls}] */
+  return `<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">`+items.map(it=>{
+    const c=AGRI_CLS[it.cls||'slate'];
+    return `<div class="rounded-2xl p-4 border ${c.bg} ${c.br} flex flex-col gap-1.5">
+      <p class="text-slate-400 text-xs font-600">${it.day}</p><p class="text-slate-600 text-xs">${it.date}</p>
+      ${it.val!=null?`<p class="font-display text-xl font-700 text-white mt-1">${it.val}</p>`:''}
+      <p class="${c.tx} text-sm font-700 leading-tight min-h-[2.4em]">${it.label}</p>
+      <p class="text-slate-500 text-[11px] leading-snug">${it.note||''}</p></div>`; }).join('')+`</div>`;
+}
+const npDayName=(s,i)=> i===0?'Bugün':AGRI_DAYS[new Date(s).getDay()];
+function npSection(title,desc,inner){
+  return `<div class="mb-12"><h3 class="font-display text-2xl font-700 text-white mb-1">${title}</h3>${desc?`<p class="text-slate-500 text-sm mb-5 max-w-4xl">${desc}</p>`:'<div class="mb-4"></div>'}${inner}</div>`;
+}
+const npNote=t=>`<p class="text-slate-600 text-xs mt-8 leading-relaxed max-w-3xl">${t}</p>`;
+const npLoading=`<div class="flex items-center gap-3 py-10 text-slate-400 text-sm"><div class="spinner"></div> Veriler yükleniyor…</div>`;
+const npErr=(k,msg)=>`<div class="rounded-2xl p-6 border border-orange-500/30 bg-orange-500/10"><p class="text-orange-300 text-sm font-600 mb-3">${msg||'Veri şu an alınamadı.'}</p><button onclick="npActivate('${k}',true)" class="btn-primary text-white text-sm px-5 py-2">Tekrar dene</button></div>`;
+
+/* ---- Panel kaydı ve tembel yükleme ---- */
+const NP_PANELS={};      /* key → {icon,title,intro,html(),load(lat,lon,el)} */
+const NP_LOADED={};      /* key → "lat,lon" son yüklenen konum */
+function npCoordKey(c){ return c.lat.toFixed(2)+','+c.lon.toFixed(2); }
+async function npActivate(key, force){
+  const P=NP_PANELS[key]; if(!P) return;
+  const el=document.getElementById('np-'+key+'-body'); if(!el) return;
+  if(P.noLocation){ if(!NP_LOADED[key]||force){ NP_LOADED[key]='1'; if(P.load) await P.load(null,null,el); } return; }
+  const c=(typeof lastCoords!=='undefined' && lastCoords) ? lastCoords : {lat:39.9334,lon:32.8597};
+  const ck=npCoordKey(c);
+  if(!force && NP_LOADED[key]===ck) return;
+  NP_LOADED[key]=ck;
+  el.innerHTML=npLoading;
+  try{ await P.load(c.lat,c.lon,el); }
+  catch(err){ console.error(key,err); NP_LOADED[key]=null; el.innerHTML=npErr(key,(err&&err.npMsg)||'Veri şu an alınamadı. Bağlantınızı kontrol edip tekrar deneyin.'); }
+}
+function npLocationChanged(){
+  const act=document.querySelector('.tab-btn.active')?.dataset.tab;
+  Object.keys(NP_LOADED).forEach(k=>{ if(!NP_PANELS[k]?.noLocation) NP_LOADED[k]=null; });
+  if(act && NP_PANELS[act] && document.querySelector('section[data-page="danismanlik"]')?.classList.contains('active')) npActivate(act);
+}
+/* Danışmanlık sekmelerine yeni panelleri ekler (loadContent içinden çağrılır) */
+function npBuildTabs(btnC, panelC){
+  Object.keys(NP_PANELS).forEach(key=>{
+    const P=NP_PANELS[key];
+    const b=document.createElement('button');
+    b.className='tab-btn btn-outline text-xs sm:text-sm px-3.5 py-2 sm:px-5 sm:py-2.5 text-slate-300';
+    b.innerHTML=`${P.icon} ${P.title}`; b.dataset.tab=key; btnC.appendChild(b);
+    const p=document.createElement('div');
+    p.id='tab-'+key; p.className='tab-panel glass rounded-2xl p-4 sm:p-8';
+    p.innerHTML=(P.intro?`<p class="text-slate-400 text-sm leading-relaxed mb-8 max-w-4xl">${P.intro}</p>`:'')+(P.noLocation?'':npLocBar(P.placeholder))+`<div id="np-${key}-body"></div>`;
+    panelC.appendChild(p);
+  });
+}
+
+
+/* ===============================================================
+   PANEL: Toprak Nemi ve Kuraklık · HES · Sel · Erozyon
+=============================================================== */
+const NP_LV=['emerald','amber','orange','red'];
+const NP_LV_TXT=['Düşük','Dikkat','Yüksek','Çok yüksek'];
+const npFc=(lat,lon,o)=>`${OM_FORECAST}?${npQS(Object.assign({latitude:lat,longitude:lon,timezone:'auto',wind_speed_unit:'ms'},o))}`;
+const npThr=(v,t)=>{ if(v==null) return 0; return v>=t[2]?3:v>=t[1]?2:v>=t[0]?1:0; };  /* t=[amber,orange,red] */
+
+/* ---------------- TOPRAK NEMİ / KURAKLIK ---------------- */
+function npSoilClass(v){
+  if(v==null) return {label:'Veri yok',cls:'slate'};
+  if(v>=.40) return {label:'Doygun',cls:'sky'};
+  if(v>=.28) return {label:'Yeterli',cls:'emerald'};
+  if(v>=.20) return {label:'Azalıyor',cls:'amber'};
+  if(v>=.14) return {label:'Kuru',cls:'orange'};
+  return {label:'Kritik kuraklık',cls:'red'};
+}
+NP_PANELS.soil={
+  icon:'🌱', title:'Toprak Nemi ve Kuraklık', placeholder:'Tarla / bölge adı…',
+  intro:'Seçili konumda toprak nemi (yüzey ve kök bölgesi), son 30 günün yağış–buharlaşma (su dengesi) durumu ve önümüzdeki 7 gün için kuraklık/sulama değerlendirmesi. Kök bölgesi nemi 3–9, 9–27 ve 27–81 cm katmanlarının derinlik ağırlıklı ortalamasıdır.',
+  async load(lat,lon,el){
+    const d=await npGet(npFc(lat,lon,{past_days:30,forecast_days:7,
+      hourly:'soil_moisture_3_to_9cm,soil_moisture_9_to_27cm,soil_moisture_27_to_81cm',
+      daily:'precipitation_sum,et0_fao_evapotranspiration,temperature_2m_max'}));
+    const h=d.hourly||{}, dl=d.daily||{};
+    const t=h.time||[], a=h.soil_moisture_3_to_9cm||[], b=h.soil_moisture_9_to_27cm||[], c=h.soil_moisture_27_to_81cm||[];
+    const root=t.map((_,i)=> (a[i]==null||b[i]==null||c[i]==null)?null:(a[i]*6+b[i]*18+c[i]*54)/78);
+    const rootD=npByDay(t,root,npAvg), surfD=npByDay(t,a,npAvg);
+    const days=dl.time||[]; const n=days.length;
+    const today=npISO(new Date()); let ti=days.indexOf(today); if(ti<0) ti=Math.min(30,n-1);
+    const rv=days.map(x=>rootD[x]), sv=days.map(x=>surfD[x]);
+    const P=dl.precipitation_sum||[], E=dl.et0_fao_evapotranspiration||[];
+    const past=days.map((_,i)=>i).filter(i=>i<=ti);
+    const p30=npSum(past.map(i=>P[i])), e30=npSum(past.map(i=>E[i])), bal=p30-e30;
+    const fut=days.map((_,i)=>i).filter(i=>i>ti);
+    const p7=npSum(fut.map(i=>P[i])), e7=npSum(fut.map(i=>E[i]));
+    const now=rv[ti], cl=npSoilClass(now);
+    /* kuraklık seviyesi: nem sınıfı + 30 günlük su dengesi */
+    let lvl=now==null?0:now<.14?3:now<.20?2:now<.28?1:0;
+    if(bal<-120) lvl=Math.max(lvl,2); else if(bal<-70) lvl=Math.max(lvl,1);
+    const lvlTxt=['Kuraklık sinyali yok','İzlenmeli — hafif kuraklık eğilimi','Orta–şiddetli kuraklık stresi','Şiddetli kuraklık'][lvl];
+    /* sulama tavsiyesi */
+    let adv, advCls;
+    if(now!=null && now<.20 && p7<10){ adv='Kök bölgesi nemi düşük ve önümüzdeki 7 günde anlamlı yağış beklenmiyor: sulama önerilir.'; advCls='red'; }
+    else if(now!=null && now<.28 && p7<10){ adv='Nem azalıyor, yağış az: sulamayı planlayın; en kritik dönemlerde (çiçeklenme, meyve tutumu) ertelemeyin.'; advCls='amber'; }
+    else if(p7>=25){ adv='Önümüzdeki 7 günde yeterli yağış var: sulamayı erteleyin, su tasarrufu sağlayın.'; advCls='sky'; }
+    else if(now!=null && now>=.40){ adv='Toprak doygun: sulama gerekmez; sıkışma ve su birikimine dikkat edin.'; advCls='sky'; }
+    else { adv='Şu an sulama gerekmiyor; nem düzeyini 2–3 günde bir izleyin.'; advCls='emerald'; }
+    const cA=AGRI_CLS[advCls];
+    const grid=fut.slice(0,7).map(i=>{ const k=npSoilClass(rv[i]); return {day:AGRI_DAYS[new Date(days[i]).getDay()],date:npDM(days[i]),val:rv[i]==null?'—':'%'+npN(rv[i]*100,0),label:k.label,note:`Yağış ${npN(P[i])} mm · ET₀ ${npN(E[i])} mm`,cls:k.cls}; });
+    grid.unshift({day:'Bugün',date:npDM(days[ti]),val:now==null?'—':'%'+npN(now*100,0),label:cl.label,note:`Yağış ${npN(P[ti])} mm · ET₀ ${npN(E[ti])} mm`,cls:cl.cls});
+    const lab=days.map(npDM);
+    const stats=`<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">`+
+      npStat('Kök bölgesi nemi',now==null?'—':'%'+npN(now*100,0),cl.label,AGRI_CLS[cl.cls].tx)+
+      npStat('Son 30 gün yağış',npN(p30,0)+' mm','Toplam')+
+      npStat('Son 30 gün ET₀',npN(e30,0)+' mm','Referans buharlaşma')+
+      npStat('Su dengesi (30 gün)',(bal>0?'+':'')+npN(bal,0)+' mm',bal<-70?'Belirgin açık':bal<0?'Hafif açık':'Fazlalık',bal<-70?'text-orange-400':bal<0?'text-amber-400':'text-emerald-400')+`</div>`;
+    el.innerHTML=stats+
+      `<div class="rounded-2xl p-5 border ${AGRI_CLS[NP_LV[lvl]].bg} ${AGRI_CLS[NP_LV[lvl]].br} mb-8"><p class="text-slate-500 text-xs uppercase tracking-widest mb-1">Kuraklık değerlendirmesi</p><p class="${AGRI_CLS[NP_LV[lvl]].tx} text-xl font-700">${lvlTxt}</p></div>`+
+      npSection('Önümüzdeki 7 gün','Kök bölgesi nemi tahmini (hacimce %).',npDayGrid(grid))+
+      `<div class="rounded-2xl p-5 border ${cA.bg} ${cA.br} mb-12"><p class="text-slate-500 text-xs uppercase tracking-widest mb-1">Sulama değerlendirmesi</p><p class="${cA.tx} font-700">${adv}</p><p class="text-slate-500 text-xs mt-2">Önümüzdeki 7 gün: ${npN(p7,0)} mm yağış, ${npN(e7,0)} mm buharlaşma.</p></div>`+
+      npSection('Toprak nemi — son 30 gün ve 7 günlük tahmin','Kesik çizgiler: kuru (%20) ve kritik (%14) eşikleri.',
+        npChart({labels:lab,mark:ti,h:230,min:0,series:[
+          {name:'Kök bölgesi',values:rv.map(v=>v==null?null:v*100),color:'#34d399',kind:'area',unit:' %'},
+          {name:'Yüzey (3–9 cm)',values:sv.map(v=>v==null?null:v*100),color:'#38bdf8',unit:' %'}],
+          refs:[{v:20,label:'kuru %20',color:'#fb923c'},{v:14,label:'kritik %14',color:'#f87171'}]}))+
+      npSection('Yağış ve buharlaşma','Yağışın ET₀’nın altında kaldığı dönemlerde bitki su açığı oluşur.',
+        npChart({labels:lab,mark:ti,h:200,series:[
+          {name:'Yağış',values:P,color:'#38bdf8',kind:'bar',unit:' mm'},
+          {name:'ET₀',values:E,color:'#fbbf24',kind:'line',unit:' mm'}]}))+
+      npNote('Toprak nemi değerleri model çıktısıdır (yaklaşık 10 km çözünürlük); tarlaya özgü nem sensörü ölçümünün yerini tutmaz. Eşikler orta bünyeli topraklar için genel değerlerdir; kumlu topraklarda gerçek durum daha kuru, killi topraklarda daha nemli olabilir.');
+  }
+};
+
+/* ---------------- HES / HİDROLOJİK AKIŞ ---------------- */
+function npHydroCalc(){
+  const S=window._npHydro; if(!S) return;
+  const g=id=>parseFloat(String(document.getElementById(id).value).replace(',','.'));
+  const qd=g('np-h-qd'), H=g('np-h-head'), sh=g('np-h-share')/100, ef=g('np-h-eff')/100;
+  const out=document.getElementById('np-h-out'); if(!out) return;
+  if(!(qd>0&&H>0&&sh>0&&ef>0)){ out.innerHTML='<p class="text-slate-500 text-sm">Değerleri girin.</p>'; return; }
+  const P=ef*9.81*qd*H/1000;
+  const days=S.days.slice(S.ti), q=S.q.slice(S.ti).slice(0,16);
+  const mw=q.map(v=>{ if(v==null) return null; const use=Math.min(qd,v*sh); return ef*9.81*use*H/1000; });
+  const mwh=mw.map(v=>v==null?null:v*24);
+  const tot=npSum(mwh);
+  out.innerHTML=`<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">`+
+    npStat('Kurulu güç (tasarım)',npN(P,2)+' MW','η·9,81·Q·H')+
+    npStat('Ort. tahmini güç',npN(npAvg(mw),2)+' MW','Önümüzdeki 16 gün')+
+    npStat('Tahmini üretim',npN(tot,0)+' MWh','16 günlük toplam')+
+    npStat('Kapasite faktörü',P>0?'%'+npN(npAvg(mw)/P*100,0):'—','Tasarım gücüne göre')+`</div>`+
+    npChart({labels:days.slice(S.ti).slice(0,16).map(npDM),h:190,min:0,series:[{name:'Günlük üretim',values:mwh,color:'#34d399',kind:'bar',unit:' MWh'}]});
+}
+NP_PANELS.hydro={
+  icon:'💧', title:'HES — Nehir Debisi', placeholder:'Nehir / HES bölgesi…',
+  intro:'Seçili noktadaki nehir debisi (m³/s): son 30 gün gözlem-model verisi ve ileri tahmin, uzun dönem medyanıyla karşılaştırma ve basit bir HES üretim hesaplayıcısı. En doğru sonuç için koordinatı nehir yatağının üzerine yerleştirin.',
+  async load(lat,lon,el){
+    const d=await npGet(`${OM_FLOOD}?${npQS({latitude:lat,longitude:lon,daily:'river_discharge,river_discharge_median,river_discharge_mean,river_discharge_max',past_days:30,forecast_days:30})}`);
+    const dl=d.daily||{}; const days=dl.time||[], q=dl.river_discharge||[];
+    if(!q.some(v=>v!=null && v>0)){
+      el.innerHTML=`<div class="rounded-2xl p-6 border border-amber-500/30 bg-amber-500/10"><p class="text-amber-300 font-600 mb-1">Bu noktada nehir debisi verisi yok.</p><p class="text-slate-400 text-sm">Veri yaklaşık 5 km’lik bir ızgarada yalnızca nehir hücreleri için üretilir. Koordinatı nehir yatağına yaklaştırın veya yukarıdaki arama kutusuyla nehrin geçtiği bir yeri seçin.</p></div>`; return; }
+    const med=dl.river_discharge_median||[], mean=dl.river_discharge_mean||[], mx=dl.river_discharge_max||[];
+    const today=npISO(new Date()); let ti=days.indexOf(today); if(ti<0) ti=Math.min(30,days.length-1);
+    const q0=q[ti], m0=med[ti], ratio=(m0>0&&q0!=null)?q0/m0:null;
+    const fut=q.slice(ti+1,ti+8);
+    const trend=fut.length&&q0>0?(npAvg(fut)/q0-1)*100:null;
+    const rc=ratio==null?'slate':ratio>=3?'red':ratio>=1.8?'orange':ratio>=1.2?'sky':ratio<.5?'amber':'emerald';
+    const rt=ratio==null?'—':ratio>=3?'Çok yüksek akış':ratio>=1.8?'Yüksek akış':ratio>=1.2?'Normalin üstünde':ratio<.5?'Düşük akış':'Normal aralıkta';
+    const defQ=Math.max(0.1,Math.round((npAvg(q.slice(ti,ti+16))||1)*0.8*10)/10);
+    window._npHydro={days,q,ti};
+    el.innerHTML=
+      `<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">`+
+      npStat('Güncel debi',npN(q0,1)+' m³/s',npDM(days[ti]))+
+      npStat('Medyana oranı',ratio==null?'—':'%'+npN(ratio*100,0),rt,AGRI_CLS[rc].tx)+
+      npStat('7 gün eğilimi',trend==null?'—':(trend>0?'+':'')+npN(trend,0)+' %',trend==null?'':trend>10?'Artış bekleniyor':trend<-10?'Azalış bekleniyor':'Yatay seyir')+
+      npStat('30 gün tahmin maks.',npN(npMax(q.slice(ti)),1)+' m³/s','İleri tahmin')+`</div>`+
+      npSection('Nehir debisi — son 30 gün ve 30 günlük tahmin','Beyaz bant: uzun dönem ortalama; kesikli çizgi: medyan.',
+        npChart({labels:days.map(npDM),mark:ti,h:230,min:0,series:[
+          {name:'Debi',values:q,color:'#38bdf8',kind:'area',unit:' m³/s'},
+          {name:'Medyan',values:med,color:'#94a3b8',dash:'5 4',unit:' m³/s'},
+          {name:'Ortalama',values:mean,color:'#fbbf24',dash:'2 4',unit:' m³/s'}]}))+
+      npSection('HES üretim hesaplayıcısı','Debi tahminini üretime çevirir: P(MW) = η · 9,81 · Q · H / 1000. Alınan su payı, nehir debisinin santrale yönlendirilebilen oranıdır (ekolojik debi düşülmüş).',
+        `<div class="loc-bar glass rounded-2xl p-5 mb-6" style="display:flex;flex-wrap:wrap;gap:1rem">
+          <div class="loc-field"><label>Tasarım debisi (m³/s)</label><input id="np-h-qd" class="loc-input" value="${defQ}" inputmode="decimal" oninput="npHydroCalc()"></div>
+          <div class="loc-field"><label>Net düşü (m)</label><input id="np-h-head" class="loc-input" value="50" inputmode="decimal" oninput="npHydroCalc()"></div>
+          <div class="loc-field"><label>Alınan su payı (%)</label><input id="np-h-share" class="loc-input" value="80" inputmode="decimal" oninput="npHydroCalc()"></div>
+          <div class="loc-field"><label>Verim η (%)</label><input id="np-h-eff" class="loc-input" value="85" inputmode="decimal" oninput="npHydroCalc()"></div>
+        </div><div id="np-h-out"></div>`)+
+      npNote('Debi verisi küresel hidrolojik modelden (GloFAS tabanlı, ~5 km) gelir; baraj işletmesini, regülasyonu ve yerel su alımlarını içermez. Yatırım ya da işletme kararı için yerel akım ölçümleri ve hidroloji çalışmasıyla doğrulanmalıdır.');
+    npHydroCalc();
+  }
+};
+
+/* ---------------- SEL ETKİ ---------------- */
+NP_PANELS.flood={
+  icon:'🌊', title:'Sel Etki Analizi', placeholder:'Bölge / dere / ilçe…',
+  intro:'Yağış miktarı, saatlik yağış şiddeti ve (varsa) nehir debisinin normale oranı birlikte değerlendirilerek önümüzdeki 7 gün için sel ve su baskını riski gösterilir.',
+  async load(lat,lon,el){
+    const [f,fl]=await Promise.all([
+      npGet(npFc(lat,lon,{forecast_days:7,hourly:'precipitation',daily:'precipitation_sum'})),
+      npGet(`${OM_FLOOD}?${npQS({latitude:lat,longitude:lon,daily:'river_discharge,river_discharge_median',forecast_days:7})}`).catch(()=>null)
+    ]);
+    const t=f.hourly.time, pr=f.hourly.precipitation;
+    const days=f.daily.time, P=f.daily.precipitation_sum;
+    const peak=npByDay(t,pr,npMax);
+    const fd=fl&&fl.daily?fl.daily:null; const hasQ=fd&&(fd.river_discharge||[]).some(v=>v!=null&&v>0);
+    const items=days.map((x,i)=>{
+      const lr=npThr(P[i],[30,50,80]), li=npThr(peak[x],[10,20,30]);
+      let lq=0, ratio=null;
+      if(hasQ){ const j=fd.time.indexOf(x); if(j>=0){ const m=fd.river_discharge_median[j], q=fd.river_discharge[j]; if(m>0&&q!=null){ ratio=q/m; lq=npThr(ratio,[1.5,2.5,4]); } } }
+      const lv=Math.max(lr,li,lq);
+      const why=[]; if(lr) why.push('günlük yağış'); if(li) why.push('yağış şiddeti'); if(lq) why.push('nehir debisi');
+      return {day:npDayName(x,i),date:npDM(x),val:npN(P[i],0)+' mm',label:NP_LV_TXT[lv],cls:NP_LV[lv],lv,
+        note:`Tepe şiddet ${npN(peak[x])} mm/sa`+(ratio!=null?` · debi ×${npN(ratio)}`:'')+(why.length?` · ${why.join(', ')}`:''),lr,li,lq};
+    });
+    const worst=Math.max(...items.map(i=>i.lv));
+    const sum=['Önümüzdeki 7 günde belirgin sel riski görünmüyor.','Yer yer kısa süreli su birikmesi olabilir; dere yatakları ve alt geçitler izlenmeli.','Ani sel ve su baskını riski yüksek: dere yatakları, alt geçitler ve alçak alanlar için önlem alın.','Çok yüksek risk: can ve mal güvenliği için sel önlemleri devreye alınmalı; resmî MGM/AFAD uyarılarını takip edin.'][worst];
+    const wc=AGRI_CLS[NP_LV[worst]];
+    el.innerHTML=`<div class="rounded-2xl p-5 border ${wc.bg} ${wc.br} mb-8"><p class="text-slate-500 text-xs uppercase tracking-widest mb-1">7 günlük genel durum</p><p class="${wc.tx} text-xl font-700">${NP_LV_TXT[worst]}</p><p class="text-slate-300 text-sm mt-1">${sum}</p></div>`+
+      npSection('Günlük sel riski','Risk; günlük yağış (30/50/80 mm), saatlik şiddet (10/20/30 mm/sa) ve nehir debisi/medyan oranından (1,5/2,5/4) en yükseğine göre belirlenir.',npDayGrid(items))+
+      npSection('Yağış ve saatlik tepe şiddet','',npChart({labels:days.map(npDM),h:200,series:[
+        {name:'Günlük yağış',values:P,color:'#38bdf8',kind:'bar',unit:' mm'},
+        {name:'Tepe şiddet',values:days.map(x=>peak[x]),color:'#f87171',kind:'line',unit:' mm/sa'}],
+        refs:[{v:30,label:'30 mm',color:'#fbbf24'}]}))+
+      (hasQ?'':`<p class="text-slate-500 text-xs">Bu noktada nehir debisi verisi bulunmadığından risk yalnızca yağış verisinden hesaplandı.</p>`)+
+      npNote('Bu panel resmî bir sel uyarısı değildir. Ani sel (flash flood) yerel topografyaya, zemin doygunluğuna ve havzaya bağlıdır; resmî uyarılar için MGM ve AFAD’ı takip edin.');
+  }
+};
+
+/* ---------------- EROZYON ---------------- */
+NP_PANELS.erosion={
+  icon:'🏜️', title:'Erozyon Riski', placeholder:'Arazi / bölge adı…',
+  intro:'Su erozyonu (yağış şiddeti ve ıslak üst toprak) ve rüzgâr erozyonu (kuvvetli rüzgâr ve kuru üst toprak) için önümüzdeki 7 günlük gösterge niteliğinde risk değerlendirmesi.',
+  async load(lat,lon,el){
+    const d=await npGet(npFc(lat,lon,{past_days:3,forecast_days:7,hourly:'precipitation,wind_gusts_10m,soil_moisture_0_to_1cm',daily:'precipitation_sum,wind_gusts_10m_max'}));
+    const h=d.hourly, dl=d.daily, days=dl.time;
+    const peak=npByDay(h.time,h.precipitation,npMax), top=npByDay(h.time,h.soil_moisture_0_to_1cm,npAvg);
+    const today=npISO(new Date()); let ti=days.indexOf(today); if(ti<0) ti=3;
+    const idx=days.map((_,i)=>i).filter(i=>i>=ti);
+    const W=[],R=[];
+    idx.forEach((i,k)=>{
+      const x=days[i], P=dl.precipitation_sum[i], g=dl.wind_gusts_10m_max[i], m=top[x];
+      let w=Math.max(npThr(P,[25,40,70]),npThr(peak[x],[8,15,25]));
+      if(w>0 && m!=null && m>=.35) w=Math.min(3,w+1);        /* ıslak/doygun üst toprak: akış artar */
+      if(w>0 && m!=null && m<.12) w=Math.max(0,w-1);         /* çok kuru: sızma yüksek */
+      let r=npThr(g,[15,20,25]);
+      if(r>0 && m!=null){ if(m>=.28) r=Math.max(0,r-2); else if(m>=.18) r=Math.max(0,r-1); else if(m<.10) r=Math.min(3,r+1); }
+      const dn=npDayName(x,k);
+      W.push({day:dn,date:npDM(x),val:npN(P,0)+' mm',label:NP_LV_TXT[w],cls:NP_LV[w],lv:w,note:`Tepe ${npN(peak[x])} mm/sa · üst toprak %${npN((m||0)*100,0)}`});
+      R.push({day:dn,date:npDM(x),val:npN(g,0)+' m/s',label:NP_LV_TXT[r],cls:NP_LV[r],lv:r,note:`Maks. hamle · üst toprak %${npN((m||0)*100,0)}`});
+    });
+    const mw=Math.max(...W.map(x=>x.lv)), mr=Math.max(...R.map(x=>x.lv));
+    const tips=[];
+    if(mw>=2) tips.push('Eğimli çıplak arazilerde sürüm yapmayın; kontur sürüm, malç ve erozyon bariyerleri (saman balyası, silt fence) kullanın.','Şantiye ve yol şevlerinde kazı sonrası yüzeyi örtün, drenaj hendeklerini temizleyin.');
+    if(mr>=2) tips.push('Çıplak ve kuru tarlalarda toz/toprak savrulması olabilir: rüzgâr perdesi, anızı koruma ve gerekirse sulama ile yüzeyi nemlendirin.','Açık stok sahalarında (kum, çimento, toprak) örtü veya nemlendirme uygulayın.');
+    if(!tips.length) tips.push('Önümüzdeki 7 günde belirgin erozyon sinyali yok; rutin önlemler yeterli.');
+    const sec=(title,desc,arr)=>npSection(title,desc,npDayGrid(arr));
+    el.innerHTML=
+      `<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">`+
+      npStat('Su erozyonu (7 gün en yüksek)',NP_LV_TXT[mw],'Yağış şiddeti + ıslak üst toprak',AGRI_CLS[NP_LV[mw]].tx)+
+      npStat('Rüzgâr erozyonu (7 gün en yüksek)',NP_LV_TXT[mr],'Hamle + kuru üst toprak',AGRI_CLS[NP_LV[mr]].tx)+`</div>`+
+      sec('Su erozyonu','Eşikler: günlük yağış 25/40/70 mm, saatlik şiddet 8/15/25 mm/sa; üst toprak ≥%35 nemliyse bir seviye artar.',W)+
+      sec('Rüzgâr erozyonu','Eşikler: maks. hamle 15/20/25 m/s; üst toprak kuruysa (<%18) risk artar, nemliyse (≥%28) azalır.',R)+
+      `<div class="rounded-2xl p-5 border border-brand/30 bg-brand/10"><p class="text-white font-700 mb-2">Önerilen önlemler</p><ul class="space-y-1.5">${tips.map(x=>`<li class="text-slate-300 text-sm flex gap-2"><span class="text-brand">✓</span>${x}</li>`).join('')}</ul></div>`+
+      npNote('Bu değerlendirme meteorolojik göstergelere dayalı kaba bir risk skorudur; eğim, toprak türü ve bitki örtüsünü içeren RUSLE/WEPP gibi erozyon modellerinin yerine geçmez.');
+  }
+};
+
+/* ===============================================================
+   PANEL: İklim Projeksiyonu · Sigorta/Risk · Uzay Havası · Tüm Hizmetler
+=============================================================== */
+
+/* ---------------- İKLİM DEĞİŞİKLİĞİ PROJEKSİYONU ---------------- */
+function npLinSlope(xs,ys){
+  const p=xs.map((x,i)=>[x,ys[i]]).filter(a=>a[1]!=null); const n=p.length; if(n<3) return null;
+  const mx=npAvg(p.map(a=>a[0])), my=npAvg(p.map(a=>a[1]));
+  let nu=0,de=0; p.forEach(a=>{ nu+=(a[0]-mx)*(a[1]-my); de+=(a[0]-mx)**2; });
+  return de?nu/de:null;
+}
+NP_PANELS.climate={
+  icon:'🌍', title:'İklim Projeksiyonu', placeholder:'Şehir / ilçe…',
+  intro:'Seçili konum için 1991–2050 arası yıllık sıcaklık ve yağış: çoklu iklim modeli ortalaması, modeller arası aralık, 1991–2020 referans dönemine göre 2031–2050 değişimi ve on yıllık eğilim.',
+  async load(lat,lon,el){
+    const d=await npGet(`${BACKEND}/climate?lat=${lat}&lon=${lon}`, 3600000);
+    const ys=d.years, names=Object.keys(d.models);
+    const ens=k=>ys.map((_,i)=>npAvg(names.map(m=>d.models[m][k][i])));
+    const lo=k=>ys.map((_,i)=>npMin(names.map(m=>d.models[m][k][i])));
+    const hi=k=>ys.map((_,i)=>npMax(names.map(m=>d.models[m][k][i])));
+    const T=ens('temp'), S=ens('summer'), P=ens('precip');
+    const seg=(arr,a,b)=>npAvg(arr.filter((_,i)=>ys[i]>=a&&ys[i]<=b));
+    const dT=seg(T,2031,2050)-seg(T,1991,2020), dS=seg(S,2031,2050)-seg(S,1991,2020);
+    const bP=seg(P,1991,2020), dP=(seg(P,2031,2050)-bP)/bP*100;
+    const trend=npLinSlope(ys,T)*10;
+    const sgn=v=>(v>0?'+':'')+npN(v,1);
+    const stats=`<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">`+
+      npStat('Yıllık ort. sıcaklık',npN(seg(T,2031,2050))+' °C','2031–2050 ortalaması')+
+      npStat('Referansa göre değişim',sgn(dT)+' °C','1991–2020’ye kıyasla',dT>=1.5?'text-red-400':dT>=.8?'text-orange-400':'text-amber-400')+
+      npStat('Yaz (HAZ–AĞU) değişimi',sgn(dS)+' °C','1991–2020’ye kıyasla',dS>=1.5?'text-red-400':'text-orange-400')+
+      npStat('Yıllık yağış değişimi',sgn(dP)+' %','Referans ~'+npN(bP,0)+' mm/yıl',dP<=-5?'text-orange-400':dP>=5?'text-sky-400':'text-slate-200')+`</div>`;
+    const lab=ys.map(String);
+    const mark=ys.indexOf(new Date().getFullYear());
+    const dec=[]; for(let a=1991;a<=2041;a+=10){ const b=a+9; dec.push({a,b,t:seg(T,a,b),s:seg(S,a,b),p:seg(P,a,b)}); }
+    const tbl=`<div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="text-slate-500 text-xs uppercase tracking-wider text-left"><th class="py-2 pr-4">On yıl</th><th class="pr-4">Yıllık sıcaklık</th><th class="pr-4">Yaz sıcaklığı</th><th class="pr-4">Yıllık yağış</th><th>Referansa göre</th></tr></thead><tbody>`+
+      dec.map(r=>{ const dd=r.t-dec[0].t; return `<tr class="border-t border-white/5"><td class="py-2 pr-4 text-white font-600">${r.a}–${r.b}</td><td class="pr-4 text-slate-300">${npN(r.t)} °C</td><td class="pr-4 text-slate-300">${npN(r.s)} °C</td><td class="pr-4 text-slate-300">${npN(r.p,0)} mm</td><td class="${dd>=.8?'text-orange-400':'text-slate-400'}">${r===dec[0]?'—':sgn(dd)+' °C'}</td></tr>`; }).join('')+`</tbody></table></div>`;
+    el.innerHTML=stats+
+      `<div class="rounded-2xl p-5 border border-sky-500/30 bg-sky-500/10 mb-10"><p class="text-slate-300 text-sm leading-relaxed">Bu konumda 1991’den 2050’ye yıllık ortalama sıcaklıkta on yılda yaklaşık <strong class="text-white">${sgn(trend)} °C</strong> eğilim görülüyor. Yaz sıcaklıkları referans döneme göre <strong class="text-white">${sgn(dS)} °C</strong>, yıllık yağış <strong class="text-white">%${sgn(dP)}</strong> değişiyor (model ortalaması).</p></div>`+
+      npSection('Yıllık ortalama sıcaklık','Çizgi: model ortalaması; gölge: modeller arası aralık. Dikey çizgi: bugün.',
+        npChart({labels:lab,mark,markLabel:'bugün',h:230,series:[{name:'Model ortalaması',values:T,color:'#f97316',unit:' °C'}],band:{lo:lo('temp'),hi:hi('temp'),color:'#f97316',name:'Model aralığı'}}))+
+      npSection('Yaz (haziran–ağustos) ortalama sıcaklığı','',
+        npChart({labels:lab,mark,h:210,series:[{name:'Model ortalaması',values:S,color:'#ef4444',unit:' °C'}],band:{lo:lo('summer'),hi:hi('summer'),color:'#ef4444',name:'Model aralığı'}}))+
+      npSection('Yıllık toplam yağış','Yağış, sıcaklığa göre çok daha belirsizdir; yıldan yıla doğal dalgalanma büyüktür.',
+        npChart({labels:lab,mark,h:210,min:0,series:[{name:'Model ortalaması',values:P,color:'#38bdf8',unit:' mm'}],band:{lo:lo('precip'),hi:hi('precip'),color:'#38bdf8',name:'Model aralığı'}}))+
+      npSection('On yıllık özet','',tbl)+
+      npNote(`Kaynak: Open-Meteo İklim API’si — ${names.join(', ')} yüksek çözünürlüklü küresel iklim modelleri (CMIP6 HighResMIP, yüksek emisyon senaryosu). Bu bir hava tahmini değil, uzun dönem model eğilimidir; tek bir yıl için kesin değer vermez. Modeller arası farklar belirsizliği gösterir. Bölgesel iklim risk raporları için danışmanlık hizmeti sunuyoruz.`);
+  }
+};
+
+/* ---------------- SİGORTA / RİSK ---------------- */
+function npCopy(id){
+  const t=document.getElementById(id); if(!t) return;
+  t.select(); try{ navigator.clipboard.writeText(t.value); toast('Panoya kopyalandı','success'); }catch(_){ document.execCommand('copy'); toast('Kopyalandı','success'); }
+}
+function npCountEvents(dl){
+  const c={r30:0,r50:0,g20:0,t40:0,tm10:0,th:0,hail:0};
+  (dl.time||[]).forEach((_,i)=>{
+    const p=dl.precipitation_sum?.[i], g=dl.wind_gusts_10m_max?.[i], tx=dl.temperature_2m_max?.[i], tn=dl.temperature_2m_min?.[i], wc=dl.weather_code?.[i];
+    if(p>=30) c.r30++; if(p>=50) c.r50++; if(g>=20) c.g20++; if(tx>=40) c.t40++; if(tn<=-10) c.tm10++;
+    if(wc===95||wc===96||wc===99) c.th++; if(wc===96||wc===99) c.hail++;
+  });
+  return c;
+}
+async function npPostEvent(){
+  const out=document.getElementById('np-ev-out'); if(!out) return;
+  const a=document.getElementById('np-ev-from').value, b=document.getElementById('np-ev-to').value;
+  const c=lastCoords||{lat:39.93,lon:32.86};
+  if(!a||!b||a>b){ out.innerHTML='<p class="text-orange-300 text-sm">Geçerli bir tarih aralığı seçin.</p>'; return; }
+  const days=(new Date(b)-new Date(a))/864e5+1;
+  if(days>31){ out.innerHTML='<p class="text-orange-300 text-sm">En fazla 31 günlük aralık seçebilirsiniz.</p>'; return; }
+  out.innerHTML=npLoading;
+  try{
+    const o={latitude:c.lat,longitude:c.lon,start_date:a,end_date:b,timezone:'auto',wind_speed_unit:'ms',
+      daily:'precipitation_sum,wind_gusts_10m_max,temperature_2m_max,temperature_2m_min,weather_code'};
+    if(days<=10) o.hourly='precipitation,wind_gusts_10m';
+    const d=await npGet(`${OM_ARCHIVE}?${npQS(o)}`);
+    const dl=d.daily, n=dl.time.length;
+    if(!n || dl.precipitation_sum.every(v=>v==null)){ out.innerHTML='<p class="text-orange-300 text-sm">Bu tarihler için henüz veri yok (arşiv verisi birkaç gün gecikmeyle gelir).</p>'; return; }
+    let ip=0, ig=0; for(let i=1;i<n;i++){ if((dl.precipitation_sum[i]||0)>(dl.precipitation_sum[ip]||0)) ip=i; if((dl.wind_gusts_10m_max[i]||0)>(dl.wind_gusts_10m_max[ig]||0)) ig=i; }
+    const tot=npSum(dl.precipitation_sum), mx=dl.precipitation_sum[ip], gmx=dl.wind_gusts_10m_max[ig];
+    const tmax=npMax(dl.temperature_2m_max), tmin=npMin(dl.temperature_2m_min);
+    const ev=npCountEvents(dl);
+    let hp=null, hg=null;
+    if(d.hourly){ const hh=d.hourly; let k=0,m=0; hh.time.forEach((_,i)=>{ if((hh.precipitation[i]||0)>(hh.precipitation[k]||0)) k=i; if((hh.wind_gusts_10m[i]||0)>(hh.wind_gusts_10m[m]||0)) m=i; }); hp={v:hh.precipitation[k],t:hh.time[k]}; hg={v:hh.wind_gusts_10m[m],t:hh.time[m]}; }
+    const fT=s=>{ const x=new Date(s); return npDM(s)+' '+String(x.getHours()).padStart(2,'0')+':00'; };
+    const dd=s=>new Date(s).toLocaleDateString('tr-TR');
+    const place=(typeof currentPlaceName!=='undefined'&&currentPlaceName)?currentPlaceName:`${c.lat.toFixed(3)}°K, ${c.lon.toFixed(3)}°D`;
+    const L=[];
+    L.push(`OLAY SONRASI METEOROLOJİK ÖZET`);
+    L.push(`Konum: ${place} (${c.lat.toFixed(4)}, ${c.lon.toFixed(4)})`);
+    L.push(`Dönem: ${dd(a)} – ${dd(b)} (${n} gün)`);
+    L.push('');
+    L.push(`• Toplam yağış: ${npN(tot,1)} mm; en yağışlı gün ${dd(dl.time[ip])} (${npN(mx,1)} mm).`);
+    if(hp) L.push(`• En yüksek saatlik yağış şiddeti: ${npN(hp.v,1)} mm/sa (${fT(hp.t)}).`);
+    L.push(`• En yüksek rüzgâr hamlesi: ${npN(gmx,1)} m/s (${npN(gmx*3.6,0)} km/sa), ${dd(dl.time[ig])}${hg?` — saatlik tepe ${npN(hg.v,1)} m/s, ${fT(hg.t)}`:''}.`);
+    L.push(`• Sıcaklık aralığı: ${npN(tmin)} °C ile ${npN(tmax)} °C.`);
+    const flags=[];
+    if(ev.r50) flags.push(`${ev.r50} gün ≥50 mm (çok kuvvetli yağış)`); else if(ev.r30) flags.push(`${ev.r30} gün ≥30 mm (kuvvetli yağış)`);
+    if(ev.g20) flags.push(`${ev.g20} gün rüzgâr hamlesi ≥20 m/s (fırtına düzeyi)`);
+    if(ev.hail) flags.push(`${ev.hail} gün dolu olası fırtına`); else if(ev.th) flags.push(`${ev.th} gün gök gürültülü fırtına`);
+    if(ev.t40) flags.push(`${ev.t40} gün ≥40 °C`); if(ev.tm10) flags.push(`${ev.tm10} gün ≤-10 °C`);
+    L.push(`• Eşik aşımları: ${flags.length?flags.join('; '):'belirgin bir eşik aşımı görülmedi'}.`);
+    L.push('');
+    L.push(`Kaynak: Open-Meteo yeniden analiz (ERA5/ECMWF) arşiv verisi, ~10 km ızgara. Nokta ölçümü değildir; resmî rapor için MGM istasyon kaydı ve/veya bilirkişi görüşü ile desteklenmelidir.`);
+    out.innerHTML=`<textarea id="np-ev-text" readonly rows="${L.length+1}" class="w-full rounded-xl bg-slate-900/60 border border-white/10 text-slate-200 text-sm p-4 leading-relaxed" style="font-family:inherit">${L.join('\n')}</textarea>
+      <button onclick="npCopy('np-ev-text')" class="btn-primary text-white text-sm px-5 py-2 mt-3">📋 Metni kopyala</button>
+      <div class="mt-8">${npChart({labels:dl.time.map(npDM),h:190,series:[{name:'Günlük yağış',values:dl.precipitation_sum,color:'#38bdf8',kind:'bar',unit:' mm'},{name:'Maks. hamle',values:dl.wind_gusts_10m_max,color:'#fbbf24',unit:' m/s'}]})}</div>`;
+  }catch(err){ console.error(err); out.innerHTML='<p class="text-orange-300 text-sm">Arşiv verisi alınamadı. Tarihleri kontrol edip tekrar deneyin.</p>'; }
+}
+NP_PANELS.insurance={
+  icon:'🛡️', title:'Sigorta ve Risk', placeholder:'Sigortalı konum / tesis…',
+  intro:'Sigorta ve risk yönetimi için seçili konumda: önümüzdeki 7 günün hasar riski özeti, son 5 yılın ekstrem hava olayı sıklığı ve belirli bir olay için geçmişe dönük meteorolojik analiz (olay sonrası rapor).',
+  async load(lat,lon,el){
+    const today=new Date(); const end=new Date(today.getTime()-7*864e5); const start=new Date(end); start.setFullYear(start.getFullYear()-5);
+    const d=await npGet(`${OM_ARCHIVE}?${npQS({latitude:lat,longitude:lon,start_date:npISO(start),end_date:npISO(end),timezone:'auto',wind_speed_unit:'ms',daily:'precipitation_sum,wind_gusts_10m_max,temperature_2m_max,temperature_2m_min,weather_code'})}`, 3600000);
+    const dl=d.daily;
+    /* 7 günlük risk matrisi */
+    let matrix='';
+    if(lastAlertsDaily && lastAlertsDaily.time && hourlyData){
+      const A=lastAlertsDaily, agg={hum:[],vis:[]};
+      A.time.forEach(x=>{ agg.hum.push(dayMinMax(hourlyData.humidity_pct,hourlyData.time,x)); agg.vis.push(dayMinMax(hourlyData.visibility,hourlyData.time,x)); });
+      const defs=ALERT_DEFS.filter(x=>x.key!=='uv');
+      let worstLv=0, worstDay='';
+      const rows=defs.map(def=>{
+        const cells=A.time.map((x,i)=>{ const r=def.score(i,A,agg), c=AGRI_CLS[r.cls]; const lv=npRank[r.cls]||0; if(lv>worstLv){ worstLv=lv; worstDay=npDM(x)+' · '+def.title; }
+          return `<td class="p-1"><div class="rounded-lg px-1 py-2 text-center border ${c.bg} ${c.br} ${c.tx} text-[11px] font-700 leading-tight" title="${(r.note||'').replace(/"/g,'')}">${r.cls==='emerald'?'—':r.label}</div></td>`; }).join('');
+        return `<tr><td class="pr-3 py-1 text-slate-300 text-sm whitespace-nowrap">${def.icon} ${def.title}</td>${cells}</tr>`; }).join('');
+      const head=A.time.map((x,i)=>`<th class="text-slate-500 text-xs font-600 pb-2">${i===0?'Bugün':AGRI_DAYS[new Date(x).getDay()]}<br><span class="text-slate-600">${npDM(x)}</span></th>`).join('');
+      matrix=npSection('Önümüzdeki 7 gün — hasar riski özeti',worstLv>=2?`En kritik durum: ${worstDay}.`:'Belirgin hasar riski görünmüyor.',
+        `<div class="overflow-x-auto"><table class="w-full" style="min-width:640px"><thead><tr><th></th>${head}</tr></thead><tbody>${rows}</tbody></table></div>`);
+    } else matrix=npSection('Önümüzdeki 7 gün — hasar riski özeti','',`<p class="text-slate-500 text-sm">Önce bir konum seçin; tahmin yüklenince burada görünür.</p>`);
+    /* 5 yıllık olay sıklığı */
+    const byY={}; dl.time.forEach((x,i)=>{ const y=x.slice(0,4); (byY[y]=byY[y]||{time:[],precipitation_sum:[],wind_gusts_10m_max:[],temperature_2m_max:[],temperature_2m_min:[],weather_code:[]}); const o=byY[y]; o.time.push(x); ['precipitation_sum','wind_gusts_10m_max','temperature_2m_max','temperature_2m_min','weather_code'].forEach(k=>o[k].push(dl[k][i])); });
+    const yrs=Object.keys(byY).sort(); const tot=npCountEvents(dl), nY=(dl.time.length/365.25);
+    const cols=[['r30','Yağış ≥30 mm'],['r50','Yağış ≥50 mm'],['g20','Hamle ≥20 m/s'],['th','Gök gürültülü fırtına'],['hail','Dolu olası'],['t40','Tmaks ≥40 °C'],['tm10','Tmin ≤-10 °C']];
+    const tb=`<div class="overflow-x-auto"><table class="w-full text-sm" style="min-width:560px"><thead><tr class="text-slate-500 text-xs uppercase tracking-wider text-left"><th class="py-2 pr-3">Yıl</th>${cols.map(c=>`<th class="pr-3">${c[1]}</th>`).join('')}</tr></thead><tbody>`+
+      yrs.map(y=>{ const e=npCountEvents(byY[y]); return `<tr class="border-t border-white/5"><td class="py-2 pr-3 text-white font-600">${y}</td>${cols.map(c=>`<td class="pr-3 ${e[c[0]]?'text-amber-300':'text-slate-600'}">${e[c[0]]}</td>`).join('')}</tr>`; }).join('')+
+      `<tr class="border-t border-white/20"><td class="py-2 pr-3 text-white font-700">Yıllık ort.</td>${cols.map(c=>`<td class="pr-3 text-white font-700">${npN(tot[c[0]]/nY,1)}</td>`).join('')}</tr></tbody></table></div>`;
+    const dE=npISO(new Date(today.getTime()-3*864e5)), dS=npISO(new Date(today.getTime()-6*864e5));
+    el.innerHTML=matrix+
+      npSection(`Son 5 yılın ekstrem olay sıklığı (${npDM(start)}.${start.getFullYear()} – ${npDM(end)}.${end.getFullYear()})`,'Günlük sayılar; her olay bir takvim günü olarak sayılır.',tb)+
+      npSection('Olay sonrası analiz','Hasar/talep tarihindeki hava koşullarını belgelemek için bir tarih aralığı seçin (en fazla 31 gün). Sonuç, rapora eklenebilecek kısa bir metin olarak hazırlanır.',
+        `<div class="loc-bar glass rounded-2xl p-5 mb-5" style="display:flex;flex-wrap:wrap;gap:1rem;align-items:flex-end">
+          <div class="loc-field"><label>Başlangıç</label><input id="np-ev-from" type="date" class="loc-input" value="${dS}"></div>
+          <div class="loc-field"><label>Bitiş</label><input id="np-ev-to" type="date" class="loc-input" value="${dE}"></div>
+          <button onclick="npPostEvent()" class="btn-primary text-white text-sm px-6 py-2.5">Analiz et</button></div><div id="np-ev-out"></div>`)+
+      npNote('Arşiv değerleri yeniden analiz (ERA5) modeline dayanır, ~10 km ızgara ortalamasıdır; noktasal ölçüm değildir. Hukuki/ekspertiz raporlarında MGM istasyon kayıtları ve uzman görüşüyle birlikte kullanılmalıdır. Kurumsal hasar analizi ve parametrik sigorta için bizimle iletişime geçin.');
+  }
+};
+
+/* ---------------- UZAY HAVASI ---------------- */
+const NP_SPACE_G=['Etkisiz','Zayıf: şebekede küçük dalgalanmalar, uydu operasyonlarında hafif etki; kutup bölgelerinde aurora.','Orta: yüksek enlem şebekelerinde gerilim alarmı, uydu yönelim düzeltmeleri, HF telsizde zayıflama.','Güçlü: şebeke koruma sistemleri devreye girebilir, uydu sürtünmesi artar, GNSS (GPS) hassasiyeti düşer.','Şiddetli: şebekede gerilim sorunları, uydu yüzey yüklenmesi, düşük frekanslı navigasyon aksar, GNSS sorunları.','Aşırı: yaygın şebeke kararsızlığı ve kesinti riski, uydu kontrol kayıpları, HF telsiz kesintisi, aurora düşük enlemlerde.'];
+const NP_SPACE_S=['Etkisiz','Zayıf: uydu operasyonlarında küçük etki; yüksek enlem uçuşlarında radyasyon hafif artar.','Orta: kutup rotalarındaki uçuşlarda radyasyon dozu artar; uydularda tekil olay hataları görülebilir.','Güçlü: uçak mürettebatı/yolcu için radyasyon önlemi; uydu elektroniği ve güneş panelleri etkilenebilir.','Şiddetli: uydularda bellek hataları ve görüntüleme kaybı, kutup HF iletişim kesintisi.','Aşırı: uydu kaybı riski, kutup rotası uçuşları iptal, astronotlar için ciddi radyasyon.'];
+const NP_SPACE_R=['Etkisiz','Zayıf: gündüz yarıkürede HF telsizde kısa süreli zayıflama.','Orta: HF telsizde yüzlerce dakikalık sınırlı kesinti; düşük frekanslı navigasyonda kısa süreli bozulma.','Güçlü: gündüz yarıkürede yaklaşık bir saat HF kesintisi, navigasyon sinyallerinde bozulma.','Şiddetli: gündüz yarıkürede HF telsiz kesintisi, navigasyon hataları birkaç saat sürebilir.','Aşırı: gündüz yarıkürede HF kesintisi, navigasyonda saatler süren sorunlar.'];
+function npXrayClass(f){ if(f==null) return '—'; const L=[['X',1e-4],['M',1e-5],['C',1e-6],['B',1e-7],['A',1e-8]]; for(const [c,b] of L) if(f>=b) return c+npN(f/b,1); return 'A'+npN(f/1e-8,1); }
+NP_PANELS.space={
+  icon:'🛰️', title:'Uzay Havası', noLocation:true,
+  intro:'Güneş kaynaklı uzay havası olayları: jeomanyetik fırtına (G), güneş radyasyon fırtınası (S) ve radyo kesintisi (R) ölçekleri, Kp indeksi, güneş rüzgârı ve X-ışını akısı. Uydu, GNSS (GPS), HF telsiz, elektrik şebekesi ve yüksek irtifa uçuşları için önem taşır. Veri: NOAA Uzay Havası Tahmin Merkezi (SWPC); küresel olduğu için konumdan bağımsızdır.',
+  async load(_a,_b,el){
+    el.innerHTML=npLoading;
+    let d;
+    try{ d=await gFetch(`${BACKEND}/space/weather`); }catch(e){ el.innerHTML=npErr('space','Uzay havası verisi şu an alınamadı.'); NP_LOADED.space=null; return; }
+    const sc=d.scales||{}; const cur=sc['0']||sc[0]||{};
+    const lvl=k=>{ const v=cur[k]&&cur[k].Scale; const n=parseInt(v); return isNaN(n)?0:Math.min(5,Math.max(0,n)); };
+    const cardFor=(k,name,txt)=>{ const n=lvl(k), c=AGRI_CLS[n>=4?'red':n===3?'orange':n>=1?'amber':'emerald'];
+      return `<div class="rounded-2xl p-5 border ${c.bg} ${c.br}"><p class="text-slate-500 text-xs uppercase tracking-widest mb-1">${name}</p><p class="${c.tx} font-display text-3xl font-700">${k}${n}</p><p class="text-slate-300 text-sm mt-2 leading-snug">${txt[n]}</p></div>`; };
+    const fc=['1','2','3'].map(i=>{ const o=sc[i]; if(!o) return ''; const g=o.G?.Scale??'0', s=o.S?.Scale??'0', r=o.R?.Scale??'0';
+      return `<div class="rounded-xl bg-white/5 border border-white/10 p-3 text-center"><p class="text-slate-500 text-xs mb-1">${o.DateStamp?npDM(o.DateStamp):'+'+i+' gün'}</p><p class="text-white text-sm font-700">G${g} · S${s} · R${r}</p></div>`; }).join('');
+    /* Kp */
+    let kpHtml='';
+    if(Array.isArray(d.kp) && d.kp.length>2){
+      const rows=d.kp.slice(1).map(r=>Array.isArray(r)?{t:r[0],kp:parseFloat(r[1]),o:r[2]}:{t:r.time_tag,kp:parseFloat(r.kp),o:r.observed}).filter(r=>!isNaN(r.kp));
+      const kc=v=>v>=7?'#ef4444':v>=5?'#f97316':v>=4?'#fbbf24':'#34d399';
+      kpHtml=npSection('Kp indeksi — son günler ve 3 günlük tahmin','Kp ≥5 jeomanyetik fırtına (G1+) demektir. Soluk çubuklar tahmindir.',
+        `<div class="flex items-end gap-[2px]" style="height:140px">`+rows.map(r=>`<div title="${String(r.t).slice(5,16)} · Kp ${r.kp}${r.o==='observed'?'':' (tahmin)'}" style="flex:1;height:${Math.max(3,r.kp/9*100)}%;background:${kc(r.kp)};opacity:${r.o==='observed'?1:.45};border-radius:2px 2px 0 0"></div>`).join('')+`</div>
+         <div class="flex justify-between text-xs text-slate-500 mt-1"><span>${String(rows[0].t).slice(5,10)}</span><span>${String(rows[rows.length-1].t).slice(5,10)}</span></div>`);
+    }
+    const spd=Array.isArray(d.wind)?parseFloat(d.wind[0]?.proton_speed):parseFloat(d.wind?.proton_speed);
+    const mg=Array.isArray(d.mag)?d.mag[0]:d.mag||{}; const bz=parseFloat(mg.bz_gsm), bt=parseFloat(mg.bt);
+    const xr=d.xray;
+    el.innerHTML=
+      `<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">${cardFor('G','Jeomanyetik fırtına',NP_SPACE_G)}${cardFor('S','Radyasyon fırtınası',NP_SPACE_S)}${cardFor('R','Radyo kesintisi',NP_SPACE_R)}</div>`+
+      (fc?`<div class="mb-10"><p class="text-slate-500 text-xs uppercase tracking-widest mb-3">Önümüzdeki 3 gün (en yüksek ölçek)</p><div class="grid grid-cols-3 gap-3 max-w-xl">${fc}</div></div>`:'')+
+      `<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">`+
+      npStat('Güneş rüzgârı hızı',isNaN(spd)?'—':npN(spd,0)+' km/s',spd>=600?'Çok hızlı':spd>=500?'Hızlı':'Normal (~300–450)',spd>=600?'text-red-400':spd>=500?'text-amber-400':'text-white')+
+      npStat('Bz (manyetik alan)',isNaN(bz)?'—':npN(bz,1)+' nT',bz<=-10?'Güçlü güneye dönük — fırtına riski':bz<0?'Güneye dönük':'Kuzeye dönük (korunaklı)',bz<=-10?'text-red-400':bz<0?'text-amber-400':'text-white')+
+      npStat('Toplam alan (Bt)',isNaN(bt)?'—':npN(bt,1)+' nT','')+
+      npStat('X-ışını sınıfı',xr?npXrayClass(xr.flux):'—',xr?'Son 6 saat en yüksek: '+npXrayClass(xr.max6h):'',xr&&xr.flux>=1e-5?'text-orange-400':'text-white')+`</div>`+
+      kpHtml+
+      npSection('Bu veriler kimi ilgilendirir?','',`<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-slate-300">
+        <div class="rounded-xl bg-white/5 p-4">🛰️ <strong class="text-white">Uydu operatörleri:</strong> yörünge sürtünmesi, yüzey yüklenmesi, tekil olay hataları.</div>
+        <div class="rounded-xl bg-white/5 p-4">📡 <strong class="text-white">GNSS / hassas konum:</strong> iyonosfer bozulmaları konum doğruluğunu düşürür (tarım, inşaat, ölçme).</div>
+        <div class="rounded-xl bg-white/5 p-4">✈️ <strong class="text-white">Havacılık:</strong> kutup rotalarında HF iletişim ve radyasyon dozu.</div>
+        <div class="rounded-xl bg-white/5 p-4">⚡ <strong class="text-white">Enerji şebekesi:</strong> jeomanyetik olarak indüklenen akımlar, trafo riski.</div></div>`)+
+      npNote(`Kaynak: NOAA SWPC. Güncelleme: ${d.generated_at?new Date(d.generated_at).toLocaleString('tr-TR'):'—'}. Türkiye gibi orta enlemlerde şiddetli fırtınalar (G4+) dışında doğrudan etki sınırlıdır; asıl etki uydu, GNSS ve HF iletişim üzerinedir.`);
+  }
+};
+
+/* ---------------- TÜM HİZMETLER ---------------- */
+function npGoModels(){ showPage('grafik'); setTimeout(()=>{ document.getElementById('model-compare-chart')?.scrollIntoView({behavior:'smooth',block:'center'}); },200); }
+NP_PANELS.services={
+  icon:'📋', title:'Tüm Hizmetler', noLocation:true,
+  intro:'Forecaster’ın sunduğu meteorolojik hizmet alanları. Canlı paneli olan alanlara doğrudan geçebilir, diğerleri için bizimle irtibata geçebilirsiniz.',
+  load(_a,_b,el){
+    const C=[
+      {i:'🎖️',t:'Askeri Meteoroloji ve Savunma',d:'Operasyon planlaması için göreve özel meteorolojik destek: görüş, rüzgâr, bulutluluk, deniz durumu ve kritik eşik analizleri.',b:['Göreve özel hava brifingi','Eşik tabanlı operasyon uyarıları'],a:'contact'},
+      {i:'✈️',t:'Sivil Havacılık',d:'Havalimanı ve rota için METAR/TAF takibi, yan rüzgâr ve türbülans değerlendirmesi, 7/24 destek.',b:['Rota ve pist hava riski','Yan rüzgâr · türbülans'],a:'aviation',l:'Canlı paneli aç'},
+      {i:'📈',t:'Meteorolojik Tahmin Sistemleri',d:'Birden çok sayısal hava tahmin modelinin karşılaştırılması ve kuruma özel tahmin sistemi kurulumu.',b:['ECMWF · GFS · ICON · GEM karşılaştırma','Kuruma özel tahmin altyapısı'],a:'models',l:'Model karşılaştırmasını aç'},
+      {i:'⚡',t:'Yenilenebilir Enerji',d:'Rüzgâr ve güneş santralleri için saatlik üretim tahmini, ışınım verisi ve hidrolojik akış (HES) analizi.',b:['GES · RES üretim tahmini','HES nehir debisi ve üretim'],a:'energy-live',l:'Enerji panelini aç'},
+      {i:'🌾',t:'Tarım',d:'Ürüne özel takvim, don ve hastalık uyarıları, toprak nemi, kuraklık ve sulama değerlendirmesi.',b:['Toprak nemi ve kuraklık','Don · hastalık uyarıları'],a:'soil',l:'Toprak nemi panelini aç'},
+      {i:'🌊',t:'Afet Riski ve Erken Uyarı',d:'Sel, çığ, orman yangını ve erozyon için erken uyarı göstergeleri ve Türkiye geneli uyarı haritası.',b:['Sel etki analizi','Çığ · yangın · erozyon'],a:'flood',l:'Sel panelini aç'},
+      {i:'🌍',t:'İklim Değişikliği Projeksiyonları',d:'Konuma özel 2050’ye kadar sıcaklık ve yağış eğilimleri; yatırım ve planlama için iklim risk değerlendirmesi.',b:['Çoklu model projeksiyonu','Referans döneme göre değişim'],a:'climate',l:'İklim panelini aç'},
+      {i:'🛡️',t:'Sigorta ve Risk Yönetimi',d:'Hasar riski özeti, geçmiş ekstrem olay sıklığı ve olay sonrası meteorolojik analiz raporu.',b:['Olay sonrası analiz','Ekstrem olay istatistiği'],a:'insurance',l:'Sigorta panelini aç'},
+      {i:'🛰️',t:'Uzay Havası',d:'Jeomanyetik fırtına, güneş radyasyonu ve radyo kesintisi göstergeleri; uydu, GNSS ve HF iletişim etkileri.',b:['G · S · R ölçekleri','Kp · güneş rüzgârı'],a:'space',l:'Uzay havası panelini aç'},
+    ];
+    el.innerHTML=`<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">`+C.map(c=>{
+      const act=c.a==='contact'?`showPage('iletisim')`:c.a==='models'?`npGoModels()`:`goToSector('${c.a}')`;
+      return `<div class="glass rounded-2xl p-6 flex flex-col"><div class="text-4xl mb-3">${c.i}</div><h4 class="text-white text-lg font-700 mb-2">${c.t}</h4><p class="text-slate-400 text-sm leading-relaxed mb-3">${c.d}</p>
+        <ul class="space-y-1 mb-5">${c.b.map(x=>`<li class="text-slate-300 text-sm flex gap-2"><span class="text-brand">✓</span>${x}</li>`).join('')}</ul>
+        <button onclick="${act}" class="${c.a==='contact'?'btn-primary':'btn-outline'} text-white text-sm px-5 py-2 mt-auto self-start">${c.a==='contact'?'Bizimle irtibata geçin':c.l}</button></div>`; }).join('')+`</div>`;
+  }
+};
+
+/* ===============================================================
+   HAVACILIK EKLERİ — yan rüzgâr · türbülans göstergesi · rota özeti
+=============================================================== */
+const AV_LAST={metars:[],tafs:[],icao:'',rwy:'',route:null};
+const avRwyDeg=s=>{ s=String(s||'').trim(); if(!/^\d{1,3}[LRC]?$/i.test(s)) return null; const n=parseInt(s,10); if(n>=1&&n<=36&&s.replace(/\D/g,'').length<=2) return n*10; if(n>=0&&n<=360) return n===0?360:n; return null; };
+function avWindComp(dir,spd,rwy){
+  if(dir==null||isNaN(Number(dir))||spd==null) return null;
+  const a=(Number(dir)-rwy)*Math.PI/180;
+  return {head:spd*Math.cos(a), cross:spd*Math.sin(a)};
+}
+function avXwLevel(cross,head){
+  const x=Math.abs(cross);
+  let lv=x>=25?3:x>=20?2:x>=15?1:0;
+  if(head!=null&&head<=-10) lv=Math.max(lv,3); else if(head!=null&&head<=-5) lv=Math.max(lv,2);
+  return lv;
+}
+const AV_LV_TXT=['Uygun','Dikkat','Zorlu','Sınır üstü olabilir'];
+function avWindSection(){
+  const L=AV_LAST.metars||[]; const rwy=avRwyDeg(AV_LAST.rwy);
+  let inner=`<div class="loc-bar glass rounded-2xl p-5 mb-5" style="display:flex;flex-wrap:wrap;gap:1rem;align-items:flex-end">
+    <div class="loc-field"><label>Pist numarası veya yönü</label><input id="av-rwy" class="loc-input" placeholder="Örn: 05 veya 050" value="${avEsc(AV_LAST.rwy||'')}" onkeydown="if(event.key==='Enter')avRwyApply()"></div>
+    <button class="btn-primary text-white text-sm px-6 py-2.5" onclick="avRwyApply()">Hesapla</button></div>`;
+  if(!L.length) inner+='<p class="text-slate-500 text-sm">Önce bir havaalanı seçip "Getir"e basın.</p>';
+  else if(rwy==null) inner+='<p class="text-slate-500 text-sm">Pist numarasını (01–36) veya pist yönünü (derece) girin; son 3 METAR için ön rüzgâr / arka rüzgâr ve yan rüzgâr hesaplanır.</p>';
+  else{
+    const opp=((rwy+180-1)%360)+1;
+    const rows=L.map((m,i)=>{
+      const spd=m.wspd, g=m.wgst, c=avWindComp(m.wdir,spd,rwy), cg=g!=null?avWindComp(m.wdir,g,rwy):c;
+      if(!c) return `<tr class="border-t border-white/5"><td class="py-2 pr-3 text-slate-400">${i===0?'En yeni':i===1?'Önceki':'Öncesi'}</td><td colspan="4" class="text-slate-500">${m.wdir==='VRB'?'Değişken yönlü rüzgâr — bileşenler hesaplanamaz':'Rüzgâr verisi yok'}${spd!=null?` (${spd} kt)`:''}</td></tr>`;
+      const lv=avXwLevel(cg.cross,cg.head), cl=AGRI_CLS[NP_LV[lv]];
+      const f=v=>npN(Math.abs(v),0);
+      return `<tr class="border-t border-white/5"><td class="py-2 pr-3 text-slate-400">${i===0?'En yeni':i===1?'Önceki':'Öncesi'}</td>
+        <td class="pr-3 text-slate-300">${m.wdir}° / ${spd} kt${g?` G${g}`:''}</td>
+        <td class="pr-3 text-white font-600">${f(c.cross)} kt ${c.cross>0?'(sağdan)':'(soldan)'}${g?`<span class="text-slate-500 font-400"> · hamlede ${f(cg.cross)}</span>`:''}</td>
+        <td class="pr-3 text-slate-300">${c.head>=0?'Kafa rüzgârı':'Arka rüzgâr'} ${f(c.head)} kt</td>
+        <td><span class="${cl.tx} font-700">${AV_LV_TXT[lv]}</span></td></tr>`; }).join('');
+    inner+=`<div class="overflow-x-auto"><table class="w-full text-sm" style="min-width:560px"><thead><tr class="text-slate-500 text-xs uppercase tracking-wider text-left"><th class="py-2 pr-3">Rapor</th><th class="pr-3">Rüzgâr</th><th class="pr-3">Yan rüzgâr (pist ${String(Math.round(rwy/10)).padStart(2,'0')})</th><th class="pr-3">Boyuna bileşen</th><th>Değerlendirme</th></tr></thead><tbody>${rows}</tbody></table></div>
+      <p class="text-slate-500 text-xs mt-3">Karşı yönde (pist ${String(Math.round(opp/10)).padStart(2,'0')}) kafa/arka rüzgâr bileşenleri ters olur; yan rüzgâr aynı kalır. Eşikler genel rehberdir: 15 kt dikkat, 20 kt zorlu, 25 kt üzeri çoğu uçak tipi için sınır; arka rüzgâr ≥5 kt dikkat, ≥10 kt zorlu. Uçak tipine özgü limitler için uçuş el kitabı esastır.</p>`;
+  }
+  return npSection('🧭 Yan rüzgâr ve pist değerlendirmesi','Pist yönüne göre son METAR raporlarındaki rüzgârın yan ve boyuna bileşenleri.',inner);
+}
+function avRwyApply(){ AV_LAST.rwy=document.getElementById('av-rwy').value; avExtrasRender(); }
+
+function avTurbSection(){
+  const M=AV_LAST.metars||[], T=AV_LAST.tafs||[];
+  if(!M.length&&!T.length) return npSection('🌀 Türbülans ve rüzgâr kayması göstergesi','',`<p class="text-slate-500 text-sm">Önce bir havaalanı seçip "Getir"e basın.</p>`);
+  const why=[]; let sc=0;
+  const m0=M[0];
+  if(m0){
+    const spd=m0.wspd||0, g=m0.wgst||0, spread=g?g-spd:0;
+    if(spread>=15){ sc+=2; why.push(`Rüzgâr hamlesi ortalamadan ${spread} kt fazla (hamleli rüzgâr → mekanik türbülans).`); }
+    else if(spread>=10){ sc+=1; why.push(`Hamle farkı ${spread} kt (hafif–orta mekanik türbülans olasılığı).`); }
+    if(spd>=25||g>=35){ sc+=2; why.push(`Kuvvetli rüzgâr (${spd} kt${g?`, hamle ${g} kt`:''}) — yer yakınında türbülans ve rüzgâr kayması riski.`); }
+    else if(spd>=18||g>=25){ sc+=1; why.push(`Orta–kuvvetli rüzgâr (${spd} kt${g?`, hamle ${g} kt`:''}).`); }
+    const raw=String(m0.rawOb||m0.raw_text||m0.rawText||m0.raw||''), wx=String(m0.wxString||'');
+    if(/\b(CB|TCU)\b/.test(raw)||/TS/.test(wx)){ sc+=3; why.push('Konvektif bulut / gök gürültülü fırtına (CB/TCU/TS): şiddetli türbülans, rüzgâr kayması ve dolu riski.'); }
+    if(/\bWS\b/.test(raw)){ sc+=3; why.push('Raporda rüzgâr kayması (WS) bildirimi var.'); }
+    if(/FZ|SH/.test(wx)&&!/TS/.test(wx)){ sc+=1; why.push('Sağanak/donan yağış: yerel ve ani rüzgâr değişimleri olabilir.'); }
+  }
+  if(M.length>=2 && M[0].wdir!=null && M[1].wdir!=null && !isNaN(M[0].wdir) && !isNaN(M[1].wdir)){
+    let dd=Math.abs(M[0].wdir-M[1].wdir); dd=dd>180?360-dd:dd;
+    if(dd>=60 && Math.max(M[0].wspd||0,M[1].wspd||0)>=10){ sc+=1; why.push(`Son iki raporda rüzgâr yönü ${dd}° değişti (cephe/sağanak geçişi belirtisi).`); }
+  }
+  const t0=T[0]; let tafWhy=[];
+  if(t0&&t0.fcsts){
+    const ws=t0.fcsts.filter(f=>f.wshearHgt!=null);
+    if(ws.length){ sc+=2; tafWhy.push(`TAF’ta düşük seviye rüzgâr kayması öngörülüyor (${ws.length} dönem).`); }
+    const ts=t0.fcsts.filter(f=>/TS/.test(f.wxString||'')||(f.clouds||[]).some(c=>c.type==='CB'||c.type==='TCU'));
+    if(ts.length){ sc+=1; tafWhy.push('TAF’ta gök gürültülü fırtına / konvektif bulut öngörülüyor.'); }
+    const gm=npMax(t0.fcsts.map(f=>f.wgst!=null?f.wgst:null));
+    if(gm!=null&&gm>=30){ sc+=1; tafWhy.push(`TAF’ta hamle ${gm} kt’a kadar çıkıyor.`); }
+  }
+  const lv=sc>=5?3:sc>=3?2:sc>=1?1:0, cl=AGRI_CLS[NP_LV[lv]];
+  const lab=['Belirgin işaret yok','Hafif','Orta','Kuvvetli olabilir'][lv];
+  const all=why.concat(tafWhy);
+  return npSection('🌀 Türbülans ve rüzgâr kayması göstergesi','Yer gözlemleri (METAR) ve TAF içeriğinden çıkarılan gösterge niteliğinde değerlendirme.',
+    `<div class="rounded-2xl p-5 border ${cl.bg} ${cl.br}"><p class="text-slate-500 text-xs uppercase tracking-widest mb-1">Türbülans / rüzgâr kayması eğilimi</p><p class="${cl.tx} text-xl font-700">${lab}</p>
+      ${all.length?`<ul class="mt-3 space-y-1.5">${all.map(x=>`<li class="text-slate-300 text-sm flex gap-2"><span class="${cl.tx}">•</span>${x}</li>`).join('')}</ul>`:'<p class="text-slate-400 text-sm mt-2">Rapor ve tahminlerde türbülans veya rüzgâr kayması işareti bulunmuyor.</p>'}</div>
+     <p class="text-slate-500 text-xs mt-3">Bu bölüm yer seviyesi gözlem ve tahminlerine dayanır; irtifadaki türbülans (CAT), dağ dalgası ve buzlanma için SIGMET/AIRMET ve pilot raporlarına (PIREP) bakın.</p>`);
+}
+
+/* ---- Rota hava özeti ---- */
+const AV_RANK={VFR:0,MVFR:1,IFR:2,LIFR:3};
+async function avRouteRun(){
+  const g=id=>(document.getElementById(id).value||'').trim().toUpperCase();
+  const pts=[['Kalkış',g('av-r-dep')],['Varış',g('av-r-arr')],['Alternatif',g('av-r-alt')]].filter(p=>p[1]);
+  const out=document.getElementById('av-route-out');
+  if(pts.length<1){ out.innerHTML='<p class="text-orange-300 text-sm">En az bir ICAO kodu girin.</p>'; return; }
+  if(pts.some(p=>!/^[A-Z0-9]{3,4}$/.test(p[1]))){ out.innerHTML='<p class="text-orange-300 text-sm">ICAO kodları 3–4 harf/rakam olmalı.</p>'; return; }
+  AV_LAST.route=pts.map(p=>p[1]).join(','); out.innerHTML=npLoading;
+  const res=await Promise.all(pts.map(async ([role,icao])=>{
+    const [m,t]=await Promise.all([gFetch(`${BACKEND}/aviation/metar?icao=${icao}`).catch(()=>null), gFetch(`${BACKEND}/aviation/taf?icao=${icao}`).catch(()=>null)]);
+    const mm=m&&(m.metars?m.metars[0]:m.metar), tt=t&&(t.tafs?t.tafs[0]:t.taf);
+    let cat=null,vis=null,ceil=null; if(mm){ vis=avParseVis(mm.visib); ceil=avCeiling(mm.clouds||[],mm.vertVis); cat=mm.fltCat||avCategory(vis,ceil); }
+    let tcat=null,tw=[];
+    if(tt&&tt.fcsts){ tt.fcsts.forEach(f=>{ const v=avParseVis(f.visib), c=avCeiling(f.clouds||[],f.vertVis); const k=avCategory(v,c); if(k&&(tcat==null||AV_RANK[k]>AV_RANK[tcat])) tcat=k; if(f.wgst>=30||/TS/.test(f.wxString||'')||f.wshearHgt!=null) tw.push(f); }); }
+    return {role,icao,mm,tt,cat,vis,ceil,tcat,tw};
+  }));
+  let worst=0; res.forEach(r=>{ [r.cat,r.tcat].forEach(k=>{ if(k&&AV_RANK[k]>worst) worst=AV_RANK[k]; }); });
+  const flag=res.some(r=>r.tw.length||(r.mm&&(((r.mm.wgst||0)>=30)||/TS/.test(r.mm.wxString||''))));
+  const sumCl=AGRI_CLS[worst>=3?'red':worst===2?'orange':worst===1||flag?'amber':'emerald'];
+  const sumTxt=worst>=3?'Çok düşük görüş/tavan koşulları var — alternatif planı kritik.':worst===2?'Aletli uçuş koşulları (IFR) bekleniyor; alternatif ve yakıt planına dikkat.':worst===1?'Sınırlı görsel koşullar (MVFR) olabilir.':flag?'Kategori uygun ancak kuvvetli hamle / fırtına işaretleri var.':'Üç noktada da görsel uçuş koşulları (VFR) görünüyor.';
+  const rows=res.map(r=>{
+    if(!r.mm&&!r.tt) return `<tr class="border-t border-white/5"><td class="py-2 pr-3 text-slate-400">${r.role}</td><td class="pr-3 text-white font-600">${avEsc(r.icao)}</td><td colspan="4" class="text-slate-500">METAR/TAF bulunamadı</td></tr>`;
+    const m=r.mm||{};
+    return `<tr class="border-t border-white/5"><td class="py-2 pr-3 text-slate-400">${r.role}</td><td class="pr-3 text-white font-600">${avEsc(r.icao)}</td>
+      <td class="pr-3">${r.cat?avBadge(r.cat):'—'}</td>
+      <td class="pr-3 text-slate-300">${m.wdir!=null?m.wdir+'° ':''}${m.wspd!=null?m.wspd+' kt':'—'}${m.wgst?` G${m.wgst}`:''}</td>
+      <td class="pr-3 text-slate-300">${avVisText(m.visib)} · ${r.ceil!=null?r.ceil.toLocaleString('tr-TR')+' ft':'tavan yok'}</td>
+      <td class="text-slate-300">${r.tcat?avBadge(r.tcat)+' <span class="text-slate-500 text-xs">en kötü (TAF)</span>':'—'}${r.tw.length?' <span class="text-amber-300 text-xs">⚠ hamle/TS/WS</span>':''}</td></tr>`; }).join('');
+  out.innerHTML=`<div class="rounded-2xl p-5 border ${sumCl.bg} ${sumCl.br} mb-5"><p class="${sumCl.tx} font-700">${sumTxt}</p></div>
+    <div class="overflow-x-auto"><table class="w-full text-sm" style="min-width:640px"><thead><tr class="text-slate-500 text-xs uppercase tracking-wider text-left"><th class="py-2 pr-3">Nokta</th><th class="pr-3">ICAO</th><th class="pr-3">Şu an</th><th class="pr-3">Rüzgâr</th><th class="pr-3">Görüş · Tavan</th><th>Tahmin (TAF)</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <p class="text-slate-500 text-xs mt-3">Özet, her noktadaki en yeni METAR ve en yeni TAF’ın tamamındaki en kötü uçuş kategorisine göre yapılır. Yol üzerindeki hava (SIGMET, irtifa rüzgârı, buzlanma) bu özete dahil değildir.</p>`;
+}
+function avRouteSection(){
+  const dep=AV_LAST.icao||'';
+  return npSection('🗺️ Rota hava özeti','Kalkış, varış ve alternatif havalimanlarının güncel durumunu ve TAF’taki en kötü koşulu tek tabloda görün.',
+    `<div class="loc-bar glass rounded-2xl p-5 mb-5" style="display:flex;flex-wrap:wrap;gap:1rem;align-items:flex-end">
+      <div class="loc-field"><label>Kalkış (ICAO)</label><input id="av-r-dep" class="loc-input" maxlength="4" style="text-transform:uppercase" value="${avEsc(dep)}" placeholder="LTFM"></div>
+      <div class="loc-field"><label>Varış (ICAO)</label><input id="av-r-arr" class="loc-input" maxlength="4" style="text-transform:uppercase" placeholder="LTAI"></div>
+      <div class="loc-field"><label>Alternatif (ICAO)</label><input id="av-r-alt" class="loc-input" maxlength="4" style="text-transform:uppercase" placeholder="LTAC"></div>
+      <button class="btn-primary text-white text-sm px-6 py-2.5" onclick="avRouteRun()">Özet oluştur</button></div><div id="av-route-out"></div>`);
+}
+function avExtrasRender(){
+  const el=document.getElementById('av-extras'); if(!el) return;
+  const keepRoute=document.getElementById('av-route-out')?.innerHTML;
+  const vals=['av-r-dep','av-r-arr','av-r-alt'].map(i=>document.getElementById(i)?.value);
+  el.innerHTML=avWindSection()+avTurbSection()+avRouteSection();
+  ['av-r-dep','av-r-arr','av-r-alt'].forEach((i,k)=>{ if(vals[k]!=null&&vals[k]!==''&&document.getElementById(i)) document.getElementById(i).value=vals[k]; });
+  if(keepRoute) document.getElementById('av-route-out').innerHTML=keepRoute;
+}
+
 
 /* ---------------------------------------------------------------
    CHARTS
@@ -6251,6 +6990,9 @@ async function loadContent() {
   if(beeTmpl) beePanel.innerHTML=beeTmpl.innerHTML;
   panelC.appendChild(beePanel);
 
+  /* Yeni sektör panelleri (toprak nemi, HES, sel, erozyon, iklim, sigorta, uzay, hizmetler) */
+  npBuildTabs(btnC,panelC);
+
   /* Denizcilik / İnşaat gibi statik metin sekmeleri — canlı panellerin ardından */
   tabs.forEach((tab)=>{
     const btn=document.createElement('button');
@@ -6301,6 +7043,8 @@ async function loadContent() {
     const targetPanel = document.getElementById('tab-'+btn.dataset.tab);
     if(targetPanel) targetPanel.classList.add('active');
 
+    if(typeof NP_PANELS!=='undefined' && NP_PANELS[btn.dataset.tab]) npActivate(btn.dataset.tab);
+    if(btn.dataset.tab==='aviation') avExtrasRender();
     if(btn.dataset.tab==='hazelnut' && lastDaily && lastDaily.time) {
       renderAgri(lastDaily, hourlyData);
     }
@@ -6571,22 +7315,36 @@ const SECTOR_MENU=[
     {key:'crop-bugday', icon:'🌾', label:'Buğday'},
     {key:'crop-uzum',   icon:'🍇', label:'Üzüm'},
     {key:'crop-kayisi', icon:'🍑', label:'Kayısı'},
+    {key:'soil',        icon:'🌱', label:'Toprak Nemi ve Kuraklık'},
   ]},
   {type:'group', key:'enerji', icon:'⚡', label:'Enerji', children:[
     {key:'energy-live', icon:'☀️', label:'GES (Güneş)', anchor:'ges-section'},
     {key:'energy-live', icon:'🌬️', label:'RES (Rüzgar)', anchor:'res-section'},
+    {key:'hydro',       icon:'💧', label:'HES (Nehir Debisi)'},
   ]},
   {type:'group', key:'insaat', icon:'🏗️', label:'İnşaat', children:[
     {key:'construction', icon:'🧱', label:'Beton Döküm',            anchor:'concrete-section'},
     {key:'construction', icon:'🏗️', label:'Vinç ve Yüksekte Çalışma', anchor:'crane-section'},
     {key:'construction', icon:'🚧', label:'Şantiye Çalışması',       anchor:'fieldwork-section'},
   ]},
+  {type:'group', key:'afet', icon:'🚨', label:'Afet ve Erken Uyarı', children:[
+    {key:'flood',   icon:'🌊', label:'Sel Etki Analizi'},
+    {key:'erosion', icon:'🏜️', label:'Erozyon Riski'},
+    {key:'ski',     icon:'🏔️', label:'Çığ ve Kar (Kayak)'},
+    {page:'uyarilar', icon:'🔥', label:'Orman Yangını ve Türkiye Uyarı Haritası'},
+  ]},
   {type:'leaf', key:'aviation',    icon:'✈️',  label:'Havacılık'},
   {type:'leaf', key:'stadium',     icon:'⚽',  label:'Stadyum'},
   {type:'leaf', key:'ski',         icon:'⛷️',  label:'Kayak'},
   {type:'leaf', key:'beekeeping',  icon:'🐝',  label:'Arıcılık'},
+  {type:'leaf', key:'climate',     icon:'🌍',  label:'İklim Projeksiyonu'},
+  {type:'leaf', key:'insurance',   icon:'🛡️',  label:'Sigorta ve Risk'},
+  {type:'leaf', key:'space',       icon:'🛰️',  label:'Uzay Havası'},
+  {type:'leaf', key:'services',    icon:'🗂️',  label:'Tüm Hizmetler'},
   {type:'all'},
 ];
+
+const secAct=c=> c.page?`showPage('${c.page}')`:`goToSector('${c.key}'${c.anchor?`,'${c.anchor}'`:''})`;
 
 /* ---- Mobil: kart ızgarası (drill-down) ---- */
 let sectorGridView=null; /* null = üst kategori görünümü, aksi halde açık grubun key'i */
@@ -6608,7 +7366,7 @@ function renderSectorGrid(){
         <span class="text-xs font-600 text-white block">Geri</span>
       </button>`;
     grp.children.forEach(c=>{
-      html+=`<button onclick="goToSector('${c.key}'${c.anchor?`,'${c.anchor}'`:''})" class="${cardCls}">
+      html+=`<button onclick="${secAct(c)}" class="${cardCls}">
           <span class="text-2xl block mb-1">${c.icon}</span>
           <span class="text-xs font-600 text-white block">${c.label}</span>
         </button>`;
@@ -6657,7 +7415,7 @@ function renderSectorSidebar(){
         </button>`;
       if(open){
         m.children.forEach(c=>{
-          html+=`<button onclick="goToSector('${c.key}'${c.anchor?`,'${c.anchor}'`:''})" class="sidebar-sub-btn">
+          html+=`<button onclick="${secAct(c)}" class="sidebar-sub-btn">
               <span class="sidebar-btn-icon">${c.icon}</span>
               <span class="sidebar-btn-label">${c.label}</span>
             </button>`;
