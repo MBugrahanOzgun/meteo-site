@@ -3541,6 +3541,35 @@ function amapBuildLayers(geo){
   });
 }
 
+/* Yedek yol: 81 ili tarayıcıdan, 27'şerlik 3 istekle çeker (sunucu çıktısıyla aynı biçim) */
+async function amapFetchDirect(geo){
+  const provs=geo.features.map(f=>({n:f.properties.n,name:f.properties.name,lat:f.properties.lat,lon:f.properties.lon}));
+  const DV=['weather_code','temperature_2m_max','temperature_2m_min','apparent_temperature_max','apparent_temperature_min','precipitation_sum','wind_speed_10m_max','wind_gusts_10m_max','uv_index_max'];
+  const out=[]; let days=[];
+  for(let i=0;i<provs.length;i+=27){
+    const ch=provs.slice(i,i+27);
+    const p=new URLSearchParams({latitude:ch.map(x=>x.lat).join(','),longitude:ch.map(x=>x.lon).join(','),timezone:'auto',wind_speed_unit:'ms',forecast_days:7,daily:DV.join(','),hourly:'relative_humidity_2m,visibility'});
+    let part=null;
+    for(let a=0;a<3&&!part;a++){
+      const r=await fetch(`${OM_FORECAST}?${p}`);
+      if(r.status===429&&a<2){ await new Promise(res=>setTimeout(res,2500*(a+1))); continue; }
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      part=await r.json();
+    }
+    if(!Array.isArray(part)) part=[part];
+    part.forEach((d,k)=>{
+      const pr=ch[k], dl=d.daily||{}, h=d.hourly||{}, dd=dl.time||[];
+      if(!days.length) days=dd;
+      const mins=(arr)=>dd.map(day=>{ let m=null; (h.time||[]).forEach((t,j)=>{ if(t.slice(0,10)===day && arr&&arr[j]!=null && (m==null||arr[j]<m)) m=arr[j]; }); return m; });
+      const it={n:pr.n,name:pr.name,lat:pr.lat,lon:pr.lon};
+      DV.forEach(v=>{ it[v]=dl[v]||[]; });
+      it.hum_min=mins(h.relative_humidity_2m); it.vis_min=mins(h.visibility);
+      out.push(it);
+    });
+  }
+  return {generated_at:new Date().toISOString(),days,provinces:out,stale:false};
+}
+
 async function amapEnsureLoaded(){
   if(amapData || amapLoading) return;
   amapLoading=true;
@@ -3548,7 +3577,9 @@ async function amapEnsureLoaded(){
   loadEl.style.display='flex';
   loadEl.innerHTML='<div class="text-center"><div class="spinner mx-auto mb-3"></div><p class="text-slate-400 text-sm">81 il için tahmin yükleniyor…</p></div>';
   try{
-    const [geo, data]=await Promise.all([gFetch(`${BACKEND}/static/tr-iller.json`), gFetch(`${BACKEND}/alerts/turkey`)]);
+    const geo=await gFetch(`${BACKEND}/static/tr-iller.json`);
+    /* Önce sunucudan (önbellekli); sunucunun Open-Meteo kotası dolmuşsa (429) ziyaretçinin kendi bağlantısından 3 parça halinde çek */
+    const data=await gFetch(`${BACKEND}/alerts/turkey`).catch(()=>amapFetchDirect(geo));
     const nDays=(data.days||[]).length;
     amapProv={};
     (data.provinces||[]).forEach(it=>{
