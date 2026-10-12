@@ -367,6 +367,25 @@ def daily_min_from_hourly(hourly_times: list, values: list, day_list: list) -> l
     return [min(per_day[d]) if per_day.get(d) else None for d in day_list]
 
 
+ALERTS_DISK = os.path.join(os.path.dirname(os.path.abspath(DB_PATH)), "alerts_last.json")
+
+
+def _save_alerts_disk(res: dict) -> None:
+    try:
+        with open(ALERTS_DISK, "w", encoding="utf-8") as f:
+            json.dump(res, f)
+    except OSError:
+        pass
+
+
+def _load_alerts_disk():
+    try:
+        with open(ALERTS_DISK, encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return None
+
+
 @app.get("/alerts/turkey")
 async def alerts_turkey():
     """81 il için 7 günlük uyarı girdileri (günlük değerler + günlük min nem/görüş)."""
@@ -382,26 +401,43 @@ async def alerts_turkey():
         except (OSError, ValueError, KeyError) as e:
             raise HTTPException(status_code=503, detail=f"İl listesi okunamadı: {e}")
 
-        params = {
-            "latitude": ",".join(str(p["lat"]) for p in provinces),
-            "longitude": ",".join(str(p["lon"]) for p in provinces),
+        base = {
             "timezone": "auto",
             "wind_speed_unit": "ms",
             "forecast_days": 7,
             "daily": ALERT_DAILY_VARS,
             "hourly": "relative_humidity_2m,visibility",
         }
+        api_key = os.environ.get("OPEN_METEO_API_KEY")
+        url = "https://customer-api.open-meteo.com/v1/forecast" if api_key else OPEN_METEO_URL
+        if api_key:
+            base["apikey"] = api_key
+        data = []
         try:
-            r = await app.state.http.get(OPEN_METEO_URL, params=params, timeout=40)
-            r.raise_for_status()
-            data = r.json()
-            if isinstance(data, dict):
-                data = [data]
-            if len(data) != len(provinces):
-                raise ValueError(f"{len(provinces)} il bekleniyordu, {len(data)} sonuç geldi")
+            # 81 ili tek istekte değil 3 parça halinde iste; geçici hatalarda (429/5xx) tekrar dene
+            for i in range(0, len(provinces), 27):
+                chunk = provinces[i:i + 27]
+                params = dict(base,
+                              latitude=",".join(str(p["lat"]) for p in chunk),
+                              longitude=",".join(str(p["lon"]) for p in chunk))
+                part = None
+                for attempt in range(3):
+                    r = await app.state.http.get(url, params=params, timeout=40)
+                    if r.status_code in (429, 500, 502, 503, 504) and attempt < 2:
+                        await asyncio.sleep(3 * (attempt + 1))
+                        continue
+                    r.raise_for_status()
+                    part = r.json()
+                    break
+                if isinstance(part, dict):
+                    part = [part]
+                if not part or len(part) != len(chunk):
+                    raise ValueError(f"{len(chunk)} il bekleniyordu, {len(part or [])} sonuç geldi")
+                data.extend(part)
         except (httpx.HTTPError, ValueError) as e:
-            if app.state.alerts_last:    # bayat veri hiç yoktan iyidir
-                return {**app.state.alerts_last, "stale": True}
+            last = app.state.alerts_last or _load_alerts_disk()
+            if last:    # bayat veri hiç yoktan iyidir
+                return {**last, "stale": True}
             raise HTTPException(status_code=502, detail=f"Open-Meteo erişilemedi: {e}")
 
         out = []
@@ -424,6 +460,7 @@ async def alerts_turkey():
         }
         alerts_cache[key] = result
         app.state.alerts_last = result
+        _save_alerts_disk(result)
         return result
 
 
