@@ -5208,7 +5208,7 @@ NP_PANELS.space={
 /* ---------------- TAHMİN HARİTALARI (günlük toplam yağış · 10 m rüzgâr) ----------------
    Uyarılar haritasıyla aynı veri (/alerts/turkey: 81 il, 7 gün) ve aynı il sınırları. */
 const TM_RAIN=[[1,5,'#8ecbff',.6,'1–5'],[5,10,'#3b9cff',.75,'5–10'],[10,20,'#2563eb',.85,'10–20'],[20,40,'#7c3aed',.88,'20–40'],[40,70,'#d946ef',.9,'40–70'],[70,1e9,'#ef4444',.92,'70+']];
-const TM_WIND=[[20,39,'#fde68a',.7,'20–39'],[39,62,'#facc15',.8,'39–62'],[62,88,'#f97316',.88,'62–88'],[88,1e9,'#ef4444',.92,'88+']];
+const TM_WIND=[[20,39,'#fff3b0',.95,'20–39','Orta'],[39,62,'#facc15',.85,'39–62','Kuvvetli'],[62,88,'#f97316',.9,'62–88','Fırtına'],[88,1e9,'#ef4444',.92,'88+','Kuvvetli fırtına']];
 const TM={wt:'mean',map:null,geo:null,layers:{},labels:{},data:null,prov:{},cat:'rain',day:0,sel:null,hoverEl:null,loading:false,fitted:false};
 const tmBins=()=>TM.cat==='rain'?TM_RAIN:TM_WIND;
 const tmIsWind=()=>TM.cat!=='rain';
@@ -5234,11 +5234,12 @@ function tmControls(){
 }
 function tmLegend(){
   const el=document.getElementById('tm-legend'); if(!el) return;
-  const items=tmBins().map(b=>`<span class="inline-flex items-center gap-1.5"><span class="amap-dot" style="background:${b[2]};opacity:${Math.max(b[3],.6)}"></span>${b[4]} ${tmUnit()}</span>`).join('');
+  const items=tmBins().map(b=>`<span class="inline-flex items-center gap-1.5"><span class="amap-dot" style="background:${b[2]};opacity:${Math.max(b[3],.6)}"></span>${b[4]} ${tmUnit()}${b[5]?` <span class="text-slate-500">· ${b[5]}</span>`:''}</span>`).join('');
+  const head=TM.cat==='rain'?'Günlük Toplam Yağış (mm)':(TM.wt==='gust'?'Günlük En Yüksek Rüzgâr Hamlesi (10 m, km/sa)':'Günlük En Yüksek Rüzgâr Hızı (10 m, km/sa)');
   const note=TM.cat==='rain'
     ? 'Her il için seçili günün (00:00–24:00, yerel saat) toplam yağışı. 1 mm altı renklendirilmez.'
     : (TM.cat==='windmap'?'Oklar rüzgârın estiği yönü (günlük baskın yön) gösterir; renkli alan, yaklaşık 50 km’lik nokta ızgarasından yumuşatılarak çizilir. ':'')+`Hız yerden 10 m yükseklikte, km/sa cinsindendir; ${TM.wt==='gust'?'her il için seçili günün en yüksek anlık rüzgâr hamlesi':'her il için seçili günün en yüksek saatlik ortalama hızı'} gösterilir. Renk eşikleri Uyarılar haritasındaki Beaufort skalasıyla aynıdır (39, 62, 88 km/sa). 20 km/sa altı önemsiz sayılır ve renklendirilmez. Uyarılar haritası hamleye göre çalıştığı için Hamle seçeneği onunla aynı sonucu verir.`;
-  el.innerHTML=items+`<span class="w-full text-slate-500">${note}</span>`;
+  el.innerHTML=`<span class="w-full text-white font-display text-xl font-700 mb-1">${head}</span>`+items+`<span class="w-full text-slate-500">${note}</span>`;
 }
 function tmList(){
   const listEl=document.getElementById('tm-list'), titleEl=document.getElementById('tm-list-title'); if(!listEl) return;
