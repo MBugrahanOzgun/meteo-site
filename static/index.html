@@ -126,7 +126,6 @@
     /* Leaflet */
     #pick-map{height:440px;border-radius:16px;overflow:hidden}
     .leaflet-container{background:#04111f;font-family:'DM Sans',sans-serif}
-    .wxm-base{filter:invert(1) hue-rotate(180deg) brightness(.75) saturate(.35) contrast(1.05)}
     .leaflet-tile-pane{filter:brightness(.85) saturate(.9)}
     .leaflet-control-zoom a{background:rgba(4,17,31,.9)!important;color:#38bdf8!important;border-color:rgba(56,189,248,.25)!important}
     .leaflet-control-zoom a:hover{background:rgba(56,189,248,.15)!important}
@@ -266,9 +265,9 @@
   <div id="page-nav" class="hidden md:flex items-center gap-6 text-sm text-slate-300">
     <button class="page-nav-btn active" data-page="ozet">Özet</button>
     <button class="page-nav-btn" data-page="uyarilar">Uyarılar</button>
-    <button class="page-nav-btn" data-page="haritalar">Haritalar</button>
     <button class="page-nav-btn" data-page="danismanlik">Danışmanlık</button>
     <button class="page-nav-btn" data-page="hava">Hava Durumu</button>
+    <button class="page-nav-btn" data-page="haritalar">Tahmin Haritaları</button>
     <button class="page-nav-btn" data-page="grafik">Tahmin Grafikleri</button>
     <button class="page-nav-btn" data-page="kalite">Hava Kalitesi</button>
     <button class="page-nav-btn" data-page="deniz">Deniz</button>
@@ -295,9 +294,9 @@
   <div class="absolute top-16 left-4 right-4 glass rounded-2xl p-3 flex flex-col gap-1">
     <button class="page-nav-btn-mobile active" data-page="ozet">🏠 Özet</button>
     <button class="page-nav-btn-mobile" data-page="uyarilar">🚨 Uyarılar</button>
-    <button class="page-nav-btn-mobile" data-page="haritalar">🗺️ Haritalar</button>
     <button class="page-nav-btn-mobile" data-page="danismanlik">📋 Danışmanlık</button>
     <button class="page-nav-btn-mobile" data-page="hava">🌤 Hava Durumu</button>
+    <button class="page-nav-btn-mobile" data-page="haritalar">🗺️ Tahmin Haritaları</button>
     <button class="page-nav-btn-mobile" data-page="grafik">📈 Tahmin Grafikleri</button>
     <button class="page-nav-btn-mobile" data-page="kalite">🍃 Hava Kalitesi</button>
     <button class="page-nav-btn-mobile" data-page="deniz">🌊 Deniz</button>
@@ -461,14 +460,29 @@
 </section>
 
 
-<!-- ======== HARİTALAR (Yağış / Rüzgâr) ======== -->
-<section id="wxm-page" data-page="haritalar" class="py-24 px-6 md:px-12 max-w-7xl mx-auto">
+<!-- ======== TAHMİN HARİTALARI (Toplam Yağış / Rüzgâr) ======== -->
+<section id="tm-page" data-page="haritalar" class="py-24 px-6 md:px-12 max-w-7xl mx-auto">
   <div class="reveal mb-10">
-    <p class="text-brand text-sm font-600 uppercase tracking-widest mb-3">Türkiye ve Çevresi · 48 Saat</p>
-    <h2 class="font-display text-4xl md:text-5xl font-700 text-white">Hava Haritaları</h2>
-    <p class="text-slate-400 mt-4 max-w-2xl">Önümüzdeki 48 saatin toplam yağış ve rüzgâr haritaları. Yağışta süreyi ve başlangıcı, rüzgârda saati ve vurgulanacak hız eşiğini seçebilirsiniz. Haritaya tıklayarak o noktanın değerini görebilirsiniz.</p>
+    <p class="text-brand text-sm font-600 uppercase tracking-widest mb-3">81 İl · 7 Günlük Tahmin</p>
+    <h2 class="font-display text-4xl md:text-5xl font-700 text-white">Tahmin Haritaları</h2>
+    <p class="text-slate-400 mt-4 max-w-2xl">Bir harita türü ve gün seçin; 81 il, o gün için günlük toplam yağışa veya 10 m yükseklikteki rüzgâr hızına göre renklenir. Bir ile tıklayarak 7 günlük seyrini görebilirsiniz.</p>
   </div>
-  <div id="wxm-page-body"></div>
+  <div id="tm-cats" class="flex flex-wrap gap-2 mb-3"></div>
+  <div id="tm-days" class="flex flex-wrap gap-2 mb-5"></div>
+  <div class="grid lg:grid-cols-[1fr_340px] gap-5 items-start">
+    <div>
+      <div class="relative">
+        <div id="tm-map" style="height:540px;border-radius:16px;overflow:hidden"></div>
+        <div id="tm-loading" class="absolute inset-0 flex items-center justify-center rounded-2xl" style="background:rgba(4,17,31,.78);z-index:500"></div>
+      </div>
+      <div id="tm-legend" class="flex flex-wrap items-center gap-x-5 gap-y-2 mt-4 text-xs text-slate-400"></div>
+      <p id="tm-meta" class="text-slate-500 text-xs mt-3"></p>
+    </div>
+    <div class="space-y-4">
+      <div id="tm-detail" class="glass rounded-2xl p-5"><p class="text-slate-500 text-sm">Ayrıntı görmek için haritada bir ile tıklayın.</p></div>
+      <div class="glass rounded-2xl p-5"><p id="tm-list-title" class="text-slate-300 text-sm font-600 mb-3"></p><div id="tm-list" class="flex flex-wrap gap-1.5"></div></div>
+    </div>
+  </div>
 </section>
 
 <!-- ======== UYARILAR (Ana Sayfa) ======== -->
@@ -5190,212 +5204,128 @@ NP_PANELS.space={
   }
 };
 
-/* ---------------- HAVA HARİTALARI (yağış + rüzgâr) ---------------- */
-const WXM={data:null,map:null,canvas:null,mode:'precip',win:24,start:0,hour:0,thr:30,wtype:'wind',arrows:true,timer:null,geo:null,fields:null,popup:null};
-/* Yağış rengi: [mm, r,g,b,alpha] — açık maviden mora, pembeye ve kırmızıya */
-const WXM_P=[[0.1,160,210,255,0],[0.5,130,195,255,110],[1,100,175,255,150],[2.5,60,140,250,175],[5,35,105,235,195],[10,60,70,215,205],[20,115,50,200,215],[35,190,40,190,225],[60,240,50,110,235],[100,255,190,60,245]];
-const WXM_P_LAB=[0.5,1,2.5,5,10,20,35,60,100];
-/* Rüzgâr (km/sa): Beaufort eşiklerine yakın — 20 orta, 39 kuvvetli, 62 fırtına, 89 şiddetli fırtına */
-const WXM_W=[[10,200,220,255],[20,236,214,110],[30,242,176,70],[40,240,118,60],[50,225,65,115],[62,175,60,205],[75,135,45,185],[89,100,30,150]];
-const WXM_THR=[[20,'20+ (orta)'],[30,'30+'],[40,'40+ (kuvvetli)'],[50,'50+'],[62,'62+ (fırtına)'],[89,'89+ (şiddetli)']];
-function wxmRamp(stops,v,hasA){
-  if(v<stops[0][0]) return null;
-  for(let i=stops.length-1;i>=0;i--){
-    if(v>=stops[i][0]){
-      const a=stops[i], b=stops[i+1]||a, t=b===a?0:(v-a[0])/(b[0]-a[0]);
-      const o=[0,0,0,255]; for(let k=0;k<3;k++) o[k]=a[k+1]+(b[k+1]-a[k+1])*t;
-      if(hasA) o[3]=a[4]+(b[4]-a[4])*t;
-      return o;
-    }
-  }
-  return null;
+/* ---------------- TAHMİN HARİTALARI (günlük toplam yağış · 10 m rüzgâr) ----------------
+   Uyarılar haritasıyla aynı veri (/alerts/turkey: 81 il, 7 gün) ve aynı il sınırları. */
+const TM_RAIN=[[1,5,'#8ecbff',.6,'1–5'],[5,10,'#3b9cff',.75,'5–10'],[10,20,'#2563eb',.85,'10–20'],[20,40,'#7c3aed',.88,'20–40'],[40,70,'#d946ef',.9,'40–70'],[70,1e9,'#ef4444',.92,'70+']];
+const TM_WIND=[[20,30,'#facc15',.75,'20–30'],[30,40,'#f59e0b',.8,'30–40'],[40,50,'#f97316',.85,'40–50'],[50,62,'#ef4444',.88,'50–62'],[62,75,'#c026d3',.9,'62–75'],[75,1e9,'#7e22ce',.92,'75+']];
+const TM={map:null,geo:null,layers:{},labels:{},data:null,prov:{},cat:'rain',day:0,sel:null,hoverEl:null,loading:false,fitted:false};
+const tmBins=()=>TM.cat==='rain'?TM_RAIN:TM_WIND;
+const tmUnit=()=>TM.cat==='rain'?'mm':'km/sa';
+const tmVal=(pl,d)=>{ const P=TM.prov[pl]; if(!P) return null; const v=(TM.cat==='rain'?P.rain:P.wind)[d]; return v==null?null:v; };
+const tmBin=v=>{ if(v==null) return null; return tmBins().find(b=>v>=b[0]&&v<b[1])||null; };
+const tmFmt=v=>v==null?'—':(TM.cat==='rain'?(v<10?v.toFixed(1):Math.round(v)):Math.round(v)).toString().replace('.',',');
+function tmDayLabel(i){
+  const days=TM.data?.days||[]; if(!days[i]) return '';
+  const dt=new Date(days[i]);
+  return `${i===0?'Bugün':AGRI_DAYS[dt.getDay()]} ${String(dt.getDate()).padStart(2,'0')}.${String(dt.getMonth()+1).padStart(2,'0')}`;
 }
-async function wxmFetchDirect(){
-  /* Yedek yol: sunucunun Open-Meteo kotası doluysa ızgarayı ziyaretçinin kendi bağlantısından çeker */
-  const lat0=35.5,lon0=25.5,step=.5,ny=15,nx=40,H=48;
-  const pts=[]; for(let j=0;j<ny;j++) for(let i=0;i<nx;i++) pts.push([+(lat0+j*step).toFixed(4),+(lon0+i*step).toFixed(4)]);
-  const out={precip:[],wind:[],gust:[],dir:[]}; let t0=null;
-  for(let k=0;k<pts.length;k+=50){
-    const ch=pts.slice(k,k+50);
-    const p=new URLSearchParams({latitude:ch.map(x=>x[0]).join(','),longitude:ch.map(x=>x[1]).join(','),hourly:'precipitation,wind_speed_10m,wind_gusts_10m,wind_direction_10m',wind_speed_unit:'kmh',forecast_hours:H,timezone:'GMT',timeformat:'unixtime'});
-    let part=null;
-    for(let a=0;a<4&&!part;a++){
-      const r=await fetch(`${OM_FORECAST}?${p}`);
-      if(r.status===429&&a<3){ await new Promise(res=>setTimeout(res,3000*(a+1))); continue; }
-      if(!r.ok) throw new Error('HTTP '+r.status);
-      part=await r.json();
-    }
-    if(!Array.isArray(part)) part=[part];
-    part.forEach(d=>{ const h=d.hourly||{}; if(t0==null&&h.time) t0=h.time[0];
-      const c=(n,nd)=>{ const a=(h[n]||[]).slice(0,H).map(v=>v==null?null:+v.toFixed(nd)); while(a.length<H) a.push(null); return a; };
-      out.precip.push(c('precipitation',1)); out.wind.push(c('wind_speed_10m',0)); out.gust.push(c('wind_gusts_10m',0)); out.dir.push(c('wind_direction_10m',0)); });
-    await new Promise(res=>setTimeout(res,1000));
-  }
-  return Object.assign({generated_at:new Date().toISOString(),t0,n:H,lat0,lon0,step,ny,nx,stale:false},out);
+function tmStyle(pl){
+  const v=tmVal(pl,TM.day), b=tmBin(v), sel=(pl===TM.sel);
+  return {fillColor:b?b[2]:'#475569', fillOpacity:b?b[3]:.18, color:sel?'#38bdf8':'rgba(255,255,255,.35)', weight:sel?2.6:.8};
 }
-/* Seçili görünüm için ızgara alanını hazırlar: precip → toplam mm; wind → hız (km/sa) + u,v */
-function wxmBuildFields(){
-  const D=WXM.data, N=D.ny*D.nx; let F;
-  if(WXM.mode==='precip'){
-    const v=new Float32Array(N);
-    for(let p=0;p<N;p++){ let s=0; for(let h=WXM.start;h<WXM.start+WXM.win;h++) s+=D.precip[p][h]||0; v[p]=s; }
-    F={v};
-  }else{
-    const v=new Float32Array(N), u=new Float32Array(N), w=new Float32Array(N), h=WXM.hour;
-    const src=WXM.wtype==='gust'?D.gust:D.wind;
-    for(let p=0;p<N;p++){
-      const sp=src[p][h]??D.wind[p][h]??0, sp0=D.wind[p][h]??0, d=(D.dir[p][h]??0)*Math.PI/180;
-      v[p]=sp; u[p]=-sp0*Math.sin(d); w[p]=-sp0*Math.cos(d);   /* rüzgârın gittiği yön bileşenleri */
-    }
-    F={v,u,w};
-  }
-  WXM.fields=F;
+function tmControls(){
+  const c=document.getElementById('tm-cats'), d=document.getElementById('tm-days'); if(!c||!d) return;
+  c.innerHTML=[['rain','🌧️ Toplam Yağış'],['wind','💨 Rüzgâr (10 m)']].map(([k,t])=>`<button class="amap-chip${TM.cat===k?' active':''}" data-tmcat="${k}">${t}</button>`).join('');
+  d.innerHTML=(TM.data?.days||[]).map((_,i)=>`<button class="amap-chip${TM.day===i?' active':''}" data-tmday="${i}">${tmDayLabel(i)}</button>`).join('');
 }
-function wxmSample(f,gi,gj){   /* kosinüs yumuşatmalı çift doğrusal örnekleme */
-  const D=WXM.data, nx=D.nx;
-  const i0=Math.floor(gi), j0=Math.floor(gj); let fx=gi-i0, fy=gj-j0;
-  fx=(1-Math.cos(fx*Math.PI))/2; fy=(1-Math.cos(fy*Math.PI))/2;
-  const a=f[j0*nx+i0], b=f[j0*nx+i0+1], c=f[(j0+1)*nx+i0], d=f[(j0+1)*nx+i0+1];
-  return (a*(1-fx)+b*fx)*(1-fy)+(c*(1-fx)+d*fx)*fy;
+function tmLegend(){
+  const el=document.getElementById('tm-legend'); if(!el) return;
+  const items=tmBins().map(b=>`<span class="inline-flex items-center gap-1.5"><span class="amap-dot" style="background:${b[2]};opacity:${Math.max(b[3],.6)}"></span>${b[4]} ${tmUnit()}</span>`).join('');
+  const note=TM.cat==='rain'
+    ? 'Her il için seçili günün (00:00–24:00, yerel saat) toplam yağışı. 1 mm altı renklendirilmez.'
+    : 'Rüzgâr hızı yerden 10 m yükseklikte ölçülen/modellenen değerdir; her il için seçili günün en yüksek saatlik ortalama hızı gösterilir (anlık hamleler daha yüksektir, ayrıntı panelinde verilir). 20 km/sa altı önemsiz sayılır ve renklendirilmez.';
+  el.innerHTML=items+`<span class="w-full text-slate-500">${note}</span>`;
 }
-function wxmDraw(){
-  const D=WXM.data, map=WXM.map; if(!D||!map||!WXM.fields) return;
-  const sz=map.getSize(), cv=WXM.canvas; cv.width=sz.x; cv.height=sz.y;
-  L.DomUtil.setPosition(cv,map.containerPointToLayerPoint([0,0]));
-  const ctx=cv.getContext('2d'); ctx.clearRect(0,0,sz.x,sz.y);
-  const S=2, w=Math.ceil(sz.x/S), h=Math.ceil(sz.y/S);
-  /* sütun/satır → ızgara indeksi (boylam doğrusal, enlem satır başına) */
-  const ll0=map.containerPointToLatLng([0,0]), ll1=map.containerPointToLatLng([sz.x,0]);
-  const gi=new Float32Array(w), gj=new Float32Array(h);
-  for(let x=0;x<w;x++){ const lon=ll0.lng+(ll1.lng-ll0.lng)*(x*S)/sz.x; gi[x]=(lon-D.lon0)/D.step; }
-  for(let y=0;y<h;y++){ const lat=map.containerPointToLatLng([0,y*S]).lat; gj[y]=(lat-D.lat0)/D.step; }
-  const vals=new Float32Array(w*h).fill(NaN), f=WXM.fields.v;
-  for(let y=0;y<h;y++){ const J=gj[y]; if(J<0||J>=D.ny-1) continue;
-    for(let x=0;x<w;x++){ const I=gi[x]; if(I<0||I>=D.nx-1) continue; vals[y*w+x]=wxmSample(f,I,J); } }
-  const off=document.createElement('canvas'); off.width=w; off.height=h;
-  const oc=off.getContext('2d'), img=oc.createImageData(w,h), px=img.data;
-  if(WXM.mode==='precip'){
-    for(let k=0;k<w*h;k++){ const v=vals[k]; if(isNaN(v)) continue; const c=wxmRamp(WXM_P,v,true); if(!c) continue; px[k*4]=c[0];px[k*4+1]=c[1];px[k*4+2]=c[2];px[k*4+3]=c[3]; }
-  }else{
-    const T=WXM.thr;
-    for(let k=0;k<w*h;k++){ const v=vals[k]; if(isNaN(v)) continue;
-      const bin=Math.floor(v/10);
-      if(v>=T){ const c=wxmRamp(WXM_W,v); if(c){ px[k*4]=c[0];px[k*4+1]=c[1];px[k*4+2]=c[2];px[k*4+3]=150; } }
-      /* eş eğri: bir sonraki piksel farklı 10 km/sa dilimindeyse çiz */
-      const r=(x,y)=>{ const q=vals[y*w+x]; return isNaN(q)?bin:Math.floor(q/10); };
-      const X=k%w, Y=(k/w)|0;
-      if((X<w-1&&r(X+1,Y)!==bin)||(Y<h-1&&r(X,Y+1)!==bin)){
-        const lv=Math.max(bin,r(Math.min(X+1,w-1),Y),r(X,Math.min(Y+1,h-1)))*10, c=wxmRamp(WXM_W,lv)||[210,225,255,255], on=lv>=T;
-        px[k*4]=on?255:c[0]; px[k*4+1]=on?255:c[1]; px[k*4+2]=on?255:c[2]; px[k*4+3]=on?235:120; }
-    }
-  }
-  oc.putImageData(img,0,0);
-  ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';
-  ctx.drawImage(off,0,0,w,h,0,0,w*S,h*S);
-  /* rüzgâr okları */
-  if(WXM.mode==='wind'&&WXM.arrows){
-    const sp=46; ctx.lineWidth=1.4; ctx.lineCap='round';
-    for(let y=sp/2;y<sz.y;y+=sp){ const J=(map.containerPointToLatLng([0,y]).lat-D.lat0)/D.step; if(J<0||J>=D.ny-1) continue;
-      for(let x=sp/2;x<sz.x;x+=sp){ const I=(ll0.lng+(ll1.lng-ll0.lng)*x/sz.x-D.lon0)/D.step; if(I<0||I>=D.nx-1) continue;
-        const u=wxmSample(WXM.fields.u,I,J), v=wxmSample(WXM.fields.w,I,J), m=Math.hypot(u,v); if(m<4) continue;
-        const L2=Math.min(20,6+m*.28), ang=Math.atan2(-v,u), cx=x,cy=y; /* ekran y aşağı */
-        const x1=cx-Math.cos(ang)*L2/2, y1=cy-Math.sin(ang)*L2/2, x2=cx+Math.cos(ang)*L2/2, y2=cy+Math.sin(ang)*L2/2;
-        ctx.strokeStyle='rgba(255,255,255,.75)'; ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2);
-        ctx.lineTo(x2-Math.cos(ang-.5)*5,y2-Math.sin(ang-.5)*5); ctx.moveTo(x2,y2); ctx.lineTo(x2-Math.cos(ang+.5)*5,y2-Math.sin(ang+.5)*5); ctx.stroke(); }
-    }
-  }
+function tmList(){
+  const listEl=document.getElementById('tm-list'), titleEl=document.getElementById('tm-list-title'); if(!listEl) return;
+  const rows=Object.keys(TM.prov).map(pl=>({pl,v:tmVal(pl,TM.day)})).filter(x=>tmBin(x.v)).sort((a,b)=>b.v-a.v);
+  const what=TM.cat==='rain'?'Yağış (toplam)':'Rüzgâr (10 m)';
+  if(!rows.length){ titleEl.innerHTML=`<span class="text-emerald-400">✓ ${tmDayLabel(TM.day)}: belirgin ${TM.cat==='rain'?'yağış':'rüzgâr'} beklenen il yok</span>`; listEl.innerHTML=''; return; }
+  titleEl.textContent=`${tmDayLabel(TM.day)} — ${what}: ${rows.length} il`;
+  listEl.innerHTML=rows.slice(0,40).map(({pl,v})=>{ const b=tmBin(v);
+    return `<button class="amap-chip" data-tmpick="${pl}" style="border-color:${b[2]}88"><span class="amap-dot" style="background:${b[2]};margin-right:6px"></span>${TM.prov[pl].name} <b class="ml-1">${tmFmt(v)}</b></button>`; }).join('');
 }
-const wxmT=h=>new Date((WXM.data.t0+h*3600)*1000);
-const wxmFmt=h=>wxmT(h).toLocaleString('tr-TR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
-function wxmLegend(){
-  const el=document.getElementById('wxm-legend'); if(!el) return;
-  if(WXM.mode==='precip'){
-    const g=WXM_P_LAB.map(v=>{ const c=wxmRamp(WXM_P,v,true); return `<span style="flex:1;background:rgba(${c[0]|0},${c[1]|0},${c[2]|0},${Math.max(.45,c[3]/255)});height:10px"></span>`; }).join('');
-    el.innerHTML=`<div class="flex" style="border-radius:4px;overflow:hidden">${g}</div><div class="flex justify-between text-[10px] text-slate-500 mt-1">${WXM_P_LAB.map(v=>`<span>${v}</span>`).join('')}</div><p class="text-slate-500 text-[11px] mt-1">Toplam yağış, mm</p>`;
-  }else{
-    const L=[10,20,30,40,50,62,75,89];
-    el.innerHTML=`<div class="flex" style="border-radius:4px;overflow:hidden">${L.map(v=>{const c=wxmRamp(WXM_W,v);return `<span style="flex:1;background:rgb(${c[0]|0},${c[1]|0},${c[2]|0});height:10px;opacity:${v>=WXM.thr?1:.35}"></span>`;}).join('')}</div><div class="flex justify-between text-[10px] text-slate-500 mt-1">${L.map(v=>`<span>${v}</span>`).join('')}</div><p class="text-slate-500 text-[11px] mt-1">${WXM.wtype==='gust'?'Rüzgâr hamlesi':'Rüzgâr hızı'}, km/sa — çizgiler 10 km/sa aralıklı, dolgu ${WXM.thr} km/sa üstü</p>`;
-  }
+function tmDetail(pl){
+  const box=document.getElementById('tm-detail'); if(!box) return;
+  const P=TM.prov[pl]; if(!P){ box.innerHTML='<p class="text-slate-500 text-sm">Ayrıntı görmek için haritada bir ile tıklayın.</p>'; return; }
+  const d=TM.day, f=(v,u,n)=>v==null?'—':`${n?Math.round(v):(v<10?v.toFixed(1):Math.round(v))} ${u}`.replace('.',',');
+  const strip=(TM.data.days||[]).map((_,i)=>{ const v=tmVal(pl,i), b=tmBin(v), dt=new Date(TM.data.days[i]);
+    return `<button data-tmday="${i}" title="${tmDayLabel(i)}" class="flex-1 rounded-md py-1.5 text-[10px] font-600 text-white" style="background:${b?b[2]:'#475569'}${b?'':'55'};${i===d?'outline:2px solid #38bdf8;outline-offset:1px':''}">${String(dt.getDate()).padStart(2,'0')}<br>${tmFmt(v)}</button>`; }).join('');
+  box.innerHTML=`<div class="flex items-start justify-between gap-3 mb-1"><p class="font-display text-xl font-700 text-white">${P.name}</p><button data-tmclose class="text-slate-500 hover:text-slate-300 text-sm" title="Kapat">✕</button></div>
+    <p class="text-slate-500 text-xs mb-3">${tmDayLabel(d)} için</p>
+    <div class="grid grid-cols-3 gap-2 mb-4">
+      <div class="rounded-xl bg-white/5 p-3"><p class="text-slate-500 text-[11px]">Toplam yağış</p><p class="text-white text-base font-700">${f(P.rain[d],'mm')}</p></div>
+      <div class="rounded-xl bg-white/5 p-3"><p class="text-slate-500 text-[11px]">Rüzgâr (10 m)</p><p class="text-white text-base font-700">${f(P.wind[d],'km/sa',1)}</p></div>
+      <div class="rounded-xl bg-white/5 p-3"><p class="text-slate-500 text-[11px]">Hamle</p><p class="text-white text-base font-700">${f(P.gust[d],'km/sa',1)}</p></div></div>
+    <p class="text-slate-500 text-[11px] mb-1.5">7 günlük seyir — ${TM.cat==='rain'?'toplam yağış (mm)':'rüzgâr 10 m (km/sa)'}</p><div class="flex gap-1">${strip}</div>`;
 }
-function wxmControls(){
-  const el=document.getElementById('wxm-ctl'); if(!el) return;
-  const btn=(a,l,on,fn)=>`<button onclick="${fn}" class="text-sm px-4 py-2 rounded-xl border ${on?'bg-brand/20 border-brand/60 text-white':'border-white/10 text-slate-300 hover:border-white/30'}">${l}</button>`;
-  let h=`<div class="flex flex-wrap gap-2 mb-4">${btn('p','🌧️ Yağış',WXM.mode==='precip',`wxmSet('mode','precip')`)}${btn('w','💨 Rüzgâr',WXM.mode==='wind',`wxmSet('mode','wind')`)}</div>`;
-  if(WXM.mode==='precip'){
-    h+=`<div class="flex flex-wrap gap-2 mb-3 items-center"><span class="text-slate-500 text-xs mr-1">Süre:</span>`+[3,6,12,24,48].map(n=>btn('',n+' saat',WXM.win===n,`wxmSet('win',${n})`)).join('')+`</div>
-      <div class="flex items-center gap-3"><span class="text-slate-500 text-xs whitespace-nowrap">Başlangıç</span><input id="wxm-slider" type="range" min="0" max="${48-WXM.win}" value="${WXM.start}" class="flex-1" oninput="wxmSet('start',+this.value)"><span id="wxm-time" class="text-slate-300 text-xs whitespace-nowrap"></span></div>`;
-  }else{
-    h+=`<div class="flex flex-wrap gap-2 mb-3 items-center"><span class="text-slate-500 text-xs mr-1">Dolgu eşiği:</span>`+WXM_THR.map(t=>btn('',t[1]+' km/sa',WXM.thr===t[0],`wxmSet('thr',${t[0]})`)).join('')+`</div>
-      <div class="flex flex-wrap gap-2 mb-3 items-center">${btn('',' Ortalama rüzgâr',WXM.wtype==='wind',`wxmSet('wtype','wind')`)}${btn('',' Hamle',WXM.wtype==='gust',`wxmSet('wtype','gust')`)}${btn('',(WXM.arrows?'☑':'☐')+' Yön okları',false,`wxmSet('arrows',${!WXM.arrows})`)}</div>
-      <div class="flex items-center gap-3"><button onclick="wxmPlay()" class="text-sm px-3 py-1.5 rounded-xl border border-white/10 text-slate-200" id="wxm-play">${WXM.timer?'⏸':'▶'}</button><input id="wxm-slider" type="range" min="0" max="47" value="${WXM.hour}" class="flex-1" oninput="wxmSet('hour',+this.value)"><span id="wxm-time" class="text-slate-300 text-xs whitespace-nowrap"></span></div>`;
-  }
-  el.innerHTML=h; wxmTimeLabel(); wxmLegend();
+function tmRefresh(){
+  Object.keys(TM.layers).forEach(pl=>TM.layers[pl].setStyle(tmStyle(pl)));
+  if(TM.sel&&TM.layers[TM.sel]) TM.layers[TM.sel].bringToFront();
+  tmControls(); tmLegend(); tmList(); tmDetail(TM.sel);
 }
-function wxmTimeLabel(){
-  const el=document.getElementById('wxm-time'); if(!el||!WXM.data) return;
-  el.textContent=WXM.mode==='precip'?`${wxmFmt(WXM.start)} → ${wxmFmt(WXM.start+WXM.win)}`:wxmFmt(WXM.hour);
+function tmSelect(pl){ TM.sel=pl; tmRefresh(); }
+function tmInitMap(){
+  if(TM.map) return;
+  const map=TM.map=L.map('tm-map',{zoomControl:true,attributionControl:false,minZoom:5,maxZoom:10,zoomSnap:.25,zoomDelta:.5});
+  map.setMaxBounds([[33,22],[44.8,48]]);
+  const ctl=L.control({position:'topright'});
+  ctl.onAdd=()=>{ const d=L.DomUtil.create('div','amap-hover'); d.style.display='none'; TM.hoverEl=d; return d; };
+  ctl.addTo(map);
+  map.on('click',()=>{ if(TM.sel){ TM.sel=null; tmRefresh(); } });
 }
-function wxmSet(k,v){
-  WXM[k]=v;
-  if(k==='win') WXM.start=Math.min(WXM.start,48-WXM.win);
-  if(k==='mode'&&WXM.timer){ clearInterval(WXM.timer); WXM.timer=null; }
-  if(k==='mode'||k==='win'||k==='thr'||k==='wtype'||k==='arrows') wxmControls(); else wxmTimeLabel();
-  wxmBuildFields(); wxmDraw();
+function tmHover(pl){
+  const P=TM.prov[pl], v=tmVal(pl,TM.day), b=tmBin(v); if(!TM.hoverEl||!P) return;
+  TM.hoverEl.innerHTML=`<b>${P.name}</b><br><span style="color:${b?b[2]:'#94a3b8'}">${tmFmt(v)} ${tmUnit()}</span>`+(TM.cat==='wind'&&P.gust[TM.day]!=null?`<br><span style="color:#94a3b8">Hamle ${Math.round(P.gust[TM.day])} km/sa</span>`:'');
+  TM.hoverEl.style.display='block';
 }
-function wxmPlay(){
-  if(WXM.timer){ clearInterval(WXM.timer); WXM.timer=null; wxmControls(); return; }
-  WXM.timer=setInterval(()=>{ WXM.hour=(WXM.hour+1)%48; const s=document.getElementById('wxm-slider'); if(s) s.value=WXM.hour; wxmTimeLabel(); wxmBuildFields(); wxmDraw(); },450);
-  wxmControls();
+function tmBuildLayers(geo){
+  if(TM.geo) TM.map.removeLayer(TM.geo);
+  TM.layers={};
+  TM.geo=L.geoJSON(geo,{style:f=>tmStyle(String(f.properties.n)),onEachFeature:(f,layer)=>{
+    const pl=String(f.properties.n); TM.layers[pl]=layer;
+    layer.on('mouseover',()=>{ layer.setStyle({weight:2,color:'#fff'}); tmHover(pl); });
+    layer.on('mouseout',()=>{ layer.setStyle(tmStyle(pl)); if(TM.hoverEl) TM.hoverEl.style.display='none'; });
+    layer.on('click',e=>{ L.DomEvent.stopPropagation(e); tmSelect(pl); });
+  }}).addTo(TM.map);
+  Object.values(TM.labels).forEach(m=>TM.map.removeLayer(m)); TM.labels={};
+  geo.features.forEach(f=>{ TM.labels[String(f.properties.n)]=L.marker([f.properties.lat,f.properties.lon],{interactive:false,keyboard:false,
+    icon:L.divIcon({className:'',html:`<span class="il-label">${f.properties.name}</span>`,iconSize:[0,0]})}).addTo(TM.map); });
 }
-function wxmPopup(e){
-  const D=WXM.data, I=(e.latlng.lng-D.lon0)/D.step, J=(e.latlng.lat-D.lat0)/D.step;
-  if(I<0||I>=D.nx-1||J<0||J>=D.ny-1) return;
-  const f=WXM.fields; let t;
-  if(WXM.mode==='precip') t=`<b>${npN(wxmSample(f.v,I,J),1)} mm</b><br><span style="color:#64748b">${WXM.win} saatlik toplam</span>`;
-  else{ const u=wxmSample(f.u,I,J), v=wxmSample(f.w,I,J), dir=(Math.atan2(-u,-v)*180/Math.PI+360)%360;
-    t=`<b>${npN(wxmSample(f.v,I,J),0)} km/sa</b> ${WXM.wtype==='gust'?'(hamle)':''}<br><span style="color:#64748b">Yön: ${dirStr(Math.round(dir))} · ${wxmFmt(WXM.hour)}</span>`; }
-  L.popup({closeButton:false}).setLatLng(e.latlng).setContent(`<div style="font-size:12px;color:#0f172a">${t}</div>`).openOn(WXM.map);
+async function tmLoad(){
+  if(TM.data||TM.loading) return;
+  TM.loading=true;
+  const loadEl=document.getElementById('tm-loading'); loadEl.style.display='flex';
+  loadEl.innerHTML='<div class="text-center"><div class="spinner mx-auto mb-3"></div><p class="text-slate-400 text-sm">81 il için tahmin yükleniyor…</p></div>';
+  try{
+    const geo=await gFetch(`${BACKEND}/static/tr-iller.json`);
+    const data=(typeof amapData!=='undefined'&&amapData)?amapData:await gFetch(`${BACKEND}/alerts/turkey`).catch(()=>amapFetchDirect(geo));
+    TM.prov={};
+    (data.provinces||[]).forEach(it=>{
+      const ms=a=>(a||[]).map(v=>v==null?null:v*3.6);
+      TM.prov[String(it.n)]={name:it.name,rain:(it.precipitation_sum||[]).map(v=>v==null?null:v),wind:ms(it.wind_speed_10m_max),gust:ms(it.wind_gusts_10m_max)};
+    });
+    TM.data=data; tmBuildLayers(geo); tmRefresh();
+    const t=data.generated_at?new Date(data.generated_at):null;
+    document.getElementById('tm-meta').textContent=(data.stale?'⚠️ Tahmin verisine şu an ulaşılamadı; son başarılı veri gösteriliyor. ':'')+(t?`Veri ${t.toLocaleString('tr-TR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})} itibarıyla, saatte bir yenilenir. Kaynak: Open-Meteo.`:'');
+    loadEl.style.display='none';
+  }catch(err){
+    console.error(err);
+    loadEl.innerHTML='<div class="text-center px-6"><p class="text-slate-300 text-sm mb-3">Harita verisi alınamadı.</p><button id="tm-retry" class="btn-primary text-white text-sm px-5 py-2">Tekrar dene</button></div>';
+    document.getElementById('tm-retry').onclick=()=>tmLoad();
+  }finally{ TM.loading=false; }
 }
-const WXM_PAGE={
-  async load(el){
-    el.innerHTML=`<div class="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6">
-      <div><div id="wxm-ctl"></div><div id="wxm-legend" class="mt-5"></div><p id="wxm-meta" class="text-slate-600 text-xs mt-5 leading-relaxed"></p></div>
-      <div class="relative"><div id="wxm-map" style="height:600px;border-radius:16px;overflow:hidden;background:#04111f"></div>
-      <div id="wxm-loading" class="absolute inset-0 flex items-center justify-center" style="background:rgba(4,17,31,.7);z-index:1000;border-radius:16px">${npLoading}</div></div></div>`+
-      npNote('Veri: Open-Meteo (çoklu model en iyi tahmin), yaklaşık 50 km’lik nokta ızgarasından yumuşatılarak çizilir; bu nedenle tek tek kuvvetli hücreler ve dar yerel yağışlar haritada olduğundan zayıf görünebilir. Karar için il/ilçe bazlı ayrıntılı tahmin sayfalarıyla birlikte değerlendirin.');
-    const mapEl=document.getElementById('wxm-map');
-    if(WXM.map){ WXM.map.remove(); WXM.map=null; }
-    const map=WXM.map=L.map(mapEl,{zoomControl:true,attributionControl:false,minZoom:5,maxZoom:9,zoomAnimation:false,zoomSnap:.5});
-    map.setMaxBounds([[33,22],[45,48]]);
-    map.fitBounds([[35.7,25.6],[42.2,44.9]],{padding:[6,6]});
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18,className:'wxm-base'}).addTo(map);
-    L.control.attribution({prefix:false}).addAttribution('© OpenStreetMap · Open-Meteo').addTo(map);
-    WXM.canvas=L.DomUtil.create('canvas','leaflet-zoom-hide',map.getPanes().overlayPane); WXM.canvas.style.pointerEvents='none';
-    map.on('moveend zoomend resize',wxmDraw); map.on('click',wxmPopup);
-    setTimeout(()=>map.invalidateSize(),80);
-    try{
-      let D; try{ D=await gFetch(`${BACKEND}/maps/grid`); }catch(e){ D=await wxmFetchDirect(); }
-      if(!D||!D.t0||!D.precip||!D.precip.length) throw new Error('boş veri');
-      WXM.data=D;
-      /* ilk saati "şimdi"ye hizala (veri saat başı gelir) */
-      WXM.start=0; WXM.hour=0;
-      /* il sınırları üstte çizilir */
-      try{ const geo=await gFetch(`${BACKEND}/static/tr-iller.json`); WXM.geo=L.geoJSON(geo,{interactive:false,style:{color:'#e2e8f0',weight:.8,opacity:.5,fill:false}}).addTo(map); }catch(e){}
-      wxmControls(); wxmBuildFields(); wxmDraw();
-      document.getElementById('wxm-meta').textContent=(D.stale?'⚠️ Güncel veriye ulaşılamadı, son başarılı veri gösteriliyor. ':'')+'Veri '+new Date(D.generated_at).toLocaleString('tr-TR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+' itibarıyla; saatte bir yenilenir.';
-      document.getElementById('wxm-loading').style.display='none';
-    }catch(err){
-      console.error(err); WXM.loaded=false;
-      document.getElementById('wxm-loading').innerHTML=`<div class="text-center px-6"><p class="text-slate-300 text-sm mb-3">Harita verisi alınamadı.</p><button onclick="wxmOpen(true)" class="btn-primary text-white text-sm px-5 py-2">Tekrar dene</button></div>`;
-    }
-  }
-};
-
-async function wxmOpen(force){
-  const el=document.getElementById('wxm-page-body'); if(!el) return;
-  if(WXM.loaded&&!force){ if(WXM.map){ WXM.map.invalidateSize(); wxmDraw(); } return; }
-  WXM.loaded=true; await WXM_PAGE.load(el);
+function tmOpen(){
+  tmInitMap();
+  setTimeout(()=>{ TM.map.invalidateSize(); if(!TM.fitted){ TM.map.fitBounds([[35.7,25.6],[42.2,44.9]],{padding:[8,8]}); TM.fitted=true; } tmLoad(); },60);
 }
+document.addEventListener('click',e=>{
+  const t=e.target.closest('[data-tmcat],[data-tmday],[data-tmpick],[data-tmclose]'); if(!t) return;
+  if(t.dataset.tmcat){ TM.cat=t.dataset.tmcat; tmRefresh(); }
+  else if(t.dataset.tmday!=null){ TM.day=+t.dataset.tmday; tmRefresh(); }
+  else if(t.dataset.tmpick){ tmSelect(t.dataset.tmpick); const L2=TM.layers[t.dataset.tmpick]; if(L2) TM.map.fitBounds(L2.getBounds(),{maxZoom:7,padding:[40,40]}); }
+  else if(t.dataset.tmclose!=null){ TM.sel=null; tmRefresh(); }
+});
 
 /* ---------------- TÜM HİZMETLER ---------------- */
 function npGoModels(){ showPage('grafik'); setTimeout(()=>{ document.getElementById('model-compare-chart')?.scrollIntoView({behavior:'smooth',block:'center'}); },200); }
@@ -7511,7 +7441,7 @@ map.on('click',async e=>{
    tetiklenir.
 --------------------------------------------------------------- */
 const PAGE_REFRESH = {
-  haritalar: ()=> wxmOpen(),
+  haritalar: ()=> tmOpen(),
   hava:     ()=> { if(chartInst) chartInst.resize(); },
   kalite:   ()=> { if(aqiInst) aqiInst.resize(); },
   deniz:    ()=> { if(marineInst) marineInst.resize(); },
@@ -7580,14 +7510,14 @@ const SECTOR_MENU=[
     {key:'construction', icon:'🚧', label:'Şantiye Çalışması',       anchor:'fieldwork-section'},
   ]},
   {type:'group', key:'afet', icon:'🚨', label:'Afet ve Erken Uyarı', children:[
-    {page:'haritalar', icon:'🗺️', label:'Yağış ve Rüzgâr Haritaları'},
+    {page:'haritalar', icon:'🗺️', label:'Tahmin Haritaları (Yağış · Rüzgâr)'},
     {key:'flood',   icon:'🌊', label:'Sel Etki Analizi'},
     {key:'erosion', icon:'🏜️', label:'Erozyon Riski'},
     {key:'ski',     icon:'🏔️', label:'Çığ ve Kar (Kayak)'},
     {page:'uyarilar', icon:'🔥', label:'Orman Yangını ve Türkiye Uyarı Haritası'},
   ]},
   {type:'leaf', key:'aviation',    icon:'✈️',  label:'Havacılık'},
-  {type:'leaf', page:'haritalar', icon:'🗺️',  label:'Hava Haritaları'},
+  {type:'leaf', page:'haritalar', icon:'🗺️',  label:'Tahmin Haritaları'},
   {type:'leaf', key:'stadium',     icon:'⚽',  label:'Stadyum'},
   {type:'leaf', key:'ski',         icon:'⛷️',  label:'Kayak'},
   {type:'leaf', key:'beekeeping',  icon:'🐝',  label:'Arıcılık'},
