@@ -266,6 +266,7 @@
   <div id="page-nav" class="hidden md:flex items-center gap-6 text-sm text-slate-300">
     <button class="page-nav-btn active" data-page="ozet">Özet</button>
     <button class="page-nav-btn" data-page="uyarilar">Uyarılar</button>
+    <button class="page-nav-btn" data-page="haritalar">Haritalar</button>
     <button class="page-nav-btn" data-page="danismanlik">Danışmanlık</button>
     <button class="page-nav-btn" data-page="hava">Hava Durumu</button>
     <button class="page-nav-btn" data-page="grafik">Tahmin Grafikleri</button>
@@ -294,6 +295,7 @@
   <div class="absolute top-16 left-4 right-4 glass rounded-2xl p-3 flex flex-col gap-1">
     <button class="page-nav-btn-mobile active" data-page="ozet">🏠 Özet</button>
     <button class="page-nav-btn-mobile" data-page="uyarilar">🚨 Uyarılar</button>
+    <button class="page-nav-btn-mobile" data-page="haritalar">🗺️ Haritalar</button>
     <button class="page-nav-btn-mobile" data-page="danismanlik">📋 Danışmanlık</button>
     <button class="page-nav-btn-mobile" data-page="hava">🌤 Hava Durumu</button>
     <button class="page-nav-btn-mobile" data-page="grafik">📈 Tahmin Grafikleri</button>
@@ -458,6 +460,16 @@
   </div>
 </section>
 
+
+<!-- ======== HARİTALAR (Yağış / Rüzgâr) ======== -->
+<section id="wxm-page" data-page="haritalar" class="py-24 px-6 md:px-12 max-w-7xl mx-auto">
+  <div class="reveal mb-10">
+    <p class="text-brand text-sm font-600 uppercase tracking-widest mb-3">Türkiye ve Çevresi · 48 Saat</p>
+    <h2 class="font-display text-4xl md:text-5xl font-700 text-white">Hava Haritaları</h2>
+    <p class="text-slate-400 mt-4 max-w-2xl">Önümüzdeki 48 saatin toplam yağış ve rüzgâr haritaları. Yağışta süreyi ve başlangıcı, rüzgârda saati ve vurgulanacak hız eşiğini seçebilirsiniz. Haritaya tıklayarak o noktanın değerini görebilirsiniz.</p>
+  </div>
+  <div id="wxm-page-body"></div>
+</section>
 
 <!-- ======== UYARILAR (Ana Sayfa) ======== -->
 <section id="alerts-page" data-page="uyarilar" class="py-24 px-6 md:px-12 max-w-7xl mx-auto">
@@ -5344,10 +5356,8 @@ function wxmPopup(e){
     t=`<b>${npN(wxmSample(f.v,I,J),0)} km/sa</b> ${WXM.wtype==='gust'?'(hamle)':''}<br><span style="color:#64748b">Yön: ${dirStr(Math.round(dir))} · ${wxmFmt(WXM.hour)}</span>`; }
   L.popup({closeButton:false}).setLatLng(e.latlng).setContent(`<div style="font-size:12px;color:#0f172a">${t}</div>`).openOn(WXM.map);
 }
-NP_PANELS.wxmaps={
-  icon:'🗺️', title:'Hava Haritaları', noLocation:true,
-  intro:'Türkiye ve çevresi için önümüzdeki 48 saatin toplam yağış ve rüzgâr haritaları. Yağışta süreyi ve başlangıcı, rüzgârda saati ve vurgulanacak hız eşiğini seçebilirsiniz. Haritaya tıklayarak o noktanın değerini görebilirsiniz.',
-  async load(_a,_b,el){
+const WXM_PAGE={
+  async load(el){
     el.innerHTML=`<div class="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6">
       <div><div id="wxm-ctl"></div><div id="wxm-legend" class="mt-5"></div><p id="wxm-meta" class="text-slate-600 text-xs mt-5 leading-relaxed"></p></div>
       <div class="relative"><div id="wxm-map" style="height:600px;border-radius:16px;overflow:hidden;background:#04111f"></div>
@@ -5375,11 +5385,17 @@ NP_PANELS.wxmaps={
       document.getElementById('wxm-meta').textContent=(D.stale?'⚠️ Güncel veriye ulaşılamadı, son başarılı veri gösteriliyor. ':'')+'Veri '+new Date(D.generated_at).toLocaleString('tr-TR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+' itibarıyla; saatte bir yenilenir.';
       document.getElementById('wxm-loading').style.display='none';
     }catch(err){
-      console.error(err); NP_LOADED.wxmaps=null;
-      document.getElementById('wxm-loading').innerHTML=`<div class="text-center px-6"><p class="text-slate-300 text-sm mb-3">Harita verisi alınamadı.</p><button onclick="npActivate('wxmaps',true)" class="btn-primary text-white text-sm px-5 py-2">Tekrar dene</button></div>`;
+      console.error(err); WXM.loaded=false;
+      document.getElementById('wxm-loading').innerHTML=`<div class="text-center px-6"><p class="text-slate-300 text-sm mb-3">Harita verisi alınamadı.</p><button onclick="wxmOpen(true)" class="btn-primary text-white text-sm px-5 py-2">Tekrar dene</button></div>`;
     }
   }
 };
+
+async function wxmOpen(force){
+  const el=document.getElementById('wxm-page-body'); if(!el) return;
+  if(WXM.loaded&&!force){ if(WXM.map){ WXM.map.invalidateSize(); wxmDraw(); } return; }
+  WXM.loaded=true; await WXM_PAGE.load(el);
+}
 
 /* ---------------- TÜM HİZMETLER ---------------- */
 function npGoModels(){ showPage('grafik'); setTimeout(()=>{ document.getElementById('model-compare-chart')?.scrollIntoView({behavior:'smooth',block:'center'}); },200); }
@@ -7495,6 +7511,7 @@ map.on('click',async e=>{
    tetiklenir.
 --------------------------------------------------------------- */
 const PAGE_REFRESH = {
+  haritalar: ()=> wxmOpen(),
   hava:     ()=> { if(chartInst) chartInst.resize(); },
   kalite:   ()=> { if(aqiInst) aqiInst.resize(); },
   deniz:    ()=> { if(marineInst) marineInst.resize(); },
@@ -7563,14 +7580,14 @@ const SECTOR_MENU=[
     {key:'construction', icon:'🚧', label:'Şantiye Çalışması',       anchor:'fieldwork-section'},
   ]},
   {type:'group', key:'afet', icon:'🚨', label:'Afet ve Erken Uyarı', children:[
-    {key:'wxmaps', icon:'🗺️', label:'Yağış ve Rüzgâr Haritaları'},
+    {page:'haritalar', icon:'🗺️', label:'Yağış ve Rüzgâr Haritaları'},
     {key:'flood',   icon:'🌊', label:'Sel Etki Analizi'},
     {key:'erosion', icon:'🏜️', label:'Erozyon Riski'},
     {key:'ski',     icon:'🏔️', label:'Çığ ve Kar (Kayak)'},
     {page:'uyarilar', icon:'🔥', label:'Orman Yangını ve Türkiye Uyarı Haritası'},
   ]},
   {type:'leaf', key:'aviation',    icon:'✈️',  label:'Havacılık'},
-  {type:'leaf', key:'wxmaps',      icon:'🗺️',  label:'Hava Haritaları'},
+  {type:'leaf', page:'haritalar', icon:'🗺️',  label:'Hava Haritaları'},
   {type:'leaf', key:'stadium',     icon:'⚽',  label:'Stadyum'},
   {type:'leaf', key:'ski',         icon:'⛷️',  label:'Kayak'},
   {type:'leaf', key:'beekeeping',  icon:'🐝',  label:'Arıcılık'},
@@ -7617,7 +7634,7 @@ function renderSectorGrid(){
             <span class="text-xs font-600 text-white block">${m.label} <span class="text-slate-500">▾</span></span>
           </button>`;
       } else if(m.type==='leaf'){
-        html+=`<button onclick="goToSector('${m.key}')" class="${cardCls}">
+        html+=`<button onclick="${secAct(m)}" class="${cardCls}">
             <span class="text-2xl block mb-1">${m.icon}</span>
             <span class="text-xs font-600 text-white block">${m.label}</span>
           </button>`;
@@ -7659,7 +7676,7 @@ function renderSectorSidebar(){
         });
       }
     } else if(m.type==='leaf'){
-      html+=`<button onclick="goToSector('${m.key}')" class="sidebar-btn">
+      html+=`<button onclick="${secAct(m)}" class="sidebar-btn">
           <span class="sidebar-btn-icon">${m.icon}</span>
           <span class="sidebar-btn-label">${m.label}</span>
         </button>`;
