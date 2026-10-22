@@ -341,7 +341,7 @@ _provinces_cache: list[dict] | None = None
 ALERT_DAILY_VARS = (
     "weather_code,temperature_2m_max,temperature_2m_min,"
     "apparent_temperature_max,apparent_temperature_min,precipitation_sum,"
-    "wind_speed_10m_max,wind_gusts_10m_max,uv_index_max"
+    "wind_speed_10m_max,wind_gusts_10m_max,uv_index_max,wind_direction_10m_dominant"
 )
 
 

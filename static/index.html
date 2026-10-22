@@ -3571,7 +3571,7 @@ function amapBuildLayers(geo){
 /* Yedek yol: 81 ili tarayıcıdan, 27'şerlik 3 istekle çeker (sunucu çıktısıyla aynı biçim) */
 async function amapFetchDirect(geo){
   const provs=geo.features.map(f=>({n:f.properties.n,name:f.properties.name,lat:f.properties.lat,lon:f.properties.lon}));
-  const DV=['weather_code','temperature_2m_max','temperature_2m_min','apparent_temperature_max','apparent_temperature_min','precipitation_sum','wind_speed_10m_max','wind_gusts_10m_max','uv_index_max'];
+  const DV=['weather_code','temperature_2m_max','temperature_2m_min','apparent_temperature_max','apparent_temperature_min','precipitation_sum','wind_speed_10m_max','wind_gusts_10m_max','uv_index_max','wind_direction_10m_dominant'];
   const out=[]; let days=[];
   for(let i=0;i<provs.length;i+=27){
     const ch=provs.slice(i,i+27);
@@ -5210,6 +5210,7 @@ const TM_RAIN=[[1,5,'#8ecbff',.6,'1–5'],[5,10,'#3b9cff',.75,'5–10'],[10,20,'
 const TM_WIND=[[20,30,'#facc15',.75,'20–30'],[30,40,'#f59e0b',.8,'30–40'],[40,50,'#f97316',.85,'40–50'],[50,62,'#ef4444',.88,'50–62'],[62,75,'#c026d3',.9,'62–75'],[75,1e9,'#7e22ce',.92,'75+']];
 const TM={map:null,geo:null,layers:{},labels:{},data:null,prov:{},cat:'rain',day:0,sel:null,hoverEl:null,loading:false,fitted:false};
 const tmBins=()=>TM.cat==='rain'?TM_RAIN:TM_WIND;
+const tmIsWind=()=>TM.cat!=='rain';
 const tmUnit=()=>TM.cat==='rain'?'mm':'km/sa';
 const tmVal=(pl,d)=>{ const P=TM.prov[pl]; if(!P) return null; const v=(TM.cat==='rain'?P.rain:P.wind)[d]; return v==null?null:v; };
 const tmBin=v=>{ if(v==null) return null; return tmBins().find(b=>v>=b[0]&&v<b[1])||null; };
@@ -5221,11 +5222,12 @@ function tmDayLabel(i){
 }
 function tmStyle(pl){
   const v=tmVal(pl,TM.day), b=tmBin(v), sel=(pl===TM.sel);
+  if(TM.cat==='windmap') return {fillOpacity:0,fillColor:'#000',color:sel?'#38bdf8':'rgba(255,255,255,.4)',weight:sel?2.6:.8};
   return {fillColor:b?b[2]:'#475569', fillOpacity:b?b[3]:.18, color:sel?'#38bdf8':'rgba(255,255,255,.35)', weight:sel?2.6:.8};
 }
 function tmControls(){
   const c=document.getElementById('tm-cats'), d=document.getElementById('tm-days'); if(!c||!d) return;
-  c.innerHTML=[['rain','🌧️ Toplam Yağış'],['wind','💨 Rüzgâr (10 m)']].map(([k,t])=>`<button class="amap-chip${TM.cat===k?' active':''}" data-tmcat="${k}">${t}</button>`).join('');
+  c.innerHTML=[['rain','🌧️ Toplam Yağış'],['wind','💨 Rüzgâr (10 m) · İl renkli'],['windmap','🧭 Rüzgâr (10 m) · Oklu harita']].map(([k,t])=>`<button class="amap-chip${TM.cat===k?' active':''}" data-tmcat="${k}">${t}</button>`).join('');
   d.innerHTML=(TM.data?.days||[]).map((_,i)=>`<button class="amap-chip${TM.day===i?' active':''}" data-tmday="${i}">${tmDayLabel(i)}</button>`).join('');
 }
 function tmLegend(){
@@ -5233,7 +5235,7 @@ function tmLegend(){
   const items=tmBins().map(b=>`<span class="inline-flex items-center gap-1.5"><span class="amap-dot" style="background:${b[2]};opacity:${Math.max(b[3],.6)}"></span>${b[4]} ${tmUnit()}</span>`).join('');
   const note=TM.cat==='rain'
     ? 'Her il için seçili günün (00:00–24:00, yerel saat) toplam yağışı. 1 mm altı renklendirilmez.'
-    : 'Rüzgâr hızı yerden 10 m yükseklikte ölçülen/modellenen değerdir; her il için seçili günün en yüksek saatlik ortalama hızı gösterilir (anlık hamleler daha yüksektir, ayrıntı panelinde verilir). 20 km/sa altı önemsiz sayılır ve renklendirilmez.';
+    : (TM.cat==='windmap'?'Oklar rüzgârın estiği yönü (günlük baskın yön) gösterir; renkli alan 10 m rüzgâr hızıdır ve 81 il noktası arasında yumuşatılarak çizilir. ':'')+'Rüzgâr hızı yerden 10 m yükseklikte ölçülen/modellenen değerdir; her il için seçili günün en yüksek saatlik ortalama hızı gösterilir (anlık hamleler daha yüksektir, ayrıntı panelinde verilir). 20 km/sa altı önemsiz sayılır ve renklendirilmez.';
   el.innerHTML=items+`<span class="w-full text-slate-500">${note}</span>`;
 }
 function tmList(){
@@ -5262,12 +5264,47 @@ function tmDetail(pl){
 function tmRefresh(){
   Object.keys(TM.layers).forEach(pl=>TM.layers[pl].setStyle(tmStyle(pl)));
   if(TM.sel&&TM.layers[TM.sel]) TM.layers[TM.sel].bringToFront();
-  tmControls(); tmLegend(); tmList(); tmDetail(TM.sel);
+  tmControls(); tmLegend(); tmList(); tmDetail(TM.sel); tmDraw();
 }
 function tmSelect(pl){ TM.sel=pl; tmRefresh(); }
+/* Oklu rüzgâr haritası: 81 il noktasından yumuşatılmış renkli alan + yön okları */
+function tmDraw(){
+  const map=TM.map, cv=TM.canvas; if(!map||!cv) return;
+  const sz=map.getSize(); cv.width=sz.x; cv.height=sz.y;
+  L.DomUtil.setPosition(cv,map.containerPointToLayerPoint([0,0]));
+  const ctx=cv.getContext('2d'); ctx.clearRect(0,0,sz.x,sz.y);
+  if(TM.cat!=='windmap'||!TM.data) return;
+  const pts=Object.values(TM.prov).filter(P=>P.wind[TM.day]!=null).map(P=>({lat:P.lat,lon:P.lon,v:P.wind[TM.day],d:P.dir[TM.day]}));
+  if(!pts.length) return;
+  const S=3, w=Math.ceil(sz.x/S), h=Math.ceil(sz.y/S), off=document.createElement('canvas'); off.width=w; off.height=h;
+  const oc=off.getContext('2d'), img=oc.createImageData(w,h), px=img.data;
+  const ll0=map.containerPointToLatLng([0,0]), ll1=map.containerPointToLatLng([sz.x,0]);
+  const lons=new Float32Array(w); for(let x=0;x<w;x++) lons[x]=ll0.lng+(ll1.lng-ll0.lng)*(x*S)/sz.x;
+  for(let y=0;y<h;y++){
+    const lat=map.containerPointToLatLng([0,y*S]).lat, ky=Math.cos(lat*Math.PI/180);
+    for(let x=0;x<w;x++){
+      let sw=0,sv=0,dmin=1e9;
+      for(let k=0;k<pts.length;k++){ const p=pts[k], dx=(lons[x]-p.lon)*ky, dy=lat-p.lat, d2=dx*dx+dy*dy+1e-4; if(d2<dmin) dmin=d2; const wt=1/(d2*d2); sw+=wt; sv+=wt*p.v; }
+      const dist=Math.sqrt(dmin); if(dist>1.1) continue;     /* il noktalarından uzak (deniz/yurt dışı) yerleri boyama */
+      const v=sv/sw, b=tmBin(v); if(!b) continue;
+      const k4=(y*w+x)*4, hex=b[2]; px[k4]=parseInt(hex.slice(1,3),16); px[k4+1]=parseInt(hex.slice(3,5),16); px[k4+2]=parseInt(hex.slice(5,7),16);
+      px[k4+3]=Math.round(255*b[3]*(dist>.8?(1.1-dist)/.3:1)*.85);
+    }
+  }
+  oc.putImageData(img,0,0); ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high'; ctx.drawImage(off,0,0,w,h,0,0,w*S,h*S);
+  /* yön okları: il merkezlerinde; ok rüzgârın gittiği yöne bakar */
+  ctx.lineCap='round'; ctx.lineJoin='round';
+  pts.forEach(p=>{ if(p.d==null) return; const q=map.latLngToContainerPoint([p.lat,p.lon]); if(q.x<0||q.y<0||q.x>sz.x||q.y>sz.y) return;
+    const ang=(p.d+180-90)*Math.PI/180, Ln=Math.min(34,12+p.v*.5), hx=Math.cos(ang), hy=Math.sin(ang);
+    const x1=q.x-hx*Ln/2,y1=q.y-hy*Ln/2,x2=q.x+hx*Ln/2,y2=q.y+hy*Ln/2, a1=ang+2.7, a2=ang-2.7;
+    const draw=()=>{ ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.moveTo(x2+Math.cos(a1)*6,y2+Math.sin(a1)*6); ctx.lineTo(x2,y2); ctx.lineTo(x2+Math.cos(a2)*6,y2+Math.sin(a2)*6); ctx.stroke(); };
+    ctx.strokeStyle='rgba(0,0,0,.7)'; ctx.lineWidth=3.6; draw(); ctx.strokeStyle='#fff'; ctx.lineWidth=1.7; draw(); });
+}
 function tmInitMap(){
   if(TM.map) return;
-  const map=TM.map=L.map('tm-map',{zoomControl:true,attributionControl:false,minZoom:5,maxZoom:10,zoomSnap:.25,zoomDelta:.5});
+  const map=TM.map=L.map('tm-map',{zoomControl:true,attributionControl:false,minZoom:5,maxZoom:10,zoomSnap:.25,zoomDelta:.5,zoomAnimation:false});
+  TM.canvas=L.DomUtil.create('canvas','',map.getPanes().overlayPane); TM.canvas.style.pointerEvents='none';
+  map.on('moveend zoomend resize',tmDraw);
   map.setMaxBounds([[33,22],[44.8,48]]);
   const ctl=L.control({position:'topright'});
   ctl.onAdd=()=>{ const d=L.DomUtil.create('div','amap-hover'); d.style.display='none'; TM.hoverEl=d; return d; };
@@ -5276,7 +5313,7 @@ function tmInitMap(){
 }
 function tmHover(pl){
   const P=TM.prov[pl], v=tmVal(pl,TM.day), b=tmBin(v); if(!TM.hoverEl||!P) return;
-  TM.hoverEl.innerHTML=`<b>${P.name}</b><br><span style="color:${b?b[2]:'#94a3b8'}">${tmFmt(v)} ${tmUnit()}</span>`+(TM.cat==='wind'&&P.gust[TM.day]!=null?`<br><span style="color:#94a3b8">Hamle ${Math.round(P.gust[TM.day])} km/sa</span>`:'');
+  TM.hoverEl.innerHTML=`<b>${P.name}</b><br><span style="color:${b?b[2]:'#94a3b8'}">${tmFmt(v)} ${tmUnit()}</span>`+(tmIsWind()&&P.gust[TM.day]!=null?`<br><span style="color:#94a3b8">Hamle ${Math.round(P.gust[TM.day])} km/sa</span>`:'');
   TM.hoverEl.style.display='block';
 }
 function tmBuildLayers(geo){
@@ -5303,7 +5340,7 @@ async function tmLoad(){
     TM.prov={};
     (data.provinces||[]).forEach(it=>{
       const ms=a=>(a||[]).map(v=>v==null?null:v*3.6);
-      TM.prov[String(it.n)]={name:it.name,rain:(it.precipitation_sum||[]).map(v=>v==null?null:v),wind:ms(it.wind_speed_10m_max),gust:ms(it.wind_gusts_10m_max)};
+      TM.prov[String(it.n)]={name:it.name,rain:(it.precipitation_sum||[]).map(v=>v==null?null:v),wind:ms(it.wind_speed_10m_max),gust:ms(it.wind_gusts_10m_max),dir:it.wind_direction_10m_dominant||[],lat:it.lat,lon:it.lon};
     });
     TM.data=data; tmBuildLayers(geo); tmRefresh();
     const t=data.generated_at?new Date(data.generated_at):null;
