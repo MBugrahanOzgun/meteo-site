@@ -464,6 +464,97 @@ async def alerts_turkey():
         return result
 
 
+# ---------------------------------------------------------------------------
+# Oklu rüzgâr haritası: Türkiye ve çevresi için sık nokta ızgarası (günlük 10 m rüzgâr, 7 gün)
+# ---------------------------------------------------------------------------
+MAPS_LAT0, MAPS_LAT1, MAPS_LON0, MAPS_LON1, MAPS_STEP = 35.5, 42.5, 25.5, 45.0, 0.5
+MAPS_TTL_SECONDS = 3600
+maps_cache = TTLCache(maxsize=2, ttl=MAPS_TTL_SECONDS)
+_maps_lock = asyncio.Lock()
+_maps_last = None
+MAPS_DISK = os.path.join(os.path.dirname(os.path.abspath(DB_PATH)), "maps_last.json")
+
+
+@app.get("/maps/grid")
+async def maps_grid():
+    """Rüzgâr haritası için ızgara verisi (günlük en yüksek 10 m rüzgâr, hamle, baskın yön; 7 gün). 1 saat önbelleklenir."""
+    global _maps_last
+    key = ("maps_grid",)
+    if key in maps_cache:
+        return maps_cache[key]
+    async with _maps_lock:
+        if key in maps_cache:
+            return maps_cache[key]
+        ny = int(round((MAPS_LAT1 - MAPS_LAT0) / MAPS_STEP)) + 1
+        nx = int(round((MAPS_LON1 - MAPS_LON0) / MAPS_STEP)) + 1
+        pts = [(round(MAPS_LAT0 + j * MAPS_STEP, 4), round(MAPS_LON0 + i * MAPS_STEP, 4))
+               for j in range(ny) for i in range(nx)]
+        api_key = os.environ.get("OPEN_METEO_API_KEY")
+        url = "https://customer-api.open-meteo.com/v1/forecast" if api_key else OPEN_METEO_URL
+        base = {
+            "daily": "wind_speed_10m_max,wind_gusts_10m_max,wind_direction_10m_dominant",
+            "wind_speed_unit": "kmh",
+            "forecast_days": 7,
+            "timezone": "Europe/Istanbul",
+        }
+        if api_key:
+            base["apikey"] = api_key
+        wind, gust, wdir = [], [], []
+        days = []
+        try:
+            for i in range(0, len(pts), 50):
+                chunk = pts[i:i + 50]
+                params = dict(base,
+                              latitude=",".join(str(p[0]) for p in chunk),
+                              longitude=",".join(str(p[1]) for p in chunk))
+                part = None
+                for attempt in range(4):
+                    r = await app.state.http.get(url, params=params, timeout=40)
+                    if r.status_code in (429, 500, 502, 503, 504) and attempt < 3:
+                        await asyncio.sleep(4 * (attempt + 1))
+                        continue
+                    r.raise_for_status()
+                    part = r.json()
+                    break
+                if isinstance(part, dict):
+                    part = [part]
+                if not part or len(part) != len(chunk):
+                    raise ValueError(f"{len(chunk)} nokta bekleniyordu, {len(part or [])} geldi")
+                for d in part:
+                    dl = d.get("daily", {}) or {}
+                    if not days and dl.get("time"):
+                        days = dl["time"]
+                    wind.append([None if v is None else round(v) for v in dl.get("wind_speed_10m_max", [])])
+                    gust.append([None if v is None else round(v) for v in dl.get("wind_gusts_10m_max", [])])
+                    wdir.append([None if v is None else round(v) for v in dl.get("wind_direction_10m_dominant", [])])
+                await asyncio.sleep(1.2)      # ücretsiz kota için nazik ol
+        except (httpx.HTTPError, ValueError) as e:
+            last = _maps_last
+            if not last:
+                try:
+                    with open(MAPS_DISK, encoding="utf-8") as f:
+                        last = json.load(f)
+                except (OSError, ValueError):
+                    last = None
+            if last:
+                return {**last, "stale": True}
+            raise HTTPException(status_code=502, detail=f"Open-Meteo erişilemedi: {e}")
+
+        result = {
+            "generated_at": datetime.now(timezone.utc).isoformat(), "days": days,
+            "lat0": MAPS_LAT0, "lon0": MAPS_LON0, "step": MAPS_STEP, "ny": ny, "nx": nx,
+            "wind": wind, "gust": gust, "dir": wdir, "stale": False,
+        }
+        maps_cache[key] = result
+        _maps_last = result
+        try:
+            with open(MAPS_DISK, "w", encoding="utf-8") as f:
+                json.dump(result, f)
+        except OSError:
+            pass
+        return result
+
+
 @app.get("/place")
 async def place(lat: float = Query(..., ge=-90, le=90), lon: float = Query(..., ge=-180, le=180)):
     key = ("place", round(lat, 4), round(lon, 4))
