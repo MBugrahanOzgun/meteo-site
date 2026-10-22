@@ -3245,9 +3245,9 @@ function alertFrost(tempMin){
 function alertWindStorm(windMax, gustMax){
   const v = gustMax!=null ? gustMax : windMax;
   if(v==null) return {cls:'slate', label:'Veri yok', note:''};
-  if(v>=24.5) return {cls:'red', label:'Kuvvetli Fırtına', note:`${v.toFixed(1)} m/s — Beaufort 10+, ağaç devrilmesi/yapısal hasar riski.`};
-  if(v>=17.2) return {cls:'orange', label:'Fırtına', note:`${v.toFixed(1)} m/s — Beaufort 8, yürüme/araç kullanımı zorlaşır.`};
-  if(v>=10.8) return {cls:'amber', label:'Kuvvetli Rüzgar', note:`${v.toFixed(1)} m/s — Beaufort 6, açık alanda ve yüksekte çalışmada dikkat.`};
+  if(v>=24.5) return {cls:'red', label:'Kuvvetli Fırtına', note:`Hamle ${Math.round(v*3.6)} km/sa — Beaufort 10+, ağaç devrilmesi/yapısal hasar riski.`};
+  if(v>=17.2) return {cls:'orange', label:'Fırtına', note:`Hamle ${Math.round(v*3.6)} km/sa — Beaufort 8, yürüme/araç kullanımı zorlaşır.`};
+  if(v>=10.8) return {cls:'amber', label:'Kuvvetli Rüzgar', note:`Hamle ${Math.round(v*3.6)} km/sa — Beaufort 6, açık alanda ve yüksekte çalışmada dikkat.`};
   return {cls:'emerald', label:'Normal', note:'Kuvvetli rüzgar beklenmiyor.'};
 }
 function alertFog(visMin){
@@ -3295,7 +3295,7 @@ const ALERT_DEFS=[
    source:'Eşik: günlük minimum sıcaklık 0°C ve altı (şiddetli don: -3°C ve altı).',
    score:(i,dl)=>alertFrost(dl.temperature_2m_min?.[i])},
   {key:'wind_storm',   icon:'💨', title:'Kuvvetli Rüzgar / Fırtına',
-   source:'Beaufort rüzgar skalası: Derece 6 (≈10,8 m/s), Derece 8 (≈17,2 m/s), Derece 10+ (≈24,5 m/s).',
+   source:'Beaufort rüzgâr skalası, günlük en yüksek rüzgâr hamlesine göre (10 m): Derece 6 (≈39 km/sa), Derece 8 (≈62 km/sa), Derece 10+ (≈88 km/sa).',
    score:(i,dl)=>alertWindStorm(dl.wind_speed_10m_max?.[i], dl.wind_gusts_10m_max?.[i])},
   {key:'fog',          icon:'🌫️', title:'Yoğun Sis',
    source:'Meteorolojik sis tanımı: görüş <1000 m (yoğun sis: <200 m). Saatlik görüş verisinden günlük minimum alınır.',
@@ -5208,12 +5208,12 @@ NP_PANELS.space={
 /* ---------------- TAHMİN HARİTALARI (günlük toplam yağış · 10 m rüzgâr) ----------------
    Uyarılar haritasıyla aynı veri (/alerts/turkey: 81 il, 7 gün) ve aynı il sınırları. */
 const TM_RAIN=[[1,5,'#8ecbff',.6,'1–5'],[5,10,'#3b9cff',.75,'5–10'],[10,20,'#2563eb',.85,'10–20'],[20,40,'#7c3aed',.88,'20–40'],[40,70,'#d946ef',.9,'40–70'],[70,1e9,'#ef4444',.92,'70+']];
-const TM_WIND=[[20,30,'#facc15',.75,'20–30'],[30,40,'#f59e0b',.8,'30–40'],[40,50,'#f97316',.85,'40–50'],[50,62,'#ef4444',.88,'50–62'],[62,75,'#c026d3',.9,'62–75'],[75,1e9,'#7e22ce',.92,'75+']];
-const TM={map:null,geo:null,layers:{},labels:{},data:null,prov:{},cat:'rain',day:0,sel:null,hoverEl:null,loading:false,fitted:false};
+const TM_WIND=[[20,39,'#fde68a',.7,'20–39'],[39,62,'#facc15',.8,'39–62'],[62,88,'#f97316',.88,'62–88'],[88,1e9,'#ef4444',.92,'88+']];
+const TM={wt:'mean',map:null,geo:null,layers:{},labels:{},data:null,prov:{},cat:'rain',day:0,sel:null,hoverEl:null,loading:false,fitted:false};
 const tmBins=()=>TM.cat==='rain'?TM_RAIN:TM_WIND;
 const tmIsWind=()=>TM.cat!=='rain';
 const tmUnit=()=>TM.cat==='rain'?'mm':'km/sa';
-const tmVal=(pl,d)=>{ const P=TM.prov[pl]; if(!P) return null; const v=(TM.cat==='rain'?P.rain:P.wind)[d]; return v==null?null:v; };
+const tmVal=(pl,d)=>{ const P=TM.prov[pl]; if(!P) return null; const v=(TM.cat==='rain'?P.rain:(TM.wt==='gust'?P.gust:P.wind))[d]; return v==null?null:v; };
 const tmBin=v=>{ if(v==null) return null; return tmBins().find(b=>v>=b[0]&&v<b[1])||null; };
 const tmFmt=v=>v==null?'—':(TM.cat==='rain'?(v<10?v.toFixed(1):Math.round(v)):Math.round(v)).toString().replace('.',',');
 function tmDayLabel(i){
@@ -5229,6 +5229,7 @@ function tmStyle(pl){
 function tmControls(){
   const c=document.getElementById('tm-cats'), d=document.getElementById('tm-days'); if(!c||!d) return;
   c.innerHTML=[['rain','🌧️ Toplam Yağış'],['wind','💨 Rüzgâr (10 m) · İl renkli'],['windmap','🧭 Rüzgâr (10 m) · Oklu harita']].map(([k,t])=>`<button class="amap-chip${TM.cat===k?' active':''}" data-tmcat="${k}">${t}</button>`).join('');
+  if(TM.cat!=='rain') c.innerHTML+=`<span class="w-full sm:w-auto sm:ml-4 inline-flex gap-2">`+[['mean','Ortalama hız'],['gust','Hamle (anlık en yüksek)']].map(([k,t])=>`<button class="amap-chip${TM.wt===k?' active':''}" data-tmwt="${k}">${t}</button>`).join('')+`</span>`;
   d.innerHTML=(TM.data?.days||[]).map((_,i)=>`<button class="amap-chip${TM.day===i?' active':''}" data-tmday="${i}">${tmDayLabel(i)}</button>`).join('');
 }
 function tmLegend(){
@@ -5236,7 +5237,7 @@ function tmLegend(){
   const items=tmBins().map(b=>`<span class="inline-flex items-center gap-1.5"><span class="amap-dot" style="background:${b[2]};opacity:${Math.max(b[3],.6)}"></span>${b[4]} ${tmUnit()}</span>`).join('');
   const note=TM.cat==='rain'
     ? 'Her il için seçili günün (00:00–24:00, yerel saat) toplam yağışı. 1 mm altı renklendirilmez.'
-    : (TM.cat==='windmap'?'Oklar rüzgârın estiği yönü (günlük baskın yön) gösterir; renkli alan, yaklaşık 50 km’lik nokta ızgarasından yumuşatılarak çizilen 10 m rüzgâr hızıdır. ':'')+'Rüzgâr hızı yerden 10 m yükseklikte ölçülen/modellenen değerdir; her il için seçili günün en yüksek saatlik ortalama hızı gösterilir (anlık hamleler daha yüksektir, ayrıntı panelinde verilir). 20 km/sa altı önemsiz sayılır ve renklendirilmez.';
+    : (TM.cat==='windmap'?'Oklar rüzgârın estiği yönü (günlük baskın yön) gösterir; renkli alan, yaklaşık 50 km’lik nokta ızgarasından yumuşatılarak çizilir. ':'')+`Hız yerden 10 m yükseklikte, km/sa cinsindendir; ${TM.wt==='gust'?'her il için seçili günün en yüksek anlık rüzgâr hamlesi':'her il için seçili günün en yüksek saatlik ortalama hızı'} gösterilir. Renk eşikleri Uyarılar haritasındaki Beaufort skalasıyla aynıdır (39, 62, 88 km/sa). 20 km/sa altı önemsiz sayılır ve renklendirilmez. Uyarılar haritası hamleye göre çalıştığı için Hamle seçeneği onunla aynı sonucu verir.`;
   el.innerHTML=items+`<span class="w-full text-slate-500">${note}</span>`;
 }
 function tmList(){
@@ -5330,7 +5331,7 @@ function tmDraw(){
   if(!TM.grid){ tmEnsureGrid(); return; }
   const G=TM.grid, N=G.ny*G.nx, d=TM.day;
   const V=new Float32Array(N), U=new Float32Array(N), W=new Float32Array(N);
-  for(let p=0;p<N;p++){ const sp=G.wind[p][d]??0, ang=(G.dir[p][d]??0)*Math.PI/180; V[p]=sp; U[p]=-sp*Math.sin(ang); W[p]=-sp*Math.cos(ang); }
+  for(let p=0;p<N;p++){ const sp=(TM.wt==='gust'?G.gust:G.wind)[p][d]??0, ang=(G.dir[p][d]??0)*Math.PI/180; V[p]=sp; U[p]=-sp*Math.sin(ang); W[p]=-sp*Math.cos(ang); }
   const S=2, w=Math.ceil(sz.x/S), h=Math.ceil(sz.y/S);
   const ll0=map.containerPointToLatLng([0,0]), ll1=map.containerPointToLatLng([sz.x,0]);
   const gi=new Float32Array(w), gj=new Float32Array(h);
@@ -5409,8 +5410,9 @@ function tmOpen(){
   setTimeout(()=>{ TM.map.invalidateSize(); if(!TM.fitted){ TM.map.fitBounds([[35.7,25.6],[42.2,44.9]],{padding:[8,8]}); TM.fitted=true; } tmLoad(); },60);
 }
 document.addEventListener('click',e=>{
-  const t=e.target.closest('[data-tmcat],[data-tmday],[data-tmpick],[data-tmclose]'); if(!t) return;
-  if(t.dataset.tmcat){ TM.cat=t.dataset.tmcat; tmRefresh(); }
+  const t=e.target.closest('[data-tmcat],[data-tmday],[data-tmpick],[data-tmclose],[data-tmwt]'); if(!t) return;
+  if(t.dataset.tmwt){ TM.wt=t.dataset.tmwt; tmRefresh(); }
+  else if(t.dataset.tmcat){ TM.cat=t.dataset.tmcat; tmRefresh(); }
   else if(t.dataset.tmday!=null){ TM.day=+t.dataset.tmday; tmRefresh(); }
   else if(t.dataset.tmpick){ tmSelect(t.dataset.tmpick); const L2=TM.layers[t.dataset.tmpick]; if(L2) TM.map.fitBounds(L2.getBounds(),{maxZoom:7,padding:[40,40]}); }
   else if(t.dataset.tmclose!=null){ TM.sel=null; tmRefresh(); }
