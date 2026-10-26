@@ -468,7 +468,7 @@ async def alerts_turkey():
 # Oklu rüzgâr haritası: Türkiye ve çevresi için sık nokta ızgarası (günlük 10 m rüzgâr, 7 gün)
 # ---------------------------------------------------------------------------
 MAPS_LAT0, MAPS_LAT1, MAPS_LON0, MAPS_LON1, MAPS_STEP = 35.5, 42.5, 25.5, 45.0, 0.5
-MAPS_TTL_SECONDS = 3600
+MAPS_TTL_SECONDS = 3 * 3600
 maps_cache = TTLCache(maxsize=2, ttl=MAPS_TTL_SECONDS)
 _maps_lock = asyncio.Lock()
 _maps_last = None
@@ -553,6 +553,99 @@ async def maps_grid():
         except OSError:
             pass
         return result
+
+
+# ---------------------------------------------------------------------------
+# Ayrıntılı yağış haritası: Türkiye üzerinde 0,25° (~25 km) nokta ızgarası, günlük toplam yağış, 7 gün.
+# Bir ilçe boyutuna yakın çözünürlük verir; ilçe sınırları eklenirse her ilçe bu ızgaradan örneklenir.
+# Veri çok nokta içerdiği için 6 saat önbelleklenir; süresi dolunca eski veri hemen verilir, yenisi arka planda çekilir.
+# ---------------------------------------------------------------------------
+RAIN_TTL_SECONDS = 6 * 3600
+RAIN_DISK = os.path.join(os.path.dirname(os.path.abspath(DB_PATH)), "rain_grid_last.json")
+GRID_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "tr-grid.json")
+_rain = {"data": None, "ts": 0.0, "task": None}
+
+
+def _rain_load_disk():
+    try:
+        with open(RAIN_DISK, encoding="utf-8") as f:
+            d = json.load(f)
+        return d
+    except (OSError, ValueError):
+        return None
+
+
+async def _rain_refresh():
+    with open(GRID_FILE, encoding="utf-8") as f:
+        g = json.load(f)
+    nx, idx = g["nx"], g["idx"]
+    pts = [(round(g["lat0"] + (k // nx) * g["step"], 4), round(g["lon0"] + (k % nx) * g["step"], 4)) for k in idx]
+    api_key = os.environ.get("OPEN_METEO_API_KEY")
+    url = "https://customer-api.open-meteo.com/v1/forecast" if api_key else OPEN_METEO_URL
+    base = {"daily": "precipitation_sum", "forecast_days": 7, "timezone": "Europe/Istanbul"}
+    if api_key:
+        base["apikey"] = api_key
+    rain, days = [], []
+    for i in range(0, len(pts), 50):
+        chunk = pts[i:i + 50]
+        params = dict(base, latitude=",".join(str(p[0]) for p in chunk), longitude=",".join(str(p[1]) for p in chunk))
+        part = None
+        for attempt in range(5):
+            r = await app.state.http.get(url, params=params, timeout=40)
+            if r.status_code in (429, 500, 502, 503, 504) and attempt < 4:
+                await asyncio.sleep(5 * (attempt + 1))
+                continue
+            r.raise_for_status()
+            part = r.json()
+            break
+        if isinstance(part, dict):
+            part = [part]
+        if not part or len(part) != len(chunk):
+            raise ValueError(f"{len(chunk)} nokta bekleniyordu, {len(part or [])} geldi")
+        for d in part:
+            dl = d.get("daily", {}) or {}
+            if not days and dl.get("time"):
+                days = dl["time"]
+            rain.append([None if v is None else round(v, 1) for v in dl.get("precipitation_sum", [])])
+        await asyncio.sleep(1.2)
+    res = {"generated_at": datetime.now(timezone.utc).isoformat(), "days": days, "lat0": g["lat0"], "lon0": g["lon0"],
+           "step": g["step"], "ny": g["ny"], "nx": nx, "idx": idx, "rain": rain, "stale": False}
+    _rain["data"], _rain["ts"] = res, datetime.now(timezone.utc).timestamp()
+    try:
+        with open(RAIN_DISK, "w", encoding="utf-8") as f:
+            json.dump(res, f)
+    except OSError:
+        pass
+    return res
+
+
+async def _rain_bg():
+    try:
+        await _rain_refresh()
+    except Exception:       # arka plan yenilemesi başarısızsa eski veri kalır
+        pass
+    finally:
+        _rain["task"] = None
+
+
+@app.get("/maps/rain")
+async def maps_rain():
+    """Ayrıntılı günlük yağış ızgarası (7 gün)."""
+    now = datetime.now(timezone.utc).timestamp()
+    if _rain["data"] is None:
+        _rain["data"] = _rain_load_disk()
+        if _rain["data"]:
+            _rain["ts"] = 0.0          # diskten gelen veri bayat sayılır, yenilenir
+    if _rain["data"] and now - _rain["ts"] < RAIN_TTL_SECONDS:
+        return _rain["data"]
+    if _rain["data"]:                  # bayat veriyi hemen ver, yenisini arka planda çek
+        if _rain["task"] is None:
+            _rain["task"] = asyncio.create_task(_rain_bg())
+        return {**_rain["data"], "stale": True}
+    try:                               # hiç veri yok: ilk çekimi bekle
+        return await _rain_refresh()
+    except (httpx.HTTPError, ValueError, OSError) as e:
+        raise HTTPException(status_code=502, detail=f"Open-Meteo erişilemedi: {e}")
 
 
 @app.get("/place")

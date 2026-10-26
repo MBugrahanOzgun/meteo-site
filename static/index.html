@@ -85,6 +85,26 @@
     .amap-chip{padding:8px 15px;border-radius:999px;font-size:15px;font-weight:500;color:#cbd5e1;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);cursor:pointer;font-family:inherit;transition:background .15s,border-color .15s}
     .amap-chip:hover{border-color:rgba(56,189,248,.5)}
     .amap-chip.active{background:rgba(56,189,248,.16);border-color:#38bdf8;color:#38bdf8}
+    .hw-link{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center;min-height:88px;padding:12px 8px;border-radius:16px;background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.25);color:#e2e8f0;font-size:.95rem;font-weight:600;line-height:1.25;font-size:1rem}
+    .hw-link:hover{background:rgba(56,189,248,.16)}
+    .hw-link{font-size:1.4rem}.hw-link span{font-size:.95rem}
+    .hw-day{display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 4px;border-radius:16px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);text-align:center}
+    .hw-day-today{border-color:rgba(56,189,248,.5);background:rgba(56,189,248,.08)}
+    .hw-day-name{color:#cbd5e1;font-weight:600;font-size:.8rem}
+    .hw-day-icon{font-size:1.9rem;line-height:1.2}
+    .hw-day-max{color:#fff;font-weight:700;font-size:1.15rem}
+    .hw-day-min{color:#94a3b8;font-size:.9rem}
+    .hw-day-rain{color:#7dd3fc;font-size:.75rem;margin-top:2px}
+    @media (max-width:640px){
+      html{font-size:17px}
+      .text-xs{font-size:.85rem !important;line-height:1.25rem !important}
+      .text-\[11px\],.text-\[10px\]{font-size:.8rem !important}
+      .text-slate-500{color:#a5b4c8 !important}
+      .text-slate-600{color:#94a3b8 !important}
+      button,.btn-primary,.btn-outline,.amap-chip,.loc-apply{min-height:44px}
+      .loc-input,.loc-search{min-height:46px;font-size:16px !important}
+      .hw-day{padding:8px 2px}
+    }
     .il-label{position:absolute;transform:translate(-50%,-50%);font-size:11px;font-weight:600;color:#fff;text-shadow:0 0 3px #000,0 0 3px #000,0 0 2px #000;pointer-events:none;white-space:nowrap}
     .il-label.il-label-off{display:none}
     .amap-hover{background:rgba(4,17,31,.88);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:10px 14px;font-size:15px;color:#e2e8f0;max-width:300px;line-height:1.4}
@@ -323,12 +343,12 @@
 
   <div class="w-full lg:pl-48">
   <div class="relative z-10 text-center px-6 max-w-4xl mx-auto">
-    <p class="text-slate-400 text-lg md:text-xl max-w-2xl mx-auto mb-8 leading-relaxed">
-      Hava tahmini · Hava kalitesi · Deniz verileri · Konum analizi — tek ekranda.
+    <p class="text-slate-300 text-xl md:text-xl max-w-2xl mx-auto mb-8 leading-relaxed">
+      Yerinizi yazın, bugünün ve önümüzdeki günlerin hava durumunu hemen görün.
     </p>
 
     <!-- Özellik rozetleri -->
-    <div class="flex flex-wrap justify-center gap-2 mb-10">
+    <div class="hidden sm:flex flex-wrap justify-center gap-2 mb-10">
       <span class="src-badge bg-sky-500/10   text-sky-400   border border-sky-500/20">🌤 Hava Tahmini</span>
       <span class="src-badge bg-green-500/10  text-green-400 border border-green-500/20">🍃 Hava Kalitesi</span>
       <span class="src-badge bg-blue-500/10   text-blue-400  border border-blue-500/20">🌊 Deniz Verileri</span>
@@ -356,7 +376,8 @@
       <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8">
         <div>
           <p id="hw-location" class="text-brand text-sm font-600 mb-1">Yükleniyor…</p>
-          <p id="hw-cond" class="text-white text-lg font-600"></p>
+          <p id="hw-big" class="font-display text-5xl md:text-6xl font-800 text-white leading-none my-1"></p>
+          <p id="hw-cond" class="text-white text-xl font-600"></p>
           <p id="hw-time" class="text-slate-500 text-xs"></p>
         </div>
         <div class="flex items-center gap-2">
@@ -376,6 +397,17 @@
       </div>
       <!-- Favori konumlar -->
       <div id="favorites-bar" class="hidden flex-wrap gap-2 mb-6"></div>
+
+      <!-- Sade özet: sayılar yerine cümleler + 5 günlük görünüm (ilk bakışta görünür) -->
+      <div id="hw-days" class="grid grid-cols-5 gap-2 sm:gap-3 mb-5"></div>
+      <div id="hw-summary" class="mb-6"></div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8" id="hw-links">
+        <button onclick="showPage('uyarilar')" class="hw-link">🚨<span>Uyarılar</span></button>
+        <button onclick="showPage('haritalar')" class="hw-link">🗺️<span>Yağış ve Rüzgâr Haritaları</span></button>
+        <button onclick="showPage('hava')" class="hw-link">📅<span>7 Günlük Ayrıntı</span></button>
+        <button onclick="showPage('danismanlik')" class="hw-link">🌾<span>Tarım, Enerji ve Diğer Sektörler</span></button>
+      </div>
+      <p class="text-slate-400 text-sm uppercase tracking-widest mb-3">Şu anki ayrıntılar</p>
       <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
         <div class="stat-card glass rounded-xl p-5 col-span-2 md:col-span-1 flex flex-col gap-1">
           <p class="text-slate-500 text-xs uppercase tracking-widest">Sıcaklık</p>
@@ -395,7 +427,7 @@
         <div class="stat-card glass rounded-xl p-5 flex flex-col gap-1">
           <p class="text-slate-500 text-xs uppercase tracking-widest">Rüzgar</p>
           <p id="hw-wind" class="font-display text-3xl font-700 text-emerald-400">—</p>
-          <p class="text-slate-500 text-xs">m/s</p>
+          <p class="text-slate-500 text-xs">km/sa</p>
         </div>
         <div class="stat-card glass rounded-xl p-5 flex flex-col items-center justify-center gap-2">
           <p class="text-slate-500 text-xs uppercase tracking-widest">Yön</p>
@@ -1905,20 +1937,22 @@ async function fetchForecast(lat, lon) {
   document.getElementById('hw-temp').textContent  = c.temperature_2m!==null  ? c.temperature_2m.toFixed(1)  : '—';
   document.getElementById('hw-hum').textContent   = c.relative_humidity_2m??'—';
   document.getElementById('hw-pres').textContent  = c.pressure_msl ? Math.round(c.pressure_msl) : '—';
-  document.getElementById('hw-wind').textContent  = c.wind_speed_10m!==null  ? c.wind_speed_10m.toFixed(1)  : '—';
+  document.getElementById('hw-wind').textContent  = c.wind_speed_10m!=null  ? Math.round(c.wind_speed_10m*3.6)  : '—';
   document.getElementById('hw-dir').textContent   = c.wind_direction_10m!==null ? c.wind_direction_10m+'°' : '—';
   document.getElementById('wind-arrow').style.transform = `rotate(${c.wind_direction_10m||0}deg)`;
   document.getElementById('hw-time').textContent  = c.time ? new Date(c.time).toLocaleString('tr-TR') : '';
 
   const [ci,ct]=wmo(c.weather_code);
   document.getElementById('hw-cond').textContent = `${ci} ${ct}`;
+  const hb=document.getElementById('hw-big'); if(hb) hb.textContent=c.temperature_2m!=null?Math.round(c.temperature_2m)+'°C':'';
+  try{ renderHeroForecast(c, d.daily||{}); }catch(e){ console.error('hero özet',e); }
 
   const items=[
     {icon:'🌡',lbl:'Hissedilen',     val:c.apparent_temperature!==null   ? c.apparent_temperature.toFixed(1)+'°C'  : '—', col:'text-sky-300'},
     {icon:'💧',lbl:'Nem',            val:(c.relative_humidity_2m??'—')+'%',                                              col:'text-emerald-400'},
     {icon:'📊',lbl:'Basınç',         val:c.pressure_msl ? Math.round(c.pressure_msl)+' hPa' : '—',                      col:'text-indigo-400'},
-    {icon:'💨',lbl:'Rüzgar',         val:c.wind_speed_10m!==null          ? c.wind_speed_10m.toFixed(1)+' m/s'  : '—',  col:'text-amber-400'},
-    {icon:'🌪',lbl:'Rüzgar Atışı',  val:c.wind_gusts_10m!==null          ? c.wind_gusts_10m.toFixed(1)+' m/s'  : '—',  col:'text-rose-400'},
+    {icon:'💨',lbl:'Rüzgar',         val:c.wind_speed_10m!=null          ? Math.round(c.wind_speed_10m*3.6)+' km/sa'  : '—',  col:'text-amber-400'},
+    {icon:'🌪',lbl:'Rüzgar Atışı',  val:c.wind_gusts_10m!=null          ? Math.round(c.wind_gusts_10m*3.6)+' km/sa'  : '—',  col:'text-rose-400'},
     {icon:'☁️',lbl:'Bulut',          val:c.cloud_cover!==null             ? c.cloud_cover+'%'                    : '—',  col:'text-slate-300'},
     {icon:'👁', lbl:'Görüş',         val:c.visibility!==null              ? (c.visibility/1000).toFixed(1)+' km' : '—',  col:'text-cyan-400'},
     {icon:'🌧',lbl:'Yağış',          val:c.precipitation!==null           ? c.precipitation.toFixed(1)+' mm'     : '—',  col:'text-blue-400'},
@@ -1970,6 +2004,38 @@ async function fetchForecast(lat, lon) {
   const tmax0=d.daily?.temperature_2m_max?.[0], tmin0=d.daily?.temperature_2m_min?.[0];
   todayForecastAvgTemp = (tmax0!=null && tmin0!=null) ? (tmax0+tmin0)/2 : null;
   renderHistoricalCompare();
+}
+
+/* ---------------------------------------------------------------
+   ÖZET: sayıları cümleye döker + 5 günlük görünüm (basit anlatım)
+--------------------------------------------------------------- */
+const HW_DIR8=['kuzeyden','kuzeydoğudan','doğudan','güneydoğudan','güneyden','güneybatıdan','batıdan','kuzeybatıdan'];
+const HW_DAYS_SHORT=['Paz','Pzt','Sal','Çar','Per','Cum','Cmt'];
+function hwWindWord(kmh){ return kmh<20?'hafif':kmh<39?'orta şiddette':kmh<62?'kuvvetli':'fırtına şiddetinde'; }
+function hwRain(mm){ return mm>=20?'şiddetli yağış':mm>=8?'kuvvetli yağış':mm>=2?'orta şiddette yağış':'hafif yağış'; }
+function renderHeroForecast(c, dl){
+  const sum=document.getElementById('hw-summary'), box=document.getElementById('hw-days'); if(!sum||!box) return;
+  if(!dl.time||!dl.time.length){ sum.innerHTML=''; box.innerHTML=''; return; }
+  const n=Math.min(5,dl.time.length), r=v=>v==null?'—':Math.round(v);
+  const txt=i=>(wmo(dl.weather_code[i])[1]||'').toLowerCase();
+  const rain=i=>dl.precipitation_sum?.[i]||0, pp=i=>dl.precipitation_probability_max?.[i];
+  const kmh=c.wind_speed_10m!=null?Math.round(c.wind_speed_10m*3.6):null, gust=c.wind_gusts_10m!=null?Math.round(c.wind_gusts_10m*3.6):null;
+  let l=[];
+  l.push(`<b class="text-white">Bugün:</b> hava ${txt(0)}. Şu an ${r(c.temperature_2m)}°C${c.apparent_temperature!=null?` (hissedilen ${r(c.apparent_temperature)}°C)`:''}; gün içinde ${r(dl.temperature_2m_min[0])} ile ${r(dl.temperature_2m_max[0])}°C arasında değişecek.`);
+  l.push(rain(0)>=0.2?`${hwRain(rain(0))[0].toUpperCase()+hwRain(rain(0)).slice(1)} bekleniyor (yaklaşık ${rain(0).toFixed(1).replace('.',',')} mm${pp(0)!=null?`, olasılık %${pp(0)}`:''}). Dışarı çıkacaksanız şemsiye almanız iyi olur.`:'Bugün yağış beklenmiyor.');
+  if(kmh!=null) l.push(`Rüzgâr ${c.wind_direction_10m!=null?HW_DIR8[Math.round(c.wind_direction_10m/45)%8]+' ':''}esiyor, hızı ${kmh} km/sa (${hwWindWord(kmh)})${gust!=null&&gust>=39?`; hamleler ${gust} km/sa’e kadar çıkabilir`:''}.`);
+  if(n>1) l.push(`<b class="text-white">Yarın:</b> hava ${txt(1)}, ${r(dl.temperature_2m_min[1])} ile ${r(dl.temperature_2m_max[1])}°C arası${rain(1)>=0.2?`, ${hwRain(rain(1))} (yaklaşık ${rain(1).toFixed(1).replace('.',',')} mm)`:', yağış beklenmiyor'}.`);
+  if(n>2){
+    let wi=1; for(let i=2;i<n;i++) if(rain(i)>rain(wi)) wi=i;
+    const dn=AGRI_DAYS[new Date(dl.time[wi]).getDay()], dT=dl.temperature_2m_max[n-1]-dl.temperature_2m_max[0];
+    l.push(`<b class="text-white">Önümüzdeki ${n} gün:</b> ${rain(wi)>=1?`en çok yağış ${dn} günü (yaklaşık ${rain(wi).toFixed(0)} mm) bekleniyor`:'belirgin bir yağış beklenmiyor'}; sıcaklıklar ${dT>3?'yükselecek':dT<-3?'düşecek':'çok değişmeyecek'}.`);
+  }
+  sum.innerHTML=`<div class="rounded-2xl bg-white/5 border border-white/10 p-4 md:p-5 text-slate-200 text-base md:text-lg leading-relaxed space-y-2">${l.map(x=>`<p>${x}</p>`).join('')}</div>`;
+  box.innerHTML=Array.from({length:n},(_,i)=>{
+    const dt=new Date(dl.time[i]), [ic,tx]=wmo(dl.weather_code[i]), nm=i===0?'Bugün':i===1?'Yarın':null, full=AGRI_DAYS[dt.getDay()], p=pp(i);
+    return `<div class="hw-day ${i===0?'hw-day-today':''}"><p class="hw-day-name">${nm||`<span class="sm:hidden">${HW_DAYS_SHORT[dt.getDay()]}</span><span class="hidden sm:inline">${full}</span>`}</p>
+      <p class="hw-day-icon" title="${tx}">${ic}</p><p class="hw-day-max">${r(dl.temperature_2m_max[i])}°</p><p class="hw-day-min">${r(dl.temperature_2m_min[i])}°</p>
+      <p class="hw-day-rain">🌧 ${rain(i)>=0.2?rain(i).toFixed(rain(i)<10?1:0).replace('.',',')+' mm':(p!=null?'%'+p:'—')}</p></div>`; }).join('');
 }
 
 /* ---------------------------------------------------------------
@@ -2427,7 +2493,7 @@ function renderDaily(dl){
         </div>
         <div class="temp-range"><span style="left:${left}%;width:${width}%"></span></div>
         <p class="text-blue-400 text-xs mt-1">🌧 %${pp??'—'}</p>
-        <p class="text-slate-500 text-xs">💨 ${wmax!=null?wmax.toFixed(0)+' m/s':'—'}</p>
+        <p class="text-slate-500 text-xs">💨 ${wmax!=null?Math.round(wmax*3.6)+' km/sa':'—'}</p>
       </div>`;
   }
   grid.innerHTML=html;
@@ -5210,12 +5276,13 @@ NP_PANELS.space={
 const TM_RAIN=[[1,5,'#8ecbff',.6,'1–5'],[5,10,'#3b9cff',.75,'5–10'],[10,20,'#2563eb',.85,'10–20'],[20,40,'#7c3aed',.88,'20–40'],[40,70,'#d946ef',.9,'40–70'],[70,1e9,'#ef4444',.92,'70+']];
 const TM_WIND=[[20,39,'#fff3b0',.95,'20–39','Orta'],[39,62,'#facc15',.85,'39–62','Kuvvetli'],[62,88,'#f97316',.9,'62–88','Fırtına'],[88,1e9,'#ef4444',.92,'88+','Kuvvetli fırtına']];
 const TM={wt:'mean',map:null,geo:null,layers:{},labels:{},data:null,prov:{},cat:'rain',day:0,sel:null,hoverEl:null,loading:false,fitted:false};
-const tmBins=()=>TM.cat==='rain'?TM_RAIN:TM_WIND;
-const tmIsWind=()=>TM.cat!=='rain';
-const tmUnit=()=>TM.cat==='rain'?'mm':'km/sa';
-const tmVal=(pl,d)=>{ const P=TM.prov[pl]; if(!P) return null; const v=(TM.cat==='rain'?P.rain:(TM.wt==='gust'?P.gust:P.wind))[d]; return v==null?null:v; };
+const tmIsRain=()=>TM.cat==='rain'||TM.cat==='rainmap';
+const tmBins=()=>tmIsRain()?TM_RAIN:TM_WIND;
+const tmIsWind=()=>!tmIsRain();
+const tmUnit=()=>tmIsRain()?'mm':'km/sa';
+const tmVal=(pl,d)=>{ const P=TM.prov[pl]; if(!P) return null; const v=(tmIsRain()?P.rain:(TM.wt==='gust'?P.gust:P.wind))[d]; return v==null?null:v; };
 const tmBin=v=>{ if(v==null) return null; return tmBins().find(b=>v>=b[0]&&v<b[1])||null; };
-const tmFmt=v=>v==null?'—':(TM.cat==='rain'?(v<10?v.toFixed(1):Math.round(v)):Math.round(v)).toString().replace('.',',');
+const tmFmt=v=>v==null?'—':(tmIsRain()?(v<10?v.toFixed(1):Math.round(v)):Math.round(v)).toString().replace('.',',');
 function tmDayLabel(i){
   const days=TM.data?.days||[]; if(!days[i]) return '';
   const dt=new Date(days[i]);
@@ -5223,21 +5290,23 @@ function tmDayLabel(i){
 }
 function tmStyle(pl){
   const v=tmVal(pl,TM.day), b=tmBin(v), sel=(pl===TM.sel);
-  if(TM.cat==='windmap') return {fillOpacity:0,fillColor:'#000',color:sel?'#38bdf8':'rgba(255,255,255,.4)',weight:sel?2.6:.8};
+  if(TM.cat==='windmap'||TM.cat==='rainmap') return {fillOpacity:0,fillColor:'#000',color:sel?'#38bdf8':'rgba(255,255,255,.4)',weight:sel?2.6:.8};
   return {fillColor:b?b[2]:'#475569', fillOpacity:b?b[3]:.18, color:sel?'#38bdf8':'rgba(255,255,255,.35)', weight:sel?2.6:.8};
 }
 function tmControls(){
   const c=document.getElementById('tm-cats'), d=document.getElementById('tm-days'); if(!c||!d) return;
-  c.innerHTML=[['rain','🌧️ Toplam Yağış'],['wind','💨 Rüzgâr (10 m) · İl renkli'],['windmap','🧭 Rüzgâr (10 m) · Oklu harita']].map(([k,t])=>`<button class="amap-chip${TM.cat===k?' active':''}" data-tmcat="${k}">${t}</button>`).join('');
-  if(TM.cat!=='rain') c.innerHTML+=`<span class="w-full sm:w-auto sm:ml-4 inline-flex gap-2">`+[['mean','Ortalama hız'],['gust','Hamle (anlık en yüksek)']].map(([k,t])=>`<button class="amap-chip${TM.wt===k?' active':''}" data-tmwt="${k}">${t}</button>`).join('')+`</span>`;
+  c.innerHTML=[['rain','🌧️ Toplam Yağış · İl'],['rainmap','🌧️ Toplam Yağış · Ayrıntılı'],['wind','💨 Rüzgâr (10 m) · İl renkli'],['windmap','🧭 Rüzgâr (10 m) · Oklu harita']].map(([k,t])=>`<button class="amap-chip${TM.cat===k?' active':''}" data-tmcat="${k}">${t}</button>`).join('');
+  if(tmIsWind()) c.innerHTML+=`<span class="w-full sm:w-auto sm:ml-4 inline-flex gap-2">`+[['mean','Ortalama hız'],['gust','Hamle (anlık en yüksek)']].map(([k,t])=>`<button class="amap-chip${TM.wt===k?' active':''}" data-tmwt="${k}">${t}</button>`).join('')+`</span>`;
   d.innerHTML=(TM.data?.days||[]).map((_,i)=>`<button class="amap-chip${TM.day===i?' active':''}" data-tmday="${i}">${tmDayLabel(i)}</button>`).join('');
 }
 function tmLegend(){
   const el=document.getElementById('tm-legend'); if(!el) return;
   const items=tmBins().map(b=>`<span class="inline-flex items-center gap-1.5"><span class="amap-dot" style="background:${b[2]};opacity:${Math.max(b[3],.6)}"></span>${b[4]} ${tmUnit()}${b[5]?` <span class="text-slate-500">· ${b[5]}</span>`:''}</span>`).join('');
-  const head=TM.cat==='rain'?'Günlük Toplam Yağış (mm)':(TM.wt==='gust'?'Günlük En Yüksek Rüzgâr Hamlesi (10 m, km/sa)':'Günlük En Yüksek Rüzgâr Hızı (10 m, km/sa)');
+  const head=TM.cat==='rain'?'Günlük Toplam Yağış (mm)':TM.cat==='rainmap'?'Günlük Toplam Yağış (mm) · Ayrıntılı harita':(TM.wt==='gust'?'Günlük En Yüksek Rüzgâr Hamlesi (10 m, km/sa)':'Günlük En Yüksek Rüzgâr Hızı (10 m, km/sa)');
   const note=TM.cat==='rain'
-    ? 'Her il için seçili günün (00:00–24:00, yerel saat) toplam yağışı. 1 mm altı renklendirilmez.'
+    ? 'Her il için, il merkezi noktasındaki seçili günün (00:00–24:00, yerel saat) toplam yağış tahmini. 1 mm altı renklendirilmez.'
+    : TM.cat==='rainmap'
+    ? 'Türkiye üzerinde yaklaşık 25 km aralıklı noktalardan çizilir; büyük illerde il içindeki farkı gösterir. Haritaya tıklayarak o noktanın seçili gün için toplam yağış tahminini görebilirsiniz. Tahmin modelinin kendi çözünürlüğü yaklaşık 10 km olduğundan çok dar yerel sağanaklar haritada olduğundan zayıf görünebilir. 1 mm altı renklendirilmez.'
     : (TM.cat==='windmap'?'Oklar rüzgârın estiği yönü (günlük baskın yön) gösterir; renkli alan, yaklaşık 50 km’lik nokta ızgarasından yumuşatılarak çizilir. ':'')+`Hız yerden 10 m yükseklikte, km/sa cinsindendir; ${TM.wt==='gust'?'her il için seçili günün en yüksek anlık rüzgâr hamlesi':'her il için seçili günün en yüksek saatlik ortalama hızı'} gösterilir. Renk eşikleri Uyarılar haritasındaki Beaufort skalasıyla aynıdır (39, 62, 88 km/sa). 20 km/sa altı önemsiz sayılır ve renklendirilmez. Uyarılar haritası hamleye göre çalıştığı için Hamle seçeneği onunla aynı sonucu verir.`;
   el.innerHTML=`<span class="w-full text-white font-display text-xl font-700 mb-1">${head}</span>`+items+`<span class="w-full text-slate-500">${note}</span>`;
 }
@@ -5309,6 +5378,56 @@ async function tmEnsureGrid(){
   }finally{ TM.gridLoading=false; }
   tmDraw();
 }
+async function tmEnsureRain(){
+  if(TM.rg||TM.rgLoading) return;
+  TM.rgLoading=true;
+  const el=document.getElementById('tm-loading'); el.style.display='flex';
+  el.innerHTML='<div class="text-center px-6"><div class="spinner mx-auto mb-3"></div><p class="text-slate-400 text-sm">Ayrıntılı yağış haritası hazırlanıyor…<br><span class="text-slate-500 text-xs">İlk açılışta bir dakikaya kadar sürebilir.</span></p></div>';
+  try{
+    const G=await gFetch(`${BACKEND}/maps/rain`);
+    if(!G||!G.rain||!G.rain.length) throw new Error('boş veri');
+    const N=G.ny*G.nx, days=G.rain[0].length; G.R=[];
+    for(let d=0;d<days;d++){ const a=new Float32Array(N).fill(NaN); G.idx.forEach((k,i)=>{ const v=G.rain[i][d]; if(v!=null) a[k]=v; }); G.R.push(a); }
+    TM.rg=G; el.style.display='none';
+  }catch(err){
+    console.error(err);
+    el.innerHTML='<div class="text-center px-6"><p class="text-slate-300 text-sm mb-3">Ayrıntılı yağış verisi alınamadı.</p><button id="tm-rain-retry" class="btn-primary text-white text-sm px-5 py-2">Tekrar dene</button></div>';
+    document.getElementById('tm-rain-retry').onclick=()=>{ TM.rgLoading=false; tmEnsureRain(); };
+    return;
+  }finally{ TM.rgLoading=false; }
+  tmDraw();
+}
+/* Eksik (maskeli) hücreleri atlayarak çift doğrusal örnekleme; Türkiye dışı NaN döner */
+function tmRainAt(lat,lon,d){
+  const G=TM.rg, f=G.R[d]; if(!f) return NaN;
+  const gi=(lon-G.lon0)/G.step, gj=(lat-G.lat0)/G.step;
+  if(gi<0||gj<0||gi>=G.nx-1||gj>=G.ny-1) return NaN;
+  const i0=Math.floor(gi), j0=Math.floor(gj), fx=gi-i0, fy=gj-j0;
+  const c=[[f[j0*G.nx+i0],(1-fx)*(1-fy)],[f[j0*G.nx+i0+1],fx*(1-fy)],[f[(j0+1)*G.nx+i0],(1-fx)*fy],[f[(j0+1)*G.nx+i0+1],fx*fy]];
+  let sw=0,sv=0; c.forEach(([v,w])=>{ if(!isNaN(v)){ sw+=w; sv+=v*w; } });
+  return sw>0?sv/sw:NaN;
+}
+function tmDrawRain(ctx,sz){
+  if(!TM.rg){ tmEnsureRain(); return; }
+  const map=TM.map, d=TM.day, S=3, w=Math.ceil(sz.x/S), h=Math.ceil(sz.y/S);
+  const off=document.createElement('canvas'); off.width=w; off.height=h;
+  const oc=off.getContext('2d'), img=oc.createImageData(w,h), px=img.data;
+  const ll0=map.containerPointToLatLng([0,0]), ll1=map.containerPointToLatLng([sz.x,0]);
+  for(let y=0;y<h;y++){ const lat=map.containerPointToLatLng([0,y*S]).lat;
+    for(let x=0;x<w;x++){ const lon=ll0.lng+(ll1.lng-ll0.lng)*(x*S)/sz.x; const v=tmRainAt(lat,lon,d); if(isNaN(v)) continue;
+      const b=tmBin(v); if(!b) continue; const k=(y*w+x)*4, hx=b[2];
+      px[k]=parseInt(hx.slice(1,3),16); px[k+1]=parseInt(hx.slice(3,5),16); px[k+2]=parseInt(hx.slice(5,7),16); px[k+3]=Math.round(255*b[3]*.9); } }
+  oc.putImageData(img,0,0);
+  ctx.save();
+  if(TM.geoJson){   /* yalnızca Türkiye sınırları içini boya */
+    ctx.beginPath();
+    TM.geoJson.features.forEach(f=>{ const g=f.geometry, polys=g.type==='MultiPolygon'?g.coordinates:[g.coordinates];
+      polys.forEach(poly=>poly.forEach(ring=>{ ring.forEach((pt,i)=>{ const q=map.latLngToContainerPoint([pt[1],pt[0]]); i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y); }); ctx.closePath(); })); });
+    ctx.clip('evenodd');
+  }
+  ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high'; ctx.drawImage(off,0,0,w,h,0,0,w*S,h*S);
+  ctx.restore();
+}
 function tmSample(f,gi,gj){
   const G=TM.grid, nx=G.nx, i0=Math.floor(gi), j0=Math.floor(gj);
   let fx=gi-i0, fy=gj-j0; fx=(1-Math.cos(fx*Math.PI))/2; fy=(1-Math.cos(fy*Math.PI))/2;
@@ -5323,11 +5442,12 @@ function tmBase(on){
 }
 function tmDraw(){
   const map=TM.map, cv=TM.canvas; if(!map||!cv) return;
-  const wm=(TM.cat==='windmap');
-  tmBase(wm);
+  const wm=(TM.cat==='windmap'), rm=(TM.cat==='rainmap');
+  tmBase(wm||rm);
   const sz=map.getSize(); cv.width=sz.x; cv.height=sz.y;
   L.DomUtil.setPosition(cv,map.containerPointToLayerPoint([0,0]));
   const ctx=cv.getContext('2d'); ctx.clearRect(0,0,sz.x,sz.y);
+  if(rm&&TM.data){ tmDrawRain(ctx,sz); return; }
   if(!wm||!TM.data) return;
   if(!TM.grid){ tmEnsureGrid(); return; }
   const G=TM.grid, N=G.ny*G.nx, d=TM.day;
@@ -5373,11 +5493,13 @@ function tmHover(pl){
 function tmBuildLayers(geo){
   if(TM.geo) TM.map.removeLayer(TM.geo);
   TM.layers={};
+  TM.geoJson=geo;
   TM.geo=L.geoJSON(geo,{style:f=>tmStyle(String(f.properties.n)),onEachFeature:(f,layer)=>{
     const pl=String(f.properties.n); TM.layers[pl]=layer;
     layer.on('mouseover',()=>{ layer.setStyle({weight:2,color:'#fff'}); tmHover(pl); });
     layer.on('mouseout',()=>{ layer.setStyle(tmStyle(pl)); if(TM.hoverEl) TM.hoverEl.style.display='none'; });
-    layer.on('click',e=>{ L.DomEvent.stopPropagation(e); tmSelect(pl); });
+    layer.on('click',e=>{ L.DomEvent.stopPropagation(e); tmSelect(pl);
+      if(TM.cat==='rainmap'&&TM.rg){ const v=tmRainAt(e.latlng.lat,e.latlng.lng,TM.day); L.popup({closeButton:false}).setLatLng(e.latlng).setContent(`<div style="font-size:12px;color:#0f172a"><b>${TM.prov[pl]?.name||''}</b><br>${isNaN(v)?'—':tmFmt(v)+' mm'} <span style="color:#64748b">(${tmDayLabel(TM.day)})</span></div>`).openOn(TM.map); } });
   }}).addTo(TM.map);
   Object.values(TM.labels).forEach(m=>TM.map.removeLayer(m)); TM.labels={};
   geo.features.forEach(f=>{ TM.labels[String(f.properties.n)]=L.marker([f.properties.lat,f.properties.lon],{interactive:false,keyboard:false,
