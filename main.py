@@ -10,7 +10,7 @@ import httpx
 from cachetools import TTLCache
 from fastapi import FastAPI, File, Header, HTTPException, Query, UploadFile
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -341,7 +341,7 @@ _provinces_cache: list[dict] | None = None
 ALERT_DAILY_VARS = (
     "weather_code,temperature_2m_max,temperature_2m_min,"
     "apparent_temperature_max,apparent_temperature_min,precipitation_sum,"
-    "wind_speed_10m_max,wind_gusts_10m_max,uv_index_max,wind_direction_10m_dominant"
+    "wind_speed_10m_max,wind_gusts_10m_max,uv_index_max,wind_direction_10m_dominant,snowfall_sum"
 )
 
 
@@ -562,7 +562,7 @@ async def maps_grid():
 RAIN_TTL_SECONDS = 6 * 3600
 RAIN_DISK = os.path.join(os.path.dirname(os.path.abspath(DB_PATH)), "rain_ilce_last.json")
 ILCE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "tr-ilceler.json")
-_rain = {"data": None, "ts": 0.0, "task": None}
+_rain = {"data": None, "ts": 0.0, "task": None, "done": 0, "total": 0, "fails": 0, "error": None}
 
 
 def _rain_load_disk():
@@ -574,23 +574,26 @@ def _rain_load_disk():
 
 
 async def _rain_refresh():
+    """973 noktayı Open-Meteo'nun ücretsiz dakikalık kotasını (600 nokta/dk) aşmayacak hızda çeker (~2 dk)."""
     with open(ILCE_FILE, encoding="utf-8") as f:
         feats = json.load(f)["features"]
     pts = [(ft["properties"]["lat"], ft["properties"]["lon"]) for ft in feats]
     api_key = os.environ.get("OPEN_METEO_API_KEY")
     url = "https://customer-api.open-meteo.com/v1/forecast" if api_key else OPEN_METEO_URL
+    pause = 0.5 if api_key else 5.5
     base = {"daily": "precipitation_sum", "forecast_days": 7, "timezone": "Europe/Istanbul"}
     if api_key:
         base["apikey"] = api_key
     rain, days = [], []
+    _rain["done"], _rain["total"] = 0, len(pts)
     for i in range(0, len(pts), 50):
         chunk = pts[i:i + 50]
         params = dict(base, latitude=",".join(str(p[0]) for p in chunk), longitude=",".join(str(p[1]) for p in chunk))
         part = None
-        for attempt in range(5):
+        for attempt in range(6):
             r = await app.state.http.get(url, params=params, timeout=40)
-            if r.status_code in (429, 500, 502, 503, 504) and attempt < 4:
-                await asyncio.sleep(5 * (attempt + 1))
+            if r.status_code in (429, 500, 502, 503, 504) and attempt < 5:
+                await asyncio.sleep(25 if r.status_code == 429 else 5 * (attempt + 1))
                 continue
             r.raise_for_status()
             part = r.json()
@@ -604,9 +607,10 @@ async def _rain_refresh():
             if not days and dl.get("time"):
                 days = dl["time"]
             rain.append([None if v is None else round(v, 1) for v in dl.get("precipitation_sum", [])])
-        await asyncio.sleep(1.2)
+        _rain["done"] = len(rain)
+        await asyncio.sleep(pause)
     res = {"generated_at": datetime.now(timezone.utc).isoformat(), "days": days, "n": len(rain), "rain": rain, "stale": False}
-    _rain["data"], _rain["ts"] = res, datetime.now(timezone.utc).timestamp()
+    _rain["data"], _rain["ts"], _rain["fails"], _rain["error"] = res, datetime.now(timezone.utc).timestamp(), 0, None
     try:
         with open(RAIN_DISK, "w", encoding="utf-8") as f:
             json.dump(res, f)
@@ -618,15 +622,17 @@ async def _rain_refresh():
 async def _rain_bg():
     try:
         await _rain_refresh()
-    except Exception:       # arka plan yenilemesi başarısızsa eski veri kalır
-        pass
+    except Exception as e:       # başarısızsa eski veri (varsa) kalır; hata sayacı arayüze bildirilir
+        _rain["fails"] += 1
+        _rain["error"] = f"{type(e).__name__}: {e}"[:300]
     finally:
         _rain["task"] = None
 
 
 @app.get("/maps/rain")
 async def maps_rain():
-    """İlçe bazlı günlük yağış (7 gün); sırası static/tr-ilceler.json özellik sırasıyla aynıdır."""
+    """İlçe bazlı günlük yağış (7 gün); sırası static/tr-ilceler.json özellik sırasıyla aynıdır.
+    Veri yokken hemen 202 {status:'pending', done, total} döner ve çekim arka planda sürer (arayüz yoklar)."""
     now = datetime.now(timezone.utc).timestamp()
     if _rain["data"] is None:
         _rain["data"] = _rain_load_disk()
@@ -634,14 +640,12 @@ async def maps_rain():
             _rain["ts"] = 0.0          # diskten gelen veri bayat sayılır, yenilenir
     if _rain["data"] and now - _rain["ts"] < RAIN_TTL_SECONDS:
         return _rain["data"]
-    if _rain["data"]:                  # bayat veriyi hemen ver, yenisini arka planda çek
-        if _rain["task"] is None:
-            _rain["task"] = asyncio.create_task(_rain_bg())
+    if _rain["task"] is None:
+        _rain["task"] = asyncio.create_task(_rain_bg())
+    if _rain["data"]:                  # bayat veriyi hemen ver, yenisi arka planda çekilir
         return {**_rain["data"], "stale": True}
-    try:                               # hiç veri yok: ilk çekimi bekle
-        return await _rain_refresh()
-    except (httpx.HTTPError, ValueError, OSError) as e:
-        raise HTTPException(status_code=502, detail=f"Open-Meteo erişilemedi: {e}")
+    return JSONResponse(status_code=202, content={"status": "pending", "done": _rain["done"], "total": _rain["total"],
+                                                  "fails": _rain["fails"], "error": _rain["error"]})
 
 
 @app.get("/place")
