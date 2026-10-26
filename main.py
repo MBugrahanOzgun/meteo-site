@@ -339,7 +339,7 @@ PROVINCES_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "stati
 _provinces_cache: list[dict] | None = None
 
 
-# Çoklu model: sıcaklık/rüzgâr iki modelin ortalaması, yağış/kar/hava durumu/yön ECMWF (yoksa ICON)
+# Tüm değişkenler ECMWF; ECMWF'de değer yoksa (ör. bazı UV/görüş/hamle günleri) ICON ile doldurulur. Ortalama için mode='mean'
 FORECAST_MODELS = ["ecmwf_ifs025", "icon_seamless"]
 MODELS_PARAM = ",".join(FORECAST_MODELS)
 FIRST_VARS = {"precipitation_sum", "snowfall_sum", "weather_code", "wind_direction_10m_dominant", "uv_index_max"}
@@ -355,7 +355,7 @@ def _series_for(block: dict, var: str) -> list[list]:
 
 def om_series(block: dict, var: str, mode: str | None = None) -> list:
     """Open-Meteo çoklu-model yanıtından tek seri üretir. mode: 'first' (ECMWF öncelikli) ya da 'mean'."""
-    mode = mode or ("first" if var in FIRST_VARS else "mean")
+    mode = mode or "first"
     arrs = _series_for(block, var)
     if not arrs:
         return []

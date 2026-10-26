@@ -1508,10 +1508,10 @@ const WMO = {
 };
 function wmo(code){ return WMO[code] || ['🌡','—']; }
 const OM_FORECAST = 'https://api.open-meteo.com/v1/forecast';
-/* Çoklu model: sıcaklık/rüzgâr ECMWF+ICON ortalaması; yağış, kar, hava kodu, yön ECMWF öncelikli (sunucudaki om_series ile aynı kural) */
+/* Tüm değişkenler ECMWF; ECMWF'de değer yoksa ICON ile doldurulur (sunucudaki om_series ile aynı kural) */
 const FC_MODELS=['ecmwf_ifs025','icon_seamless'], FC_MODELS_PARAM=FC_MODELS.join(','), FC_FIRST=new Set(['precipitation_sum','snowfall_sum','weather_code','wind_direction_10m_dominant','uv_index_max']);
 function omSeries(block,key,mode){
-  mode=mode||(FC_FIRST.has(key)?'first':'mean'); block=block||{};
+  mode=mode||'first'; block=block||{};
   let arrs=FC_MODELS.map(m=>block[key+'_'+m]).filter(a=>a&&a.length);
   if(!arrs.length&&block[key]&&block[key].length) arrs=[block[key]];
   if(!arrs.length) return [];
