@@ -3649,6 +3649,13 @@ function amapBuildLayers(geo){
 }
 
 /* Yedek yol: 81 ili tarayıcıdan, 27'şerlik 3 istekle çeker (sunucu çıktısıyla aynı biçim) */
+/* Sunucu veri çekemeyip eski (bayat) veri verirse ya da hata verirse tarayıcıdan doğrudan taze veri dener; o da olmazsa bayat veriyi korur */
+async function amapGetData(geo){
+  let d=null; try{ d=await gFetch(`${BACKEND}/alerts/turkey`); }catch(e){}
+  if(d&&!d.stale&&(d.days||[]).length) return d;
+  try{ const f=await amapFetchDirect(geo); if(f&&(f.provinces||[]).length) return f; }catch(e){ console.error(e); }
+  if(d) return d; throw new Error('uyarı verisi alınamadı');
+}
 async function amapFetchDirect(geo){
   const provs=geo.features.map(f=>({n:f.properties.n,name:f.properties.name,lat:f.properties.lat,lon:f.properties.lon}));
   const DV=['weather_code','temperature_2m_max','temperature_2m_min','apparent_temperature_max','apparent_temperature_min','precipitation_sum','wind_speed_10m_max','wind_gusts_10m_max','uv_index_max','wind_direction_10m_dominant','snowfall_sum'];
@@ -3686,7 +3693,7 @@ async function amapEnsureLoaded(){
   try{
     const geo=await gFetch(`${BACKEND}/static/tr-iller.json`);
     /* Önce sunucudan (önbellekli); sunucunun Open-Meteo kotası dolmuşsa (429) ziyaretçinin kendi bağlantısından 3 parça halinde çek */
-    const data=await gFetch(`${BACKEND}/alerts/turkey`).catch(()=>amapFetchDirect(geo));
+    const data=await amapGetData(geo);
     const nDays=(data.days||[]).length;
     amapProv={};
     (data.provinces||[]).forEach(it=>{
@@ -5386,7 +5393,9 @@ async function tmEnsureGrid(){
   const el=document.getElementById('tm-loading'); el.style.display='flex';
   el.innerHTML='<div class="text-center"><div class="spinner mx-auto mb-3"></div><p class="text-slate-400 text-sm">Rüzgâr haritası yükleniyor…</p></div>';
   try{
-    let G; try{ G=await gFetch(`${BACKEND}/maps/grid`); }catch(e){ G=await tmFetchGridDirect(); }
+    let G=null; try{ G=await gFetch(`${BACKEND}/maps/grid`); }catch(e){}
+    if(!G||G.stale){ try{ const F=await tmFetchGridDirect(); if(F&&F.wind&&F.wind.length) G=F; }catch(e){ console.error(e); } }
+    if(!G) throw new Error('ızgara verisi yok');
     if(!G||!G.wind||!G.wind.length) throw new Error('boş veri');
     TM.grid=G; el.style.display='none';
   }catch(err){
@@ -5512,7 +5521,7 @@ async function tmLoad(){
   loadEl.innerHTML='<div class="text-center"><div class="spinner mx-auto mb-3"></div><p class="text-slate-400 text-sm">81 il için tahmin yükleniyor…</p></div>';
   try{
     const geo=await gFetch(`${BACKEND}/static/tr-iller.json`);
-    const data=(typeof amapData!=='undefined'&&amapData)?amapData:await gFetch(`${BACKEND}/alerts/turkey`).catch(()=>amapFetchDirect(geo));
+    const data=(typeof amapData!=='undefined'&&amapData)?amapData:await amapGetData(geo);
     TM.prov={};
     (data.provinces||[]).forEach(it=>{
       const ms=a=>(a||[]).map(v=>v==null?null:v*3.6);
