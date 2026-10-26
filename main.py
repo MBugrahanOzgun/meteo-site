@@ -338,6 +338,39 @@ alerts_cache = TTLCache(maxsize=2, ttl=ALERTS_TTL_SECONDS)
 PROVINCES_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "tr-iller.json")
 _provinces_cache: list[dict] | None = None
 
+
+# Çoklu model: sıcaklık/rüzgâr iki modelin ortalaması, yağış/kar/hava durumu/yön ECMWF (yoksa ICON)
+FORECAST_MODELS = ["ecmwf_ifs025", "icon_seamless"]
+MODELS_PARAM = ",".join(FORECAST_MODELS)
+FIRST_VARS = {"precipitation_sum", "snowfall_sum", "weather_code", "wind_direction_10m_dominant", "uv_index_max"}
+
+
+def _series_for(block: dict, var: str) -> list[list]:
+    arrs = [block.get(f"{var}_{mname}") for mname in FORECAST_MODELS]
+    arrs = [a for a in arrs if a]
+    if not arrs and block.get(var):
+        arrs = [block[var]]
+    return arrs
+
+
+def om_series(block: dict, var: str, mode: str | None = None) -> list:
+    """Open-Meteo çoklu-model yanıtından tek seri üretir. mode: 'first' (ECMWF öncelikli) ya da 'mean'."""
+    mode = mode or ("first" if var in FIRST_VARS else "mean")
+    arrs = _series_for(block, var)
+    if not arrs:
+        return []
+    n = max(len(a) for a in arrs)
+    out = []
+    for i in range(n):
+        vals = [a[i] for a in arrs if i < len(a) and a[i] is not None]
+        if not vals:
+            out.append(None)
+        elif mode == "first":
+            out.append(vals[0])
+        else:
+            out.append(round(sum(vals) / len(vals), 2))
+    return out
+
 ALERT_DAILY_VARS = (
     "weather_code,temperature_2m_max,temperature_2m_min,"
     "apparent_temperature_max,apparent_temperature_min,precipitation_sum,"
@@ -407,6 +440,7 @@ async def alerts_turkey():
             "forecast_days": 7,
             "daily": ALERT_DAILY_VARS,
             "hourly": "relative_humidity_2m,visibility",
+            "models": MODELS_PARAM,
         }
         api_key = os.environ.get("OPEN_METEO_API_KEY")
         url = "https://customer-api.open-meteo.com/v1/forecast" if api_key else OPEN_METEO_URL
@@ -447,9 +481,9 @@ async def alerts_turkey():
             days = daily.get("time", [])
             item = {"n": prov["n"], "name": prov["name"], "lat": prov["lat"], "lon": prov["lon"]}
             for k in ALERT_DAILY_VARS.split(","):
-                item[k] = daily.get(k, [])
-            item["hum_min"] = daily_min_from_hourly(hourly.get("time"), hourly.get("relative_humidity_2m"), days)
-            item["vis_min"] = daily_min_from_hourly(hourly.get("time"), hourly.get("visibility"), days)
+                item[k] = om_series(daily, k)
+            item["hum_min"] = daily_min_from_hourly(hourly.get("time"), om_series(hourly, "relative_humidity_2m", "first"), days)
+            item["vis_min"] = daily_min_from_hourly(hourly.get("time"), om_series(hourly, "visibility", "first"), days)
             out.append(item)
 
         result = {
@@ -496,6 +530,7 @@ async def maps_grid():
             "wind_speed_unit": "kmh",
             "forecast_days": 7,
             "timezone": "Europe/Istanbul",
+            "models": MODELS_PARAM,
         }
         if api_key:
             base["apikey"] = api_key
@@ -524,9 +559,9 @@ async def maps_grid():
                     dl = d.get("daily", {}) or {}
                     if not days and dl.get("time"):
                         days = dl["time"]
-                    wind.append([None if v is None else round(v) for v in dl.get("wind_speed_10m_max", [])])
-                    gust.append([None if v is None else round(v) for v in dl.get("wind_gusts_10m_max", [])])
-                    wdir.append([None if v is None else round(v) for v in dl.get("wind_direction_10m_dominant", [])])
+                    wind.append([None if v is None else round(v) for v in om_series(dl, "wind_speed_10m_max")])
+                    gust.append([None if v is None else round(v) for v in om_series(dl, "wind_gusts_10m_max")])
+                    wdir.append([None if v is None else round(v) for v in om_series(dl, "wind_direction_10m_dominant")])
                 await asyncio.sleep(1.2)      # ücretsiz kota için nazik ol
         except (httpx.HTTPError, ValueError) as e:
             last = _maps_last

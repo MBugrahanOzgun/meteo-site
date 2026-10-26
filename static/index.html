@@ -1508,6 +1508,19 @@ const WMO = {
 };
 function wmo(code){ return WMO[code] || ['🌡','—']; }
 const OM_FORECAST = 'https://api.open-meteo.com/v1/forecast';
+/* Çoklu model: sıcaklık/rüzgâr ECMWF+ICON ortalaması; yağış, kar, hava kodu, yön ECMWF öncelikli (sunucudaki om_series ile aynı kural) */
+const FC_MODELS=['ecmwf_ifs025','icon_seamless'], FC_MODELS_PARAM=FC_MODELS.join(','), FC_FIRST=new Set(['precipitation_sum','snowfall_sum','weather_code','wind_direction_10m_dominant','uv_index_max']);
+function omSeries(block,key,mode){
+  mode=mode||(FC_FIRST.has(key)?'first':'mean'); block=block||{};
+  let arrs=FC_MODELS.map(m=>block[key+'_'+m]).filter(a=>a&&a.length);
+  if(!arrs.length&&block[key]&&block[key].length) arrs=[block[key]];
+  if(!arrs.length) return [];
+  const n=Math.max(...arrs.map(a=>a.length)), out=[];
+  for(let i=0;i<n;i++){ const v=arrs.map(a=>a[i]).filter(x=>x!=null);
+    out.push(!v.length?null:(mode==='first'?v[0]:+(v.reduce((a,b)=>a+b,0)/v.length).toFixed(2))); }
+  return out;
+}
+
 const OM_AIR      = 'https://air-quality-api.open-meteo.com/v1/air-quality';
 const OM_MARINE   = 'https://marine-api.open-meteo.com/v1/marine';
 const OM_ARCHIVE  = 'https://archive-api.open-meteo.com/v1/archive';
@@ -3642,7 +3655,7 @@ async function amapFetchDirect(geo){
   const out=[]; let days=[];
   for(let i=0;i<provs.length;i+=27){
     const ch=provs.slice(i,i+27);
-    const p=new URLSearchParams({latitude:ch.map(x=>x.lat).join(','),longitude:ch.map(x=>x.lon).join(','),timezone:'auto',wind_speed_unit:'ms',forecast_days:7,daily:DV.join(','),hourly:'relative_humidity_2m,visibility'});
+    const p=new URLSearchParams({latitude:ch.map(x=>x.lat).join(','),longitude:ch.map(x=>x.lon).join(','),timezone:'auto',wind_speed_unit:'ms',forecast_days:7,daily:DV.join(','),hourly:'relative_humidity_2m,visibility',models:FC_MODELS_PARAM});
     let part=null;
     for(let a=0;a<3&&!part;a++){
       const r=await fetch(`${OM_FORECAST}?${p}`);
@@ -3656,8 +3669,8 @@ async function amapFetchDirect(geo){
       if(!days.length) days=dd;
       const mins=(arr)=>dd.map(day=>{ let m=null; (h.time||[]).forEach((t,j)=>{ if(t.slice(0,10)===day && arr&&arr[j]!=null && (m==null||arr[j]<m)) m=arr[j]; }); return m; });
       const it={n:pr.n,name:pr.name,lat:pr.lat,lon:pr.lon};
-      DV.forEach(v=>{ it[v]=dl[v]||[]; });
-      it.hum_min=mins(h.relative_humidity_2m); it.vis_min=mins(h.visibility);
+      DV.forEach(v=>{ it[v]=omSeries(dl,v); });
+      it.hum_min=mins(omSeries(h,'relative_humidity_2m','first')); it.vis_min=mins(omSeries(h,'visibility','first'));
       out.push(it);
     });
   }
@@ -5352,7 +5365,7 @@ async function tmFetchGridDirect(){
   const out={wind:[],gust:[],dir:[]}; let days=[];
   for(let k=0;k<pts.length;k+=50){
     const ch=pts.slice(k,k+50);
-    const q=new URLSearchParams({latitude:ch.map(x=>x[0]).join(','),longitude:ch.map(x=>x[1]).join(','),daily:'wind_speed_10m_max,wind_gusts_10m_max,wind_direction_10m_dominant',wind_speed_unit:'kmh',forecast_days:7,timezone:'Europe/Istanbul'});
+    const q=new URLSearchParams({latitude:ch.map(x=>x[0]).join(','),longitude:ch.map(x=>x[1]).join(','),daily:'wind_speed_10m_max,wind_gusts_10m_max,wind_direction_10m_dominant',wind_speed_unit:'kmh',forecast_days:7,timezone:'Europe/Istanbul',models:FC_MODELS_PARAM});
     let part=null;
     for(let a=0;a<4&&!part;a++){
       const r=await fetch(`${OM_FORECAST}?${q}`);
@@ -5362,7 +5375,7 @@ async function tmFetchGridDirect(){
     }
     if(!Array.isArray(part)) part=[part];
     part.forEach(d=>{ const dl=d.daily||{}; if(!days.length&&dl.time) days=dl.time;
-      out.wind.push(dl.wind_speed_10m_max||[]); out.gust.push(dl.wind_gusts_10m_max||[]); out.dir.push(dl.wind_direction_10m_dominant||[]); });
+      out.wind.push(omSeries(dl,'wind_speed_10m_max')); out.gust.push(omSeries(dl,'wind_gusts_10m_max')); out.dir.push(omSeries(dl,'wind_direction_10m_dominant')); });
     await new Promise(res=>setTimeout(res,1000));
   }
   return Object.assign({generated_at:new Date().toISOString(),days,lat0,lon0,step,ny,nx,stale:false},out);
@@ -5392,7 +5405,7 @@ async function tmIlceFetch(pl){
   try{
     if(!TM.ilceIdx) TM.ilceIdx=await gFetch(`${BACKEND}/static/tr-ilce-liste.json`);
     const pts=TM.ilceIdx[il]||[];
-    const q=new URLSearchParams({latitude:pts.map(x=>x[1]).join(','),longitude:pts.map(x=>x[2]).join(','),daily:'precipitation_sum,snowfall_sum',forecast_days:7,timezone:'Europe/Istanbul'});
+    const q=new URLSearchParams({latitude:pts.map(x=>x[1]).join(','),longitude:pts.map(x=>x[2]).join(','),daily:'precipitation_sum,snowfall_sum',forecast_days:7,timezone:'Europe/Istanbul',models:FC_MODELS_PARAM});
     let part=null;
     for(let a=0;a<5&&!part;a++){
       const r=await fetch('https://api.open-meteo.com/v1/forecast?'+q);
@@ -5400,7 +5413,7 @@ async function tmIlceFetch(pl){
     }
     if(!part) throw new Error('veri yok');
     if(!Array.isArray(part)) part=[part];
-    TM.ilc[il]=pts.map((x,i)=>({name:x[0],rain:(part[i]?.daily?.precipitation_sum)||[],snow:(part[i]?.daily?.snowfall_sum)||[]}));
+    TM.ilc[il]=pts.map((x,i)=>({name:x[0],rain:omSeries(part[i]?.daily,'precipitation_sum'),snow:omSeries(part[i]?.daily,'snowfall_sum')}));
     TM.ilcState[il]='ok';
   }catch(e){ console.error(e); TM.ilcState[il]='err'; }
   if(tmIlcMode()&&TM.sel&&TM.prov[TM.sel]?.name===il) tmList();
