@@ -556,30 +556,27 @@ async def maps_grid():
 
 
 # ---------------------------------------------------------------------------
-# Ayrıntılı yağış haritası: Türkiye üzerinde 0,25° (~25 km) nokta ızgarası, günlük toplam yağış, 7 gün.
-# Bir ilçe boyutuna yakın çözünürlük verir; ilçe sınırları eklenirse her ilçe bu ızgaradan örneklenir.
-# Veri çok nokta içerdiği için 6 saat önbelleklenir; süresi dolunca eski veri hemen verilir, yenisi arka planda çekilir.
+# İlçe bazlı yağış haritası: 973 ilçenin merkez noktası için günlük toplam yağış (7 gün).
+# Çok nokta içerdiği için 6 saat önbelleklenir; süresi dolunca eski veri hemen verilir, yenisi arka planda çekilir.
 # ---------------------------------------------------------------------------
 RAIN_TTL_SECONDS = 6 * 3600
-RAIN_DISK = os.path.join(os.path.dirname(os.path.abspath(DB_PATH)), "rain_grid_last.json")
-GRID_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "tr-grid.json")
+RAIN_DISK = os.path.join(os.path.dirname(os.path.abspath(DB_PATH)), "rain_ilce_last.json")
+ILCE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "tr-ilceler.json")
 _rain = {"data": None, "ts": 0.0, "task": None}
 
 
 def _rain_load_disk():
     try:
         with open(RAIN_DISK, encoding="utf-8") as f:
-            d = json.load(f)
-        return d
+            return json.load(f)
     except (OSError, ValueError):
         return None
 
 
 async def _rain_refresh():
-    with open(GRID_FILE, encoding="utf-8") as f:
-        g = json.load(f)
-    nx, idx = g["nx"], g["idx"]
-    pts = [(round(g["lat0"] + (k // nx) * g["step"], 4), round(g["lon0"] + (k % nx) * g["step"], 4)) for k in idx]
+    with open(ILCE_FILE, encoding="utf-8") as f:
+        feats = json.load(f)["features"]
+    pts = [(ft["properties"]["lat"], ft["properties"]["lon"]) for ft in feats]
     api_key = os.environ.get("OPEN_METEO_API_KEY")
     url = "https://customer-api.open-meteo.com/v1/forecast" if api_key else OPEN_METEO_URL
     base = {"daily": "precipitation_sum", "forecast_days": 7, "timezone": "Europe/Istanbul"}
@@ -608,8 +605,7 @@ async def _rain_refresh():
                 days = dl["time"]
             rain.append([None if v is None else round(v, 1) for v in dl.get("precipitation_sum", [])])
         await asyncio.sleep(1.2)
-    res = {"generated_at": datetime.now(timezone.utc).isoformat(), "days": days, "lat0": g["lat0"], "lon0": g["lon0"],
-           "step": g["step"], "ny": g["ny"], "nx": nx, "idx": idx, "rain": rain, "stale": False}
+    res = {"generated_at": datetime.now(timezone.utc).isoformat(), "days": days, "n": len(rain), "rain": rain, "stale": False}
     _rain["data"], _rain["ts"] = res, datetime.now(timezone.utc).timestamp()
     try:
         with open(RAIN_DISK, "w", encoding="utf-8") as f:
@@ -630,7 +626,7 @@ async def _rain_bg():
 
 @app.get("/maps/rain")
 async def maps_rain():
-    """Ayrıntılı günlük yağış ızgarası (7 gün)."""
+    """İlçe bazlı günlük yağış (7 gün); sırası static/tr-ilceler.json özellik sırasıyla aynıdır."""
     now = datetime.now(timezone.utc).timestamp()
     if _rain["data"] is None:
         _rain["data"] = _rain_load_disk()
