@@ -5316,7 +5316,7 @@ const tmBins=()=>tmIsRain()?TM_RAIN:tmIsSnow()?TM_SNOW:TM_WIND;
 const tmIsWind=()=>!tmIsRain()&&!tmIsSnow();
 const tmUnit=()=>tmIsRain()?'mm':tmIsSnow()?'cm':'km/sa';
 const tmVal=(pl,d)=>{ const P=TM.prov[pl]; if(!P) return null;
-  if(tmIlcMode()&&TM.ilc[P.name]){ let m=null; for(const x of TM.ilc[P.name]){ const v=(tmIsSnow()?x.snow:x.rain)[d]; if(v!=null&&(m==null||v>m)) m=v; } if(m!=null) return m; } const v=(tmIsRain()?P.rain:tmIsSnow()?P.snow:(TM.wt==='gust'?P.gust:P.wind))[d]; return v==null?null:v; };
+  if(tmIlcMode()&&TM.ilc[P.name]){ let m=null; for(const x of TM.ilc[P.name]){ const v=tmIlcEff(P.name,x,d); if(v!=null&&(m==null||v>m)) m=v; } if(m!=null) return m; } const v=(tmIsRain()?P.rain:tmIsSnow()?P.snow:(TM.wt==='gust'?P.gust:P.wind))[d]; return v==null?null:v; };
 const tmBin=v=>{ if(v==null) return null; return tmBins().find(b=>v>=b[0]&&v<b[1])||null; };
 const tmFmt=v=>v==null?'—':((tmIsRain()||tmIsSnow())?(v<10?v.toFixed(1):Math.round(v)):Math.round(v)).toString().replace('.',',');
 function tmDayLabel(i){
@@ -5342,7 +5342,7 @@ function tmLegend(){
   const ilcN=Object.keys(TM.ilc).length, ilcP=Math.round(100*ilcN/81);
   const prog=(tmIlcMode()&&ilcN<81)?` <b class="text-sky-400">İlçe verileri yükleniyor: %${ilcP}</b> (yüklenmeyen illerde geçici olarak il merkezi değeri gösterilir).`:'';
   const note=tmIlcMode()
-    ? `Her il, ilçelerinin seçili gündeki (00:00–24:00, yerel saat) ${tmIsSnow()?'yeni kar yağışı':'toplam yağış'} tahminlerinin en yüksek değerine göre boyanır; ilçe değeri ilçe merkezi noktasına aittir. Ayrıntı için haritada veya listede bir il seçin, o ilin tüm ilçeleri sağdaki listede görünür. Tahmin modelinin çözünürlüğü yaklaşık 10 km olduğundan komşu ilçeler benzer değerler alabilir.`+(tmIsSnow()?' Kar yağışı, yağan suyun kara dönüşmesiyle hesaplanan yeni kar kalınlığıdır; yerdeki toplam kar kalınlığı değildir. 0,5 cm altı renklendirilmez.':' 1 mm altı renklendirilmez.')+prog
+    ? `Her il, ilçelerinin seçili gündeki (00:00–24:00, yerel saat) ${tmIsSnow()?'yeni kar yağışı':'toplam yağış'} tahminlerinin en yüksek değerine göre boyanır; ilçe değeri ilçe merkezi noktasına aittir. Ayrıntı için haritada veya listede bir il seçin, o ilin tüm ilçeleri sağdaki listede görünür. Tahmin modelinin çözünürlüğü yaklaşık 10 km olduğundan komşu ilçeler benzer değerler alabilir.`+(tmIsSnow()?' Kar yağışı, yağan suyun kara dönüşmesiyle hesaplanan yeni kar kalınlığıdır; yerdeki toplam kar kalınlığı değildir. 0,5 cm altı renklendirilmez.':' 1 mm altı renklendirilmez.')+(Object.keys(TM.ovr).length?' ✎ Bazı ilçe değerleri uzman tarafından elle girilmiştir.':'')+prog
     : (TM.cat==='windmap'?'Oklar rüzgârın estiği yönü (günlük baskın yön) gösterir; renkli alan, yaklaşık 50 km’lik nokta ızgarasından yumuşatılarak çizilir. ':'')+`Hız yerden 10 m yükseklikte, km/sa cinsindendir; ${TM.wt==='gust'?'her il için seçili günün en yüksek anlık rüzgâr hamlesi':'her il için seçili günün en yüksek saatlik ortalama hızı'} gösterilir. Renk eşikleri Uyarılar haritasındaki Beaufort skalasıyla aynıdır (39, 62, 88 km/sa). 20 km/sa altı önemsiz sayılır ve renklendirilmez. Uyarılar haritası hamleye göre çalıştığı için Hamle seçeneği onunla aynı sonucu verir.`;
   el.innerHTML=`<span class="w-full text-white font-display text-xl font-700 mb-1">${head}</span>`+items+`<span class="w-full text-slate-500">${note}</span>`;
 }
@@ -5418,7 +5418,13 @@ async function tmEnsureGrid(){
   }finally{ TM.gridLoading=false; }
   tmDraw();
 }
-TM.ilc={}; TM.ilcState={}; TM.ilcLoop=false; TM.ilcDays=null;
+TM.ilc={}; TM.ilcState={}; TM.ilcLoop=false; TM.ilcDays=null; TM.ovr={}; TM.ilcDirty=null;
+const tmKind=()=>tmIsSnow()?'snow':'rain';
+const tmDayKey=d=>(TM.ilcDays&&TM.ilcDays[d])||(TM.data?.days||[])[d]||'';
+const tmOvrKey=(kind,day,il,ilce)=>`${kind}|${day}|${il}|${ilce}`;
+/* ilçenin seçili gündeki etkin değeri: yöneticinin elle girdiği değer varsa o, yoksa model */
+function tmIlcEff(il,x,d){ const o=TM.ovr[tmOvrKey(tmKind(),tmDayKey(d),il,x.name)]; if(o!=null) return o; const v=(tmIsSnow()?x.snow:x.rain)[d]; return v==null?null:v; }
+async function tmOvrLoad(){ try{ const r=await fetch(`${BACKEND}/map-overrides`,{cache:'no-store'}); if(!r.ok) return; const j=await r.json(); const o={}; (j.items||[]).forEach(it=>{ o[tmOvrKey(it.kind,it.day,it.il,it.ilce)]=it.value; }); TM.ovr=o; }catch(e){} }
 const TM_ILC_KEY='tm_ilc_v1', TM_ILC_TTL=3*3600*1000;
 function tmIlcCacheLoad(){
   try{ const o=JSON.parse(localStorage.getItem(TM_ILC_KEY)||'null');
@@ -5470,10 +5476,35 @@ function tmIlceListRender(listEl,titleEl){
     if(st==='err'){ titleEl.textContent=`${il} ilçe verisi alınamadı`; listEl.innerHTML='<button class="btn-primary text-white text-sm px-5 py-2" id="tm-ilc-retry">Tekrar dene</button>'; document.getElementById('tm-ilc-retry').onclick=()=>{ Object.keys(TM.ilcState).forEach(k=>{ if(TM.ilcState[k]==='err') TM.ilcState[k]=null; }); tmIlcLoadAll(); tmList(); }; return; }
     titleEl.textContent=`${il} ilçeleri yükleniyor…`; listEl.innerHTML='<div class="spinner"></div>'; tmIlcLoadAll(); return;
   }
-  const d=TM.day, rows=TM.ilc[il].map(x=>{ const a=tmIsSnow()?x.snow:x.rain; return {name:x.name,v:a[d]==null?null:a[d]}; }).sort((a,b)=>(b.v??-1)-(a.v??-1));
+  const d=TM.day, kind=tmKind(), day=tmDayKey(d), unit=tmIsSnow()?'cm':'mm', admin=!!getAdminToken();
+  const key=`${kind}|${day}|${il}`;
+  if(admin&&TM.ilcDirty===key) return;                 /* yazarken (kaydedilmemiş değer varken) listeyi yeniden çizme */
+  TM.ilcDirty=null;
+  const rows=TM.ilc[il].map(x=>({name:x.name,model:(tmIsSnow()?x.snow:x.rain)[d]??null,man:TM.ovr[tmOvrKey(kind,day,il,x.name)]??null,v:tmIlcEff(il,x,d)})).sort((a,b)=>(b.v??-1)-(a.v??-1));
   titleEl.textContent=`${il} — ilçeler, ${tmDayLabel(d)} ${tmIsSnow()?'kar yağışı (cm)':'toplam yağış (mm)'}`;
-  listEl.innerHTML=`<div class="w-full grid grid-cols-2 gap-1.5">`+rows.map(({name,v})=>{ const b=tmBin(v);
-    return `<div class="flex items-center justify-between rounded-lg bg-white/5 px-2.5 py-1.5 text-sm" style="${b?'border-left:3px solid '+b[2]:'border-left:3px solid transparent'}"><span class="text-slate-200 truncate pr-2">${name}</span><b class="text-white">${v==null?'—':tmFmt(v)}</b></div>`; }).join('')+`</div><p class="w-full text-slate-500 text-[11px] mt-2">Değerler ilçe merkezi noktasına aittir; kaynak: Open-Meteo.</p>`;
+  if(admin){
+    listEl.innerHTML=`<div class="w-full rounded-lg border border-brand/40 bg-brand/10 px-3 py-2 text-[11px] text-slate-300 mb-1">✏️ Yönetici modu: kutuya değer yazarsanız (${unit}) o ilçe için model yerine sizin değeriniz kullanılır ve il rengi buna göre güncellenir. Kutuyu boş bırakmak modele döner.</div>`+
+      `<div class="w-full grid grid-cols-1 gap-1.5">`+rows.map(r=>{ const b=tmBin(r.v);
+      return `<div class="flex items-center gap-2 rounded-lg bg-white/5 px-2.5 py-1.5 text-sm" style="border-left:3px solid ${b?b[2]:'transparent'}"><span class="text-slate-200 truncate flex-1">${r.name}</span><input type="number" min="0" step="0.1" inputmode="decimal" data-tmov="${r.name.replace(/"/g,'&quot;')}" value="${r.man==null?'':r.man}" placeholder="${r.model==null?'—':tmFmt(r.model)}" class="loc-input" style="width:84px;padding:4px 8px;font-size:13px"><span class="text-slate-500 text-xs w-6">${unit}</span></div>`; }).join('')+`</div>`+
+      `<div class="w-full flex gap-2 mt-2"><button id="tm-ov-save" class="btn-primary text-white text-sm px-4 py-2">Kaydet</button><button id="tm-ov-clear" class="glass rounded-lg px-3 py-2 text-xs text-slate-300">Bu ilin elle değerlerini sil</button></div><p id="tm-ov-msg" class="w-full text-xs text-slate-500 mt-1">Kutudaki gri değer model tahminidir. Elle girilen değerler herkese görünür.</p>`;
+    listEl.querySelectorAll('[data-tmov]').forEach(inp=>inp.addEventListener('input',()=>{ TM.ilcDirty=key; }));
+    document.getElementById('tm-ov-save').onclick=()=>tmOvSave(il,kind,day,false);
+    document.getElementById('tm-ov-clear').onclick=()=>tmOvSave(il,kind,day,true);
+    return;
+  }
+  listEl.innerHTML=`<div class="w-full grid grid-cols-2 gap-1.5">`+rows.map(r=>{ const b=tmBin(r.v);
+    return `<div class="flex items-center justify-between rounded-lg bg-white/5 px-2.5 py-1.5 text-sm" style="border-left:3px solid ${b?b[2]:'transparent'}"><span class="text-slate-200 truncate pr-2">${r.name}</span><b class="text-white">${r.man!=null?'<span title="Uzman tarafından elle girildi" class="text-sky-400 mr-1">✎</span>':''}${r.v==null?'—':tmFmt(r.v)}</b></div>`; }).join('')+`</div><p class="w-full text-slate-500 text-[11px] mt-2">Değerler ilçe merkezi noktasına aittir; kaynak: Open-Meteo (ECMWF).${rows.some(r=>r.man!=null)?' ✎ işaretli değerler uzman tarafından elle girilmiştir.':''}</p>`;
+}
+async function tmOvSave(il,kind,day,clear){
+  const msg=document.getElementById('tm-ov-msg'), values={};
+  document.querySelectorAll('#tm-list [data-tmov]').forEach(inp=>{ const raw=inp.value.trim().replace(',','.'), n=raw===''||clear?null:parseFloat(raw); values[inp.dataset.tmov]=(n!=null&&isFinite(n)&&n>=0)?n:null; });
+  try{
+    const r=await fetch(`${BACKEND}/admin/map-overrides`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${getAdminToken()}`},body:JSON.stringify({kind,day,il,values})});
+    if(r.status===401){ if(msg) msg.textContent='Yönetici oturumu geçersiz; Yönetici sayfasından yeniden giriş yapın.'; return; }
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    Object.entries(values).forEach(([ilce,v])=>{ const k=tmOvrKey(kind,day,il,ilce); if(v==null) delete TM.ovr[k]; else TM.ovr[k]=v; });
+    TM.ilcDirty=null; tmRefresh(); toast(clear?'Elle girilen değerler silindi':'Değerler kaydedildi ✓','success');
+  }catch(e){ console.error(e); if(msg) msg.textContent='Kaydedilemedi, tekrar deneyin.'; }
 }
 function tmSample(f,gi,gj){
   const G=TM.grid, nx=G.nx, i0=Math.floor(gi), j0=Math.floor(gj);
@@ -5565,7 +5596,7 @@ async function tmLoad(){
       const ms=a=>(a||[]).map(v=>v==null?null:v*3.6);
       TM.prov[String(it.n)]={name:it.name,rain:(it.precipitation_sum||[]).map(v=>v==null?null:v),snow:(it.snowfall_sum||[]).map(v=>v==null?null:v),wind:ms(it.wind_speed_10m_max),gust:ms(it.wind_gusts_10m_max),dir:it.wind_direction_10m_dominant||[],lat:it.lat,lon:it.lon};
     });
-    TM.data=data; tmBuildLayers(geo); tmRefresh();
+    await tmOvrLoad(); TM.data=data; tmBuildLayers(geo); tmRefresh();
     const t=data.generated_at?new Date(data.generated_at):null;
     document.getElementById('tm-meta').textContent=(data.stale?'⚠️ Tahmin verisine şu an ulaşılamadı; son başarılı veri gösteriliyor. ':'')+(t?`Veri ${t.toLocaleString('tr-TR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})} itibarıyla, saatte bir yenilenir. Kaynak: Open-Meteo.`:'');
     loadEl.style.display='none';
@@ -5577,6 +5608,7 @@ async function tmLoad(){
 }
 function tmOpen(){
   tmInitMap();
+  if(TM.data) tmOvrLoad().then(()=>tmRefresh());
   setTimeout(()=>{ TM.map.invalidateSize(); if(!TM.fitted){ TM.map.fitBounds([[35.7,25.6],[42.2,44.9]],{padding:[8,8]}); TM.fitted=true; } tmLoad(); },60);
 }
 document.addEventListener('click',e=>{

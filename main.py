@@ -133,6 +133,18 @@ def init_db():
             updated_at TEXT NOT NULL
         )
     """)
+    # Tahmin Haritaları: yöneticinin ilçe bazında elle girdiği yağış (mm) / kar (cm) değerleri
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS map_overrides (
+            kind       TEXT NOT NULL,      -- 'rain' | 'snow'
+            day        TEXT NOT NULL,      -- YYYY-MM-DD
+            il         TEXT NOT NULL,
+            ilce       TEXT NOT NULL,
+            value      REAL NOT NULL,
+            updated_at TEXT NOT NULL,
+            PRIMARY KEY (kind, day, il, ilce)
+        )
+    """)
     con.commit()
     con.close()
 
@@ -268,6 +280,13 @@ class StadiumPayload(BaseModel):
     city: str | None = None
     lat: float
     lon: float
+
+
+class MapOverridePayload(BaseModel):
+    kind: str
+    day: str
+    il: str
+    values: dict[str, float | None] = {}     # ilçe adı -> değer; None/boş = elle girilen değeri sil
 
 
 class TablePayload(BaseModel):
@@ -882,6 +901,43 @@ async def upload_pdf(file: UploadFile = File(...), authorization: str | None = H
         f.write(data)
 
     return {"ok": True, "url": f"/uploads/{filename}"}
+
+
+@app.get("/map-overrides")
+def get_map_overrides():
+    """Herkese açık: yöneticinin elle girdiği ilçe değerleri (dünden itibaren olan günler)."""
+    since = (datetime.now(timezone.utc) - timedelta(days=2)).strftime("%Y-%m-%d")
+    con = sqlite3.connect(DB_PATH)
+    rows = con.execute("SELECT kind, day, il, ilce, value FROM map_overrides WHERE day >= ?", (since,)).fetchall()
+    con.close()
+    return {"items": [{"kind": k, "day": d, "il": il, "ilce": ic, "value": v} for k, d, il, ic, v in rows]}
+
+
+@app.post("/admin/map-overrides")
+def save_map_overrides(payload: MapOverridePayload, authorization: str | None = Header(default=None)):
+    check_admin(authorization)
+    if payload.kind not in ("rain", "snow"):
+        raise HTTPException(status_code=400, detail="kind rain veya snow olmalı")
+    try:
+        datetime.strptime(payload.day, "%Y-%m-%d")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="day YYYY-MM-DD olmalı")
+    now = datetime.now(timezone.utc).isoformat()
+    con = sqlite3.connect(DB_PATH)
+    for ilce, v in payload.values.items():
+        if v is None or v < 0 or v > 2000:
+            con.execute("DELETE FROM map_overrides WHERE kind=? AND day=? AND il=? AND ilce=?",
+                        (payload.kind, payload.day, payload.il, ilce))
+        else:
+            con.execute(
+                """INSERT INTO map_overrides (kind, day, il, ilce, value, updated_at) VALUES (?,?,?,?,?,?)
+                   ON CONFLICT(kind, day, il, ilce) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at""",
+                (payload.kind, payload.day, payload.il, ilce, float(v), now))
+    old = (datetime.now(timezone.utc) - timedelta(days=10)).strftime("%Y-%m-%d")
+    con.execute("DELETE FROM map_overrides WHERE day < ?", (old,))      # eski günleri temizle
+    con.commit()
+    con.close()
+    return {"ok": True}
 
 
 @app.get("/table")
