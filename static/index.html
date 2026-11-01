@@ -5305,7 +5305,7 @@ NP_PANELS.space={
 
 /* ---------------- TAHMİN HARİTALARI (günlük toplam yağış · 10 m rüzgâr) ----------------
    Uyarılar haritasıyla aynı veri (/alerts/turkey: 81 il, 7 gün) ve aynı il sınırları. */
-const TM_RAIN=[[1,5,'#8ecbff',.6,'1–5'],[5,10,'#3b9cff',.75,'5–10'],[10,20,'#2563eb',.85,'10–20'],[20,40,'#7c3aed',.88,'20–40'],[40,70,'#d946ef',.9,'40–70'],[70,1e9,'#ef4444',.92,'70+']];
+const TM_RAIN=[[1,5,'#8ecbff',.6,'1–5'],[5,10,'#3b9cff',.75,'5–10'],[10,20,'#2563eb',.85,'10–20'],[20,40,'#7c3aed',.88,'20–40'],[40,70,'#d946ef',.9,'40–70'],[70,120,'#ef4444',.92,'70–120'],[120,1e9,'#7f1d1d',.96,'120+']];
 const TM_WIND=[[20,39,'#fff3b0',.95,'20–39','Orta'],[39,62,'#facc15',.85,'39–62','Kuvvetli'],[62,88,'#f97316',.9,'62–88','Fırtına'],[88,1e9,'#ef4444',.92,'88+','Kuvvetli fırtına']];
 const TM={wt:'mean',map:null,geo:null,layers:{},labels:{},data:null,prov:{},cat:'rain',day:0,sel:null,hoverEl:null,loading:false,fitted:false};
 const TM_SNOW=[[.5,2,'#cfe8ff',.7,'0,5–2'],[2,5,'#8ec5ff',.8,'2–5'],[5,10,'#4f9bff',.85,'5–10'],[10,20,'#7c5cff',.88,'10–20'],[20,40,'#d946ef',.9,'20–40'],[40,1e9,'#ef4444',.92,'40+']];
@@ -5337,7 +5337,7 @@ function tmControls(){
 }
 function tmLegend(){
   const el=document.getElementById('tm-legend'); if(!el) return;
-  const items=tmBins().map(b=>`<span class="inline-flex items-center gap-1.5"><span class="amap-dot" style="background:${b[2]};opacity:${Math.max(b[3],.6)}"></span>${b[4]} ${tmUnit()}${b[5]?` <span class="text-slate-500">· ${b[5]}</span>`:''}</span>`).join('');
+  const items=tmBins().map(b=>`<span class="inline-flex items-center gap-1.5"><span class="amap-dot" style="background:${b[2]};opacity:${Math.max(b[3],.6)};box-shadow:0 0 0 1px rgba(255,255,255,.35)"></span>${b[4]} ${tmUnit()}${b[5]?` <span class="text-slate-500">· ${b[5]}</span>`:''}</span>`).join('');
   const head=TM.cat==='snow'?'Günlük Kar Yağışı (cm) · İlçelerin en yükseği':TM.cat==='rain'?'Günlük Toplam Yağış (mm) · İlçelerin en yükseği':(TM.wt==='gust'?'Günlük En Yüksek Rüzgâr Hamlesi (10 m, km/sa)':'Günlük En Yüksek Rüzgâr Hızı (10 m, km/sa)');
   const ilcN=Object.keys(TM.ilc).length, ilcP=Math.round(100*ilcN/81);
   const prog=(tmIlcMode()&&ilcN<81)?` <b class="text-sky-400">İlçe verileri yükleniyor: %${ilcP}</b> (yüklenmeyen illerde geçici olarak il merkezi değeri gösterilir).`:'';
