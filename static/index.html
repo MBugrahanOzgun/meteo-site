@@ -5672,11 +5672,11 @@ document.addEventListener('click',e=>{
 function npGoModels(){ showPage('grafik'); setTimeout(()=>{ document.getElementById('model-compare-chart')?.scrollIntoView({behavior:'smooth',block:'center'}); },200); }
 /* ===============================================================
    PANEL: Süt Üretimi — Sıcaklık-Nem İndeksi (THI), Türkiye'deki her ilçe için
-   Süt sığırlarında ısı stresi göstergesi. THI = (1,8·T+32) − (0,55 − 0,0055·RH)·(1,8·T − 26)  (T: °C, RH: %)
+   Süt sığırlarında ısı stresi göstergesi. THI = (1,8·T+32) − (0,55 − 0,0055·RH)·(1,8·T − 26,8)  (NRC, 1971; T: °C, RH: %)
 =============================================================== */
-const DAIRY_BINS=[[-1e9,66,'#7dd3fc','Stres Yok','0–65'],[66,72,'#fbbf24','Hafif Stres','66–71'],[72,80,'#fb923c','Stres','72–79'],[80,90,'#ef4444','Yoğun Stres','80–89'],[90,1e9,'#a855f7','Aşırı Stres','90+']];
+const DAIRY_BINS=[[-1e9,66,'#7dd3fc','Stres Yok','0–65'],[66,72,'#facc15','Hafif Stres','66–71'],[72,80,'#fb923c','Stres','72–79'],[80,90,'#ef4444','Yoğun Stres','80–89'],[90,99,'#a855f7','Aşırı Stres','90–98'],[99,1e9,'#1e40af','Ölüm Riski','99+']];
 const dairyBin=v=>DAIRY_BINS.find(b=>v>=b[0]&&v<b[1])||DAIRY_BINS[0];
-const dairyTHI=(t,rh)=>{ const f=1.8*t+32; return f-(0.55-0.0055*rh)*(1.8*t-26); };
+const dairyTHI=(t,rh)=>{ const f=1.8*t+32; return f-(0.55-0.0055*rh)*(1.8*t-26.8); };   /* NRC, 1971 */
 let dairyCharts=[];
 NP_PANELS.dairy={
   icon:'🐄', title:'Süt Üretimi', noLocation:true,
@@ -5715,18 +5715,18 @@ async function dairyShow(idx,il,i){
     const h=j.hourly||{}, tm=h.time||[], T=omSeries(h,'temperature_2m'), RH=omSeries(h,'relative_humidity_2m');
     const nowKey=new Date().toLocaleString('sv-SE',{timeZone:'Europe/Istanbul'}).slice(0,13).replace(' ','T');
     let st=tm.findIndex(t=>t.slice(0,13)>=nowKey); if(st<0) st=0;
-    const rows=[]; for(let k=st;k<Math.min(tm.length,st+72);k++){ if(T[k]==null||RH[k]==null) continue; rows.push({t:tm[k],T:T[k],RH:RH[k],thi:+dairyTHI(T[k],RH[k]).toFixed(1)}); }
+    const rows=[]; for(let k=st;k<Math.min(tm.length,st+72);k++){ if(T[k]==null||RH[k]==null) continue; rows.push({t:tm[k],T:T[k],RH:RH[k],thi:Math.round(dairyTHI(T[k],RH[k]))}); }
     if(!rows.length) throw new Error('boş');
     const mx=rows.reduce((a,b)=>b.thi>a.thi?b:a), bm=dairyBin(mx.thi);
     const fmtT=t=>`${t.slice(8,10)}.${t.slice(5,7)} ${t.slice(11,16)}`;
-    const tips={'Stres Yok':'Isı stresi beklenmiyor.','Hafif Stres':'Hafif ısı stresi: temiz ve serin içme suyu bulundurun, gölgeyi kontrol edin.','Stres':'Isı stresi: havalandırma/vantilatör, gölgelik ve bol içme suyu önerilir; yemlemeyi serin saatlere kaydırın.','Yoğun Stres':'Yoğun ısı stresi: süt verimi belirgin düşebilir; soğutma (sprinkler/fan), bol su ve serin saatlerde yemleme önemlidir.','Aşırı Stres':'Aşırı ısı stresi: hayvan sağlığı risk altında; acil soğutma önlemleri alın, veteriner hekime danışın.'};
+    const tips={'Stres Yok':'Isı stresi beklenmiyor.','Hafif Stres':'Hafif ısı stresi: temiz ve serin içme suyu bulundurun, gölgeyi kontrol edin.','Stres':'Isı stresi: havalandırma/vantilatör, gölgelik ve bol içme suyu önerilir; yemlemeyi serin saatlere kaydırın.','Yoğun Stres':'Yoğun ısı stresi: süt verimi belirgin düşebilir; soğutma (sprinkler/fan), bol su ve serin saatlerde yemleme önemlidir.','Aşırı Stres':'Aşırı ısı stresi: hayvan sağlığı risk altında; acil soğutma önlemleri alın, veteriner hekime danışın.','Ölüm Riski':'Hayvan kayıpları riski: acil soğutma ve veteriner desteği gerekir.'};
     out.innerHTML=`<div class="rounded-2xl p-5 border mb-6" style="border-color:${bm[2]}66;background:${bm[2]}14"><p class="text-slate-400 text-xs mb-1">${il} / ${pt[0]} — önümüzdeki ${rows.length} saatte en yüksek indeks</p><p class="font-display text-3xl font-700" style="color:${bm[2]}">${mx.thi.toFixed(0)} <span class="text-lg">· ${bm[3]}</span></p><p class="text-slate-400 text-sm mt-1">${fmtT(mx.t)} · ${mx.T.toFixed(1)}° · %${Math.round(mx.RH)} nem. ${tips[bm[3]]}</p></div>
       <h4 class="text-white text-center text-lg font-600 mb-1">Sıcaklık Nem İndeksi Grafiği</h4>
       <p class="text-center text-xs mb-3">${DAIRY_BINS.map(b=>`<span style="color:${b[2]}">${b[3]} (${b[4]})</span>`).join(' <span class="text-slate-600">-</span> ')}</p>
       <div style="height:300px"><canvas id="dairy-thi"></canvas></div>
       <h4 class="text-white text-center text-lg font-600 mt-8 mb-3">Sıcaklık ve Nem Grafiği</h4>
       <div style="height:280px"><canvas id="dairy-tr"></canvas></div>
-      <p class="text-slate-500 text-xs mt-5 leading-relaxed">THI = (1,8·T+32) − (0,55 − 0,0055·nem)·(1,8·T − 26), T sıcaklık (°C), nem yüzde. Stres sınıfları (0–65, 66–71, 72–79, 80–89, 90+) örnek aldığımız Sıcaklık Nem İndeksi programındaki aralıklardır. Değerler ilçe merkezi noktası içindir; ahırın içi ve barınak koşulları farklı olabilir.</p>`;
+      <p class="text-slate-500 text-xs mt-5 leading-relaxed">THI = (1,8·T + 32) − [(0,55 − 0,0055·RH) × (1,8·T − 26,8)] (NRC, 1971); T sıcaklık (°C), RH nispi nem (%). Sınıflar: 66 altı stres yok, 66–71 hafif, 72–79 stres, 80–89 yoğun, 90 ve üzeri aşırı stres (99 ve üzeri ölüm riski). Değerler ilçe merkezi noktasının saatlik sıcaklık ve nem tahmininden hesaplanır; ahırın içindeki koşullar farklı olabilir.</p>`;
     const lab=rows.map(r=>r.t.slice(11,16)), gc='rgba(255,255,255,.07)', tc='#94a3b8';
     dairyCharts.push(new Chart(document.getElementById('dairy-thi'),{type:'bar',data:{labels:lab,datasets:[{label:'İndeks Değeri',data:rows.map(r=>r.thi),backgroundColor:rows.map(r=>dairyBin(r.thi)[2]),borderRadius:2}]},
       options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{title:it=>fmtT(rows[it[0].dataIndex].t),label:it=>`THI ${it.raw} · ${dairyBin(it.raw)[3]}`}}},scales:{x:{ticks:{color:tc,maxRotation:60,autoSkip:true,maxTicksLimit:24},grid:{display:false}},y:{beginAtZero:true,ticks:{color:tc},grid:{color:gc},title:{display:true,text:'İndeks Değeri',color:tc}}}}}));
