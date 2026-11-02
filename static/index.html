@@ -5670,6 +5670,71 @@ document.addEventListener('click',e=>{
 
 /* ---------------- TÜM HİZMETLER ---------------- */
 function npGoModels(){ showPage('grafik'); setTimeout(()=>{ document.getElementById('model-compare-chart')?.scrollIntoView({behavior:'smooth',block:'center'}); },200); }
+/* ===============================================================
+   PANEL: Süt Üretimi — Sıcaklık-Nem İndeksi (THI), Türkiye'deki her ilçe için
+   Süt sığırlarında ısı stresi göstergesi. THI = (1,8·T+32) − (0,55 − 0,0055·RH)·(1,8·T − 26)  (T: °C, RH: %)
+=============================================================== */
+const DAIRY_BINS=[[-1e9,66,'#7dd3fc','Stres Yok','0–65'],[66,72,'#fbbf24','Hafif Stres','66–71'],[72,80,'#fb923c','Stres','72–79'],[80,90,'#ef4444','Yoğun Stres','80–89'],[90,1e9,'#a855f7','Aşırı Stres','90+']];
+const dairyBin=v=>DAIRY_BINS.find(b=>v>=b[0]&&v<b[1])||DAIRY_BINS[0];
+const dairyTHI=(t,rh)=>{ const f=1.8*t+32; return f-(0.55-0.0055*rh)*(1.8*t-26); };
+let dairyCharts=[];
+NP_PANELS.dairy={
+  icon:'🐄', title:'Süt Üretimi', noLocation:true,
+  intro:'Sıcaklık-Nem İndeksi (THI): süt sığırlarında sıcaklık ve nemin birlikte yarattığı ısı stresini gösterir. Stres arttıkça süt verimi, yem tüketimi ve verimlilik düşer. İl ve ilçe seçip "Göster"e basın; önümüzdeki 3 günün saatlik değerleri hesaplanır.',
+  async load(_a,_b,el){
+    el.innerHTML='<div class="flex items-center gap-3 text-slate-400 text-sm"><div class="spinner"></div> İl ve ilçe listesi yükleniyor…</div>';
+    let idx; try{ idx=TM.ilceIdx||(TM.ilceIdx=await gFetch(`${BACKEND}/static/tr-ilce-liste.json`)); }catch(e){ el.innerHTML=npErr('dairy','İlçe listesi alınamadı.'); NP_LOADED.dairy=null; return; }
+    const iller=Object.keys(idx).sort((a,b)=>a.localeCompare(b,'tr'));
+    el.innerHTML=`<h3 class="font-display text-2xl font-700 text-white mb-1">Sıcaklık-Nem İndeksi</h3>
+      <p class="text-slate-500 text-xs mb-5">Süt sığırı ısı stresi (THI) · saatlik tahmin · Open-Meteo (ECMWF)</p>
+      <div class="flex flex-wrap items-center gap-3 mb-6">
+        <label class="text-slate-300 text-sm">İl:</label><select id="dairy-il" class="loc-input" style="min-width:150px"></select>
+        <label class="text-slate-300 text-sm ml-2">İlçe:</label><select id="dairy-ilce" class="loc-input" style="min-width:150px"></select>
+        <button id="dairy-go" class="btn-primary text-white text-sm px-6 py-2.5">Göster</button>
+      </div>
+      <div id="dairy-out"></div>`;
+    const ilSel=el.querySelector('#dairy-il'), icSel=el.querySelector('#dairy-ilce');
+    ilSel.innerHTML=iller.map(n=>`<option>${n}</option>`).join('');
+    const fillIlce=()=>{ icSel.innerHTML=(idx[ilSel.value]||[]).map((x,i)=>`<option value="${i}">${x[0]}</option>`).join(''); };
+    ilSel.value=iller.includes('Ankara')?'Ankara':iller[0]; fillIlce();
+    const c=(idx[ilSel.value]||[]).findIndex(x=>x[0]==='Çankaya'); if(c>=0) icSel.value=String(c);
+    ilSel.onchange=fillIlce;
+    el.querySelector('#dairy-go').onclick=()=>dairyShow(idx,ilSel.value,+icSel.value);
+    dairyShow(idx,ilSel.value,+icSel.value);
+  }
+};
+async function dairyShow(idx,il,i){
+  const out=document.getElementById('dairy-out'); if(!out) return;
+  const pt=(idx[il]||[])[i]; if(!pt) return;
+  dairyCharts.forEach(c=>{ try{ c.destroy(); }catch(e){} }); dairyCharts=[];
+  out.innerHTML='<div class="flex items-center gap-3 text-slate-400 text-sm"><div class="spinner"></div> Tahmin alınıyor…</div>';
+  try{
+    const q=new URLSearchParams({latitude:pt[1],longitude:pt[2],hourly:'temperature_2m,relative_humidity_2m',forecast_days:4,timezone:'Europe/Istanbul',models:FC_MODELS_PARAM});
+    let j=null; for(let a=0;a<3&&!j;a++){ const r=await fetch(`${OM_FORECAST}?${q}`); if(r.ok) j=await r.json(); else if(r.status===429) await new Promise(z=>setTimeout(z,2500*(a+1))); else break; }
+    if(!j) throw new Error('veri yok');
+    const h=j.hourly||{}, tm=h.time||[], T=omSeries(h,'temperature_2m'), RH=omSeries(h,'relative_humidity_2m');
+    const nowKey=new Date().toLocaleString('sv-SE',{timeZone:'Europe/Istanbul'}).slice(0,13).replace(' ','T');
+    let st=tm.findIndex(t=>t.slice(0,13)>=nowKey); if(st<0) st=0;
+    const rows=[]; for(let k=st;k<Math.min(tm.length,st+72);k++){ if(T[k]==null||RH[k]==null) continue; rows.push({t:tm[k],T:T[k],RH:RH[k],thi:+dairyTHI(T[k],RH[k]).toFixed(1)}); }
+    if(!rows.length) throw new Error('boş');
+    const mx=rows.reduce((a,b)=>b.thi>a.thi?b:a), bm=dairyBin(mx.thi);
+    const fmtT=t=>`${t.slice(8,10)}.${t.slice(5,7)} ${t.slice(11,16)}`;
+    const tips={'Stres Yok':'Isı stresi beklenmiyor.','Hafif Stres':'Hafif ısı stresi: temiz ve serin içme suyu bulundurun, gölgeyi kontrol edin.','Stres':'Isı stresi: havalandırma/vantilatör, gölgelik ve bol içme suyu önerilir; yemlemeyi serin saatlere kaydırın.','Yoğun Stres':'Yoğun ısı stresi: süt verimi belirgin düşebilir; soğutma (sprinkler/fan), bol su ve serin saatlerde yemleme önemlidir.','Aşırı Stres':'Aşırı ısı stresi: hayvan sağlığı risk altında; acil soğutma önlemleri alın, veteriner hekime danışın.'};
+    out.innerHTML=`<div class="rounded-2xl p-5 border mb-6" style="border-color:${bm[2]}66;background:${bm[2]}14"><p class="text-slate-400 text-xs mb-1">${il} / ${pt[0]} — önümüzdeki ${rows.length} saatte en yüksek indeks</p><p class="font-display text-3xl font-700" style="color:${bm[2]}">${mx.thi.toFixed(0)} <span class="text-lg">· ${bm[3]}</span></p><p class="text-slate-400 text-sm mt-1">${fmtT(mx.t)} · ${mx.T.toFixed(1)}° · %${Math.round(mx.RH)} nem. ${tips[bm[3]]}</p></div>
+      <h4 class="text-white text-center text-lg font-600 mb-1">Sıcaklık Nem İndeksi Grafiği</h4>
+      <p class="text-center text-xs mb-3">${DAIRY_BINS.map(b=>`<span style="color:${b[2]}">${b[3]} (${b[4]})</span>`).join(' <span class="text-slate-600">-</span> ')}</p>
+      <div style="height:300px"><canvas id="dairy-thi"></canvas></div>
+      <h4 class="text-white text-center text-lg font-600 mt-8 mb-3">Sıcaklık ve Nem Grafiği</h4>
+      <div style="height:280px"><canvas id="dairy-tr"></canvas></div>
+      <p class="text-slate-500 text-xs mt-5 leading-relaxed">THI = (1,8·T+32) − (0,55 − 0,0055·nem)·(1,8·T − 26), T sıcaklık (°C), nem yüzde. Stres sınıfları (0–65, 66–71, 72–79, 80–89, 90+) örnek aldığımız Sıcaklık Nem İndeksi programındaki aralıklardır. Değerler ilçe merkezi noktası içindir; ahırın içi ve barınak koşulları farklı olabilir.</p>`;
+    const lab=rows.map(r=>r.t.slice(11,16)), gc='rgba(255,255,255,.07)', tc='#94a3b8';
+    dairyCharts.push(new Chart(document.getElementById('dairy-thi'),{type:'bar',data:{labels:lab,datasets:[{label:'İndeks Değeri',data:rows.map(r=>r.thi),backgroundColor:rows.map(r=>dairyBin(r.thi)[2]),borderRadius:2}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{title:it=>fmtT(rows[it[0].dataIndex].t),label:it=>`THI ${it.raw} · ${dairyBin(it.raw)[3]}`}}},scales:{x:{ticks:{color:tc,maxRotation:60,autoSkip:true,maxTicksLimit:24},grid:{display:false}},y:{beginAtZero:true,ticks:{color:tc},grid:{color:gc},title:{display:true,text:'İndeks Değeri',color:tc}}}}}));
+    dairyCharts.push(new Chart(document.getElementById('dairy-tr'),{type:'line',data:{labels:lab,datasets:[{label:'Sıcaklık (°C)',data:rows.map(r=>r.T),borderColor:'#f97316',backgroundColor:'#f97316',pointRadius:0,borderWidth:2,tension:.3,yAxisID:'y'},{label:'Nem (%)',data:rows.map(r=>r.RH),borderColor:'#38bdf8',backgroundColor:'#38bdf8',pointRadius:0,borderWidth:2,tension:.3,yAxisID:'y1'}]},
+      options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{labels:{color:tc}},tooltip:{callbacks:{title:it=>fmtT(rows[it[0].dataIndex].t)}}},scales:{x:{ticks:{color:tc,maxRotation:60,autoSkip:true,maxTicksLimit:24},grid:{display:false}},y:{position:'left',ticks:{color:'#f97316'},grid:{color:gc},title:{display:true,text:'°C',color:'#f97316'}},y1:{position:'right',min:0,max:100,ticks:{color:'#38bdf8'},grid:{drawOnChartArea:false},title:{display:true,text:'%',color:'#38bdf8'}}}}}));
+  }catch(e){ console.error(e); out.innerHTML='<div class="rounded-2xl p-5 border border-orange-500/30 bg-orange-500/10 text-orange-300 text-sm">Tahmin şu an alınamadı. Birazdan tekrar deneyin.</div>'; }
+}
+
 NP_PANELS.services={
   icon:'📋', title:'Tüm Hizmetler', noLocation:true,
   intro:'Forecaster’ın sunduğu meteorolojik hizmet alanları. Canlı paneli olan alanlara doğrudan geçebilir, diğerleri için bizimle irtibata geçebilirsiniz.',
@@ -7839,6 +7904,7 @@ const SECTOR_MENU=[
     {key:'crop-uzum',   icon:'🍇', label:'Üzüm'},
     {key:'crop-kayisi', icon:'🍑', label:'Kayısı'},
     {key:'soil',        icon:'🌱', label:'Toprak Nemi ve Kuraklık'},
+    {key:'dairy',       icon:'🐄', label:'Süt Üretimi'},
   ]},
   {type:'group', key:'enerji', icon:'⚡', label:'Enerji', children:[
     {key:'energy-live', icon:'☀️', label:'GES (Güneş)', anchor:'ges-section'},
