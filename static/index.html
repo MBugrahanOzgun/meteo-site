@@ -5365,7 +5365,7 @@ function tmLegend(){
   const ilcN=Object.keys(TM.ilc).length, ilcP=Math.round(100*ilcN/81);
   const prog=(tmIlcMode()&&ilcN<81)?` <b class="text-sky-400">İlçe verileri yükleniyor: %${ilcP}</b> (yüklenmeyen illerde geçici olarak il merkezi değeri gösterilir).`:'';
   const note=tmIlcMode()
-    ? `Her il, ilçelerinin seçili gündeki (00:00–24:00, yerel saat) ${tmIsSnow()?'yeni kar yağışı':'toplam yağış'} tahminlerinin en yüksek değerine göre boyanır; ilçe değeri ilçe merkezi noktasına aittir. Ayrıntı için haritada veya listede bir il seçin, o ilin tüm ilçeleri sağdaki listede görünür. Tahmin modelinin çözünürlüğü yaklaşık 10 km olduğundan komşu ilçeler benzer değerler alabilir.`+(tmIsSnow()?' Kar yağışı, yağan suyun kara dönüşmesiyle hesaplanan yeni kar kalınlığıdır; yerdeki toplam kar kalınlığı değildir. 0,5 cm altı renklendirilmez.':' 1 mm altı renklendirilmez.')+(Object.keys(TM.ovr).length?' ✎ Bazı ilçe değerleri uzman tarafından elle girilmiştir.':'')+prog
+    ? `Her il, ilçelerinin seçili gündeki (00:00–24:00, yerel saat) ${tmIsSnow()?'yeni kar yağışı':'toplam yağış'} tahminlerinin en yüksek değerine göre boyanır; ilçe değeri ilçe merkezi noktasına aittir. Ayrıntı için haritada veya listede bir il seçin, o ilin tüm ilçeleri sağdaki listede görünür. Tahmin modelinin çözünürlüğü yaklaşık 10 km olduğundan komşu ilçeler benzer değerler alabilir.`+(tmIsSnow()?' Kar yağışı, yağan suyun kara dönüşmesiyle hesaplanan yeni kar kalınlığıdır; yerdeki toplam kar kalınlığı değildir. 0,5 cm altı renklendirilmez.':' 1 mm altı renklendirilmez.')+(tmOvrAny()?' ✎ Saat işaretli değerler uzman düzeltmesidir (girilme saati yazılıdır); süre dolunca model değerine dönülür.':'')+prog
     : (TM.cat==='windmap'?'Oklar rüzgârın estiği yönü (günlük baskın yön) gösterir; renkli alan, yaklaşık 50 km’lik nokta ızgarasından yumuşatılarak çizilir. ':'')+`Hız yerden 10 m yükseklikte, km/sa cinsindendir; ${TM.wt==='gust'?'her il için seçili günün en yüksek anlık rüzgâr hamlesi':'her il için seçili günün en yüksek saatlik ortalama hızı'} gösterilir. Renk eşikleri Uyarılar haritasındaki Beaufort skalasıyla aynıdır (39, 62, 88 km/sa). 20 km/sa altı önemsiz sayılır ve renklendirilmez. Uyarılar haritası hamleye göre çalıştığı için Hamle seçeneği onunla aynı sonucu verir.`;
   el.innerHTML=`<span class="w-full text-white font-display text-xl font-700 mb-1">${head}</span>`+items+`<span class="w-full text-slate-500">${note}</span>`;
 }
@@ -5441,19 +5441,23 @@ async function tmEnsureGrid(){
   }finally{ TM.gridLoading=false; }
   tmDraw();
 }
-TM.ilc={}; TM.ilcState={}; TM.ilcLoop=false; TM.ilcDays=null; TM.ovr={}; TM.ilcDirty=null;
+TM.ilc={}; TM.ilcState={}; TM.ilcLoop=false; TM.ilcDays=null; TM.ovr={}; TM.ovrMeta={}; TM.ilcDirty=null;
 const tmKind=()=>tmIsSnow()?'snow':'rain';
 const tmDayKey=d=>(TM.ilcDays&&TM.ilcDays[d])||(TM.data?.days||[])[d]||'';
 const tmOvrKey=(kind,day,il,ilce)=>`${kind}|${day}|${il}|${ilce}`;
 /* ilçenin seçili gündeki etkin değeri: yöneticinin elle girdiği değer varsa o, yoksa model */
-function tmIlcEffK(kind,il,x,d){ const o=TM.ovr[tmOvrKey(kind,tmDayKey(d),il,x.name)]; if(o!=null) return o; const v=(kind==='snow'?x.snow:x.rain)[d]; return v==null?null:v; }
+function tmIlcEffK(kind,il,x,d){ const o=tmOvrGet(kind,tmDayKey(d),il,x.name); if(o!=null) return o; const v=(kind==='snow'?x.snow:x.rain)[d]; return v==null?null:v; }
 function tmIlcEff(il,x,d){ return tmIlcEffK(tmKind(),il,x,d); }
 /* Uyarılar ile Tahmin Haritaları'nın ortak il yağış değeri: ilçelerin (elle girilen dahil) en yüksek günlük yağışı */
 function ilRainMax(il,dateStr){
   if(!TM.ilc[il]||!TM.ilcDays) return null; const d=TM.ilcDays.indexOf(dateStr); if(d<0) return null;
   let m=null; for(const x of TM.ilc[il]){ const v=tmIlcEffK('rain',il,x,d); if(v!=null&&(m==null||v>m)) m=v; } return m;
 }
-async function tmOvrLoad(){ try{ const r=await fetch(`${BACKEND}/map-overrides`,{cache:'no-store'}); if(!r.ok) return; const j=await r.json(); const o={}; (j.items||[]).forEach(it=>{ o[tmOvrKey(it.kind,it.day,it.il,it.ilce)]=it.value; }); TM.ovr=o; }catch(e){} }
+const tmHM=iso=>{ try{ return new Date(iso).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'}); }catch(e){ return ''; } };
+/* Elle girilen değer (süresi dolmadıysa) ya da null */
+function tmOvrGet(kind,day,il,ilce){ const k=tmOvrKey(kind,day,il,ilce), v=TM.ovr[k]; if(v==null) return null; const m=TM.ovrMeta[k]; if(m&&m.e&&Date.parse(m.e)<=Date.now()) return null; return v; }
+const tmOvrAny=()=>Object.keys(TM.ovr).some(k=>{ const m=TM.ovrMeta[k]; return !(m&&m.e&&Date.parse(m.e)<=Date.now()); });
+async function tmOvrLoad(){ try{ const r=await fetch(`${BACKEND}/map-overrides`,{cache:'no-store'}); if(!r.ok) return; const j=await r.json(); const o={}, mt={}; (j.items||[]).forEach(it=>{ const k=tmOvrKey(it.kind,it.day,it.il,it.ilce); o[k]=it.value; mt[k]={t:it.updated_at,e:it.expires_at}; }); TM.ovr=o; TM.ovrMeta=mt; }catch(e){} }
 const TM_ILC_KEY='tm_ilc_v1', TM_ILC_TTL=3*3600*1000;
 function tmIlcCacheLoad(){
   try{ const o=JSON.parse(localStorage.getItem(TM_ILC_KEY)||'null');
@@ -5509,11 +5513,11 @@ function tmIlceListRender(listEl,titleEl){
   const key=`${kind}|${day}|${il}`;
   if(admin&&TM.ilcDirty===key) return;                 /* yazarken (kaydedilmemiş değer varken) listeyi yeniden çizme */
   TM.ilcDirty=null;
-  const rows=TM.ilc[il].map(x=>({name:x.name,model:(tmIsSnow()?x.snow:x.rain)[d]??null,man:TM.ovr[tmOvrKey(kind,day,il,x.name)]??null,v:tmIlcEff(il,x,d)})).sort((a,b)=>(b.v??-1)-(a.v??-1));
+  const rows=TM.ilc[il].map(x=>({name:x.name,model:(tmIsSnow()?x.snow:x.rain)[d]??null,man:tmOvrGet(kind,day,il,x.name),mt:TM.ovrMeta[tmOvrKey(kind,day,il,x.name)]||null,v:tmIlcEff(il,x,d)})).sort((a,b)=>(b.v??-1)-(a.v??-1));
   titleEl.textContent=`${il} — ilçeler, ${tmDayLabel(d)} ${tmIsSnow()?'kar yağışı (cm)':'toplam yağış (mm)'}`;
   if(admin){ ilcEditor(listEl,il,kind,d); return; }
   listEl.innerHTML=`<div class="w-full grid grid-cols-2 gap-1.5">`+rows.map(r=>{ const b=tmBin(r.v);
-    return `<div class="flex items-center justify-between rounded-lg bg-white/5 px-2.5 py-1.5 text-sm" style="border-left:3px solid ${b?b[2]:'transparent'}"><span class="text-slate-200 truncate pr-2">${r.name}</span><b class="text-white">${r.man!=null?'<span title="Uzman tarafından elle girildi" class="text-sky-400 mr-1">✎</span>':''}${r.v==null?'—':tmFmt(r.v)}</b></div>`; }).join('')+`</div><p class="w-full text-slate-500 text-[11px] mt-2">Değerler ilçe merkezi noktasına aittir; kaynak: Open-Meteo (ECMWF).${rows.some(r=>r.man!=null)?' ✎ işaretli değerler uzman tarafından elle girilmiştir.':''}</p>`;
+    return `<div class="flex items-center justify-between rounded-lg bg-white/5 px-2.5 py-1.5 text-sm" style="border-left:3px solid ${b?b[2]:'transparent'}"><span class="text-slate-200 truncate pr-2">${r.name}</span><b class="text-white">${r.man!=null?`<span title="Uzman düzeltmesi${r.mt?', '+tmHM(r.mt.t):''}" class="text-sky-400 mr-1 text-xs">✎${r.mt?' '+tmHM(r.mt.t):''}</span>`:''}${r.v==null?'—':tmFmt(r.v)}</b></div>`; }).join('')+`</div><p class="w-full text-slate-500 text-[11px] mt-2">Değerler ilçe merkezi noktasına aittir; kaynak: Open-Meteo (ECMWF).${rows.some(r=>r.man!=null)?' ✎ saatli değerler uzman düzeltmesidir; süre dolunca model değerine dönülür.':''}</p>`;
 }
 /* Yönetici: bir ilin ilçe değerlerini elle girme kutuları (Tahmin Haritaları listesi ve Uyarılar paneli ortak kullanır) */
 function ilcEditor(root,il,kind,d){
@@ -5521,23 +5525,27 @@ function ilcEditor(root,il,kind,d){
   if(TM.ilcDirty===key) return;
   TM.ilcDirty=null;
   const bins=kind==='snow'?TM_SNOW:TM_RAIN, binOf=v=>v==null?null:bins.find(b=>v>=b[0]&&v<b[1])||null, fmt=v=>v==null?'—':(v<10?v.toFixed(1):Math.round(v)).toString().replace('.',',');
-  const rows=TM.ilc[il].map(x=>({name:x.name,model:(kind==='snow'?x.snow:x.rain)[d]??null,man:TM.ovr[tmOvrKey(kind,day,il,x.name)]??null,v:tmIlcEffK(kind,il,x,d)})).sort((a,b)=>(b.v??-1)-(a.v??-1));
-  root.innerHTML=`<div class="w-full rounded-lg border border-brand/40 bg-brand/10 px-3 py-2 text-[11px] text-slate-300 mb-2">✏️ Yönetici modu: kutuya değer yazarsanız (${unit}) o ilçe için model yerine sizin değeriniz kullanılır; il rengi ve uyarılar buna göre güncellenir. Kutuyu boş bırakmak modele döner.</div>`+
+  const rows=TM.ilc[il].map(x=>({name:x.name,model:(kind==='snow'?x.snow:x.rain)[d]??null,man:tmOvrGet(kind,day,il,x.name),mt:TM.ovrMeta[tmOvrKey(kind,day,il,x.name)]||null,v:tmIlcEffK(kind,il,x,d)})).sort((a,b)=>(b.v??-1)-(a.v??-1));
+  const warn=r=>{ if(r.man==null||r.model==null) return false; const df=Math.abs(r.man-r.model); return df>=Math.max(3,0.5*Math.max(r.man,r.model)); };
+  const left=mt=>{ if(!mt||!mt.e) return 'silinene kadar'; const h=(Date.parse(mt.e)-Date.now())/36e5; return h<1?`${Math.max(1,Math.round(h*60))} dk sonra biter`:`${Math.round(h*10)/10} sa sonra biter`; };
+  root.innerHTML=`<div class="w-full rounded-lg border border-brand/40 bg-brand/10 px-3 py-2 text-[11px] text-slate-300 mb-2">✏️ Yönetici modu: kutuya değer yazarsanız (${unit}) o ilçe için model yerine sizin değeriniz kullanılır; il rengi ve uyarılar buna göre güncellenir. Süre dolunca otomatik modele dönülür. Kutuyu boş bırakmak da modele döner.</div>`+
     `<div class="w-full grid grid-cols-1 gap-1.5">`+rows.map(r=>{ const b=binOf(r.v);
-    return `<div class="flex items-center gap-2 rounded-lg bg-white/5 px-2.5 py-1.5 text-sm" style="border-left:3px solid ${b?b[2]:'transparent'}"><span class="text-slate-200 truncate flex-1">${r.name}</span><input type="number" min="0" step="0.1" inputmode="decimal" data-tmov="${r.name.replace(/"/g,'&quot;')}" value="${r.man==null?'':r.man}" placeholder="${r.model==null?'—':fmt(r.model)}" class="loc-input" style="width:84px;padding:4px 8px;font-size:13px"><span class="text-slate-500 text-xs w-6">${unit}</span></div>`; }).join('')+`</div>`+
-    `<div class="w-full flex gap-2 mt-2"><button data-ovsave class="btn-primary text-white text-sm px-4 py-2">Kaydet</button><button data-ovclear class="glass rounded-lg px-3 py-2 text-xs text-slate-300">Bu ilin elle değerlerini sil</button></div><p data-ovmsg class="w-full text-xs text-slate-500 mt-1">Kutudaki gri değer model tahminidir. Elle girilen değerler herkese görünür.</p>`;
+    return `<div class="rounded-lg bg-white/5 px-2.5 py-1.5 text-sm" style="border-left:3px solid ${b?b[2]:'transparent'}"><div class="flex items-center gap-2"><span class="text-slate-200 truncate flex-1">${r.name}${warn(r)?' <span title="Model değeri elle girilenden çok farklı; güncellemeniz gerekebilir">⚠️</span>':''}</span><input type="number" min="0" step="0.1" inputmode="decimal" data-tmov="${r.name.replace(/"/g,'&quot;')}" value="${r.man==null?'':r.man}" placeholder="${r.model==null?'—':fmt(r.model)}" class="loc-input" style="width:84px;padding:4px 8px;font-size:13px"><span class="text-slate-500 text-xs w-6">${unit}</span></div>`+
+      (r.man!=null?`<p class="text-[10px] text-sky-400/80 mt-0.5">✎ elle · ${left(r.mt)} · güncel model: ${fmt(r.model)} ${unit}${r.mt?' · girilme '+tmHM(r.mt.t):''}</p>`:'')+`</div>`; }).join('')+`</div>`+
+    `<div class="w-full flex items-center gap-2 mt-2 flex-wrap"><label class="text-slate-400 text-xs">Geçerlilik:</label><select data-ovhours class="loc-input" style="padding:4px 8px;font-size:13px"><option value="12" selected>12 saat (sonraki model turu)</option><option value="6">6 saat</option><option value="24">24 saat</option><option value="">Silene kadar</option></select></div>`+
+    `<div class="w-full flex gap-2 mt-2"><button data-ovsave class="btn-primary text-white text-sm px-4 py-2">Kaydet</button><button data-ovclear class="glass rounded-lg px-3 py-2 text-xs text-slate-300">Bu ilin elle değerlerini sil</button></div><p data-ovmsg class="w-full text-xs text-slate-500 mt-1">Kutudaki gri değer model tahminidir. Elle girilen değerler herkese görünür. Kaydet'e basınca kutulardaki tüm değerlerin süresi yenilenir.</p>`;
   root.querySelectorAll('[data-tmov]').forEach(inp=>inp.addEventListener('input',()=>{ TM.ilcDirty=key; }));
   root.querySelector('[data-ovsave]').onclick=()=>tmOvSave(il,kind,day,false,root);
   root.querySelector('[data-ovclear]').onclick=()=>tmOvSave(il,kind,day,true,root);
 }
 async function tmOvSave(il,kind,day,clear,root){
-  const msg=root.querySelector('[data-ovmsg]'), values={};
+  const msg=root.querySelector('[data-ovmsg]'), values={}, hsel=root.querySelector('[data-ovhours]'), hours=(!hsel||hsel.value==='')?null:parseFloat(hsel.value);
   root.querySelectorAll('[data-tmov]').forEach(inp=>{ const raw=inp.value.trim().replace(',','.'), n=raw===''||clear?null:parseFloat(raw); values[inp.dataset.tmov]=(n!=null&&isFinite(n)&&n>=0)?n:null; });
   try{
-    const r=await fetch(`${BACKEND}/admin/map-overrides`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${getAdminToken()}`},body:JSON.stringify({kind,day,il,values})});
+    const r=await fetch(`${BACKEND}/admin/map-overrides`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${getAdminToken()}`},body:JSON.stringify({kind,day,il,values,hours})});
     if(r.status===401){ if(msg) msg.textContent='Yönetici oturumu geçersiz; Yönetici sayfasından yeniden giriş yapın.'; return; }
     if(!r.ok) throw new Error('HTTP '+r.status);
-    Object.entries(values).forEach(([ilce,v])=>{ const k=tmOvrKey(kind,day,il,ilce); if(v==null) delete TM.ovr[k]; else TM.ovr[k]=v; });
+    Object.entries(values).forEach(([ilce,v])=>{ const k=tmOvrKey(kind,day,il,ilce); if(v==null){ delete TM.ovr[k]; delete TM.ovrMeta[k]; } else { TM.ovr[k]=v; TM.ovrMeta[k]={t:new Date().toISOString(),e:hours==null?null:new Date(Date.now()+hours*36e5).toISOString()}; } });
     TM.ilcDirty=null; ilcAfterUpdate(); toast(clear?'Elle girilen değerler silindi':'Değerler kaydedildi ✓','success');
   }catch(e){ console.error(e); if(msg) msg.textContent='Kaydedilemedi, tekrar deneyin.'; }
 }

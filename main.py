@@ -142,9 +142,14 @@ def init_db():
             ilce       TEXT NOT NULL,
             value      REAL NOT NULL,
             updated_at TEXT NOT NULL,
+            expires_at TEXT,               -- NULL = silinene kadar geçerli
             PRIMARY KEY (kind, day, il, ilce)
         )
     """)
+    try:
+        con.execute("ALTER TABLE map_overrides ADD COLUMN expires_at TEXT")   # eski tabloları yükselt
+    except sqlite3.OperationalError:
+        pass
     con.commit()
     con.close()
 
@@ -287,6 +292,7 @@ class MapOverridePayload(BaseModel):
     day: str
     il: str
     values: dict[str, float | None] = {}     # ilçe adı -> değer; None/boş = elle girilen değeri sil
+    hours: float | None = None               # geçerlilik süresi (saat); None = silinene kadar
 
 
 class TablePayload(BaseModel):
@@ -905,12 +911,16 @@ async def upload_pdf(file: UploadFile = File(...), authorization: str | None = H
 
 @app.get("/map-overrides")
 def get_map_overrides():
-    """Herkese açık: yöneticinin elle girdiği ilçe değerleri (dünden itibaren olan günler)."""
-    since = (datetime.now(timezone.utc) - timedelta(days=2)).strftime("%Y-%m-%d")
+    """Herkese açık: yöneticinin elle girdiği ilçe değerleri (süresi dolanlar hariç)."""
+    now = datetime.now(timezone.utc)
+    since = (now - timedelta(days=2)).strftime("%Y-%m-%d")
     con = sqlite3.connect(DB_PATH)
-    rows = con.execute("SELECT kind, day, il, ilce, value FROM map_overrides WHERE day >= ?", (since,)).fetchall()
+    rows = con.execute(
+        "SELECT kind, day, il, ilce, value, updated_at, expires_at FROM map_overrides "
+        "WHERE day >= ? AND (expires_at IS NULL OR expires_at > ?)", (since, now.isoformat())).fetchall()
     con.close()
-    return {"items": [{"kind": k, "day": d, "il": il, "ilce": ic, "value": v} for k, d, il, ic, v in rows]}
+    return {"items": [{"kind": k, "day": d, "il": il, "ilce": ic, "value": v, "updated_at": u, "expires_at": e}
+                      for k, d, il, ic, v, u, e in rows]}
 
 
 @app.post("/admin/map-overrides")
@@ -922,7 +932,11 @@ def save_map_overrides(payload: MapOverridePayload, authorization: str | None = 
         datetime.strptime(payload.day, "%Y-%m-%d")
     except ValueError:
         raise HTTPException(status_code=400, detail="day YYYY-MM-DD olmalı")
-    now = datetime.now(timezone.utc).isoformat()
+    if payload.hours is not None and not (0 < payload.hours <= 24 * 10):
+        raise HTTPException(status_code=400, detail="hours 0-240 arası olmalı")
+    now_dt = datetime.now(timezone.utc)
+    now = now_dt.isoformat()
+    expires = (now_dt + timedelta(hours=payload.hours)).isoformat() if payload.hours is not None else None
     con = sqlite3.connect(DB_PATH)
     for ilce, v in payload.values.items():
         if v is None or v < 0 or v > 2000:
@@ -930,11 +944,12 @@ def save_map_overrides(payload: MapOverridePayload, authorization: str | None = 
                         (payload.kind, payload.day, payload.il, ilce))
         else:
             con.execute(
-                """INSERT INTO map_overrides (kind, day, il, ilce, value, updated_at) VALUES (?,?,?,?,?,?)
-                   ON CONFLICT(kind, day, il, ilce) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at""",
-                (payload.kind, payload.day, payload.il, ilce, float(v), now))
-    old = (datetime.now(timezone.utc) - timedelta(days=10)).strftime("%Y-%m-%d")
-    con.execute("DELETE FROM map_overrides WHERE day < ?", (old,))      # eski günleri temizle
+                """INSERT INTO map_overrides (kind, day, il, ilce, value, updated_at, expires_at) VALUES (?,?,?,?,?,?,?)
+                   ON CONFLICT(kind, day, il, ilce) DO UPDATE SET value=excluded.value,
+                       updated_at=excluded.updated_at, expires_at=excluded.expires_at""",
+                (payload.kind, payload.day, payload.il, ilce, float(v), now, expires))
+    old = (now_dt - timedelta(days=10)).strftime("%Y-%m-%d")
+    con.execute("DELETE FROM map_overrides WHERE day < ? OR (expires_at IS NOT NULL AND expires_at < ?)", (old, now))
     con.commit()
     con.close()
     return {"ok": True}
