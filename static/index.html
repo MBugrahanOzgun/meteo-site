@@ -5458,7 +5458,7 @@ const tmHM=iso=>{ try{ return new Date(iso).toLocaleTimeString('tr-TR',{hour:'2-
 function tmOvrGet(kind,day,il,ilce){ const k=tmOvrKey(kind,day,il,ilce), v=TM.ovr[k]; if(v==null) return null; const m=TM.ovrMeta[k]; if(m&&m.e&&Date.parse(m.e)<=Date.now()) return null; return v; }
 const tmOvrAny=()=>Object.keys(TM.ovr).some(k=>{ const m=TM.ovrMeta[k]; return !(m&&m.e&&Date.parse(m.e)<=Date.now()); });
 async function tmOvrLoad(){ try{ const r=await fetch(`${BACKEND}/map-overrides`,{cache:'no-store'}); if(!r.ok) return; const j=await r.json(); const o={}, mt={}; (j.items||[]).forEach(it=>{ const k=tmOvrKey(it.kind,it.day,it.il,it.ilce); o[k]=it.value; mt[k]={t:it.updated_at,e:it.expires_at}; }); TM.ovr=o; TM.ovrMeta=mt; }catch(e){} }
-const TM_ILC_KEY='tm_ilc_v1', TM_ILC_TTL=3*3600*1000;
+const TM_ILC_KEY='tm_ilc_v2', TM_ILC_TTL=3*3600*1000;
 function tmIlcCacheLoad(){
   try{ const o=JSON.parse(localStorage.getItem(TM_ILC_KEY)||'null');
     if(o&&Date.now()-o.ts<TM_ILC_TTL&&o.data&&Object.keys(o.data).length){ TM.ilc=o.data; TM.ilcDays=o.days||null; return true; } }catch(e){}
