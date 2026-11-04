@@ -44,7 +44,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <script>
     tailwind.config = {
@@ -62,8 +62,18 @@
 
   <style>
     *{box-sizing:border-box}
-    body{font-family:'DM Sans',sans-serif;background:#04111f;color:#e0f2fe}
-    h1,h2,h3,h4,h5{font-family:'Syne',sans-serif}
+    body{font-family:'Inter','DM Sans',sans-serif;background:#04111f;color:#e0f2fe;-webkit-font-smoothing:antialiased}
+    h1,h2,h3,h4,h5{font-family:'Inter','Syne',sans-serif;letter-spacing:-.01em}
+    /* Açılış sayfası: gri bulut arka planı */
+    .sky-clouds{position:absolute;inset:0;overflow:hidden;pointer-events:none;background:linear-gradient(180deg,#1b2330 0%,#232b38 45%,#161d29 100%)}
+    .sky-clouds i{position:absolute;display:block;border-radius:50%;background:radial-gradient(ellipse at center,rgba(176,186,200,.55) 0%,rgba(150,160,176,.30) 45%,transparent 72%);filter:blur(38px);animation:cloudDrift 60s ease-in-out infinite alternate}
+    .sky-clouds i:nth-child(1){width:70%;height:38%;left:-15%;top:-6%;animation-duration:70s}
+    .sky-clouds i:nth-child(2){width:60%;height:34%;left:40%;top:2%;opacity:.8;animation-duration:85s;animation-direction:alternate-reverse}
+    .sky-clouds i:nth-child(3){width:75%;height:40%;left:10%;top:30%;opacity:.55;animation-duration:95s}
+    .sky-clouds i:nth-child(4){width:55%;height:32%;left:-10%;top:58%;opacity:.5;animation-duration:75s;animation-direction:alternate-reverse}
+    .sky-clouds i:nth-child(5){width:60%;height:34%;left:55%;top:62%;opacity:.55;animation-duration:90s}
+    @keyframes cloudDrift{from{transform:translateX(-6%)}to{transform:translateX(8%)}}
+    @media (prefers-reduced-motion:reduce){.sky-clouds i{animation:none}}
 
     #navbar{transition:background .3s,box-shadow .3s}
     #navbar.scrolled{background:rgba(4,17,31,.92);backdrop-filter:blur(14px);box-shadow:0 1px 0 rgba(56,189,248,.12)}
@@ -334,9 +344,9 @@
 </div>
 
 <!-- ======== HERO ======== -->
-<section data-page="ozet" class="active relative min-h-screen flex flex-col items-center justify-center overflow-hidden bg-hero-mesh pt-20">
+<section data-page="ozet" class="active relative min-h-screen flex flex-col items-center justify-center overflow-hidden pt-20">
+  <div class="sky-clouds"><i></i><i></i><i></i><i></i><i></i></div>
   <div id="particles" class="absolute inset-0 pointer-events-none"></div>
-  <div class="absolute inset-0" style="background-image:linear-gradient(rgba(56,189,248,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(56,189,248,.04) 1px,transparent 1px);background-size:60px 60px;"></div>
 
   <!-- Sektör menüsü — masaüstünde sol tarafta sabit dikey menü -->
   <aside id="sector-sidebar" class="hidden lg:flex flex-col fixed left-0 top-20 bottom-0 w-48 z-20 px-3 py-5 gap-1 overflow-y-auto">
@@ -346,17 +356,9 @@
 
   <div class="w-full lg:pl-48">
   <div class="relative z-10 text-center px-6 max-w-4xl mx-auto">
-    <p class="text-slate-300 text-xl md:text-xl max-w-2xl mx-auto mb-8 leading-relaxed">
+    <p class="text-slate-200 text-lg md:text-xl font-medium max-w-xl mx-auto mb-8 leading-relaxed">
       Yerinizi yazın, bugünün ve önümüzdeki günlerin hava durumunu hemen görün.
     </p>
-
-    <!-- Özellik rozetleri -->
-    <div class="hidden sm:flex flex-wrap justify-center gap-2 mb-10">
-      <span class="src-badge bg-sky-500/10   text-sky-400   border border-sky-500/20">🌤 Hava Tahmini</span>
-      <span class="src-badge bg-green-500/10  text-green-400 border border-green-500/20">🍃 Hava Kalitesi</span>
-      <span class="src-badge bg-blue-500/10   text-blue-400  border border-blue-500/20">🌊 Deniz Verileri</span>
-      <span class="src-badge bg-purple-500/10 text-purple-400 border border-purple-500/20">📍 Konum Analizi</span>
-    </div>
 
     <div class="flex flex-col sm:flex-row items-stretch gap-3 max-w-xl mx-auto">
       <div class="loc-field relative flex-1">
