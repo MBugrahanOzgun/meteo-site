@@ -2896,7 +2896,7 @@ function renderEnergy(dl, hourly){
     } else if(avgW >= 3 && avgW < 10) {
       resCls = AGRI_CLS.sky; resDurum = 'Kısmi Üretim'; resNot = `Ortalama: ${avgW.toFixed(1)} m/s. Cut-in aşıldı, üretim aktif.`;
     } else {
-      resCls = AGRI_CLS.slate; resDurum = 'Devreye girme hızı altı'; resNot = `Ortalama: ${avgW.toFixed(1)} m/s. Türbinlerin devreye girmesi için yetersiz rüzgar.`;
+      resCls = AGRI_CLS.slate; resDurum = 'Ölü Rüzgar'; resNot = `Ortalama: ${avgW.toFixed(1)} m/s. Türbinlerin devreye girmesi için yetersiz rüzgar.`;
     }
     resHtml += row(`${labelGun} ${labelTarih}`, resDurum, resCls, resNot);
   }
