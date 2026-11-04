@@ -64,16 +64,13 @@
     *{box-sizing:border-box}
     body{font-family:'Inter','DM Sans',sans-serif;background:#04111f;color:#e0f2fe;-webkit-font-smoothing:antialiased}
     h1,h2,h3,h4,h5{font-family:'Inter','Syne',sans-serif;letter-spacing:-.01em}
-    /* Açılış sayfası: gri bulut arka planı */
-    .sky-clouds{position:absolute;inset:0;overflow:hidden;pointer-events:none;background:linear-gradient(180deg,#1b2330 0%,#232b38 45%,#161d29 100%)}
-    .sky-clouds i{position:absolute;display:block;border-radius:50%;background:radial-gradient(ellipse at center,rgba(176,186,200,.55) 0%,rgba(150,160,176,.30) 45%,transparent 72%);filter:blur(38px);animation:cloudDrift 60s ease-in-out infinite alternate}
-    .sky-clouds i:nth-child(1){width:70%;height:38%;left:-15%;top:-6%;animation-duration:70s}
-    .sky-clouds i:nth-child(2){width:60%;height:34%;left:40%;top:2%;opacity:.8;animation-duration:85s;animation-direction:alternate-reverse}
-    .sky-clouds i:nth-child(3){width:75%;height:40%;left:10%;top:30%;opacity:.55;animation-duration:95s}
-    .sky-clouds i:nth-child(4){width:55%;height:32%;left:-10%;top:58%;opacity:.5;animation-duration:75s;animation-direction:alternate-reverse}
-    .sky-clouds i:nth-child(5){width:60%;height:34%;left:55%;top:62%;opacity:.55;animation-duration:90s}
-    @keyframes cloudDrift{from{transform:translateX(-6%)}to{transform:translateX(8%)}}
-    @media (prefers-reduced-motion:reduce){.sky-clouds i{animation:none}}
+    /* Tüm sitede sabit gerçekçi bulut arka planı (SVG gürültü filtresi) */
+    #sky-bg{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none;background:linear-gradient(180deg,#26303e 0%,#1d2633 50%,#121925 100%)}
+    #sky-bg svg{position:absolute;top:0;left:-25%;width:150%;height:100%;will-change:transform;animation:skyDrift 140s linear infinite alternate}
+    #sky-bg svg.l2{animation-duration:90s;animation-direction:alternate-reverse;opacity:.8}
+    #sky-bg::after{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 120%,rgba(4,17,31,.55),transparent 70%),rgba(10,16,26,.22)}
+    @keyframes skyDrift{from{transform:translateX(-6%)}to{transform:translateX(6%)}}
+    @media (prefers-reduced-motion:reduce){#sky-bg svg{animation:none}}
 
     #navbar{transition:background .3s,box-shadow .3s}
     #navbar.scrolled{background:rgba(4,17,31,.92);backdrop-filter:blur(14px);box-shadow:0 1px 0 rgba(56,189,248,.12)}
@@ -285,6 +282,22 @@
   </style>
 </head>
 <body>
+<div id="sky-bg" aria-hidden="true">
+  <svg class="l1" viewBox="0 0 1200 800" preserveAspectRatio="none">
+    <defs><filter id="cl1" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.0035 0.009" numOctaves="6" seed="7" result="n"/>
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 0.86  0 0 0 0 0.89  0 0 0 0 0.93  0 0 0 2.6 -0.95"/>
+    </filter></defs>
+    <rect width="1200" height="800" filter="url(#cl1)" opacity=".36"/>
+  </svg>
+  <svg class="l2" viewBox="0 0 1200 800" preserveAspectRatio="none">
+    <defs><filter id="cl2" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.006 0.014" numOctaves="5" seed="23" result="n"/>
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 0.72  0 0 0 0 0.77  0 0 0 0 0.84  0 0 0 2.4 -0.85"/>
+    </filter></defs>
+    <rect width="1200" height="800" filter="url(#cl2)" opacity=".26"/>
+  </svg>
+</div>
 
 <!-- ======== NAVBAR ======== -->
 <nav id="navbar" class="fixed top-0 inset-x-0 z-50 py-4 px-6 md:px-12 flex items-center justify-between">
@@ -345,7 +358,6 @@
 
 <!-- ======== HERO ======== -->
 <section data-page="ozet" class="active relative min-h-screen flex flex-col items-center justify-center overflow-hidden pt-20">
-  <div class="sky-clouds"><i></i><i></i><i></i><i></i><i></i></div>
   <div id="particles" class="absolute inset-0 pointer-events-none"></div>
 
   <!-- Sektör menüsü — masaüstünde sol tarafta sabit dikey menü -->
