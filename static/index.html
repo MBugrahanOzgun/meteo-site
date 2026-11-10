@@ -1109,7 +1109,7 @@
   <!-- RES Bölümü -->
   <div id="res-section" class="mb-12">
     <h3 class="font-display text-2xl font-700 text-white mb-1">🌬️ Rüzgar Enerjisi Santrali (RES)</h3>
-    <p class="text-slate-500 text-sm mb-5">Veriler yer seviyesine göre değil, türbin kanat yüksekliği olan <b>100 metre</b> rüzgar hızlarına göre hesaplanmaktadır. (Cut-in: ~3 m/s, Nominal: ~10 m/s, Cut-out: 25 m/s)</p>
+    <p class="text-slate-500 text-sm mb-5">Veriler yer seviyesine göre değil, türbin kanat yüksekliği olan <b>100 metre</b> rüzgar hızlarına göre hesaplanmaktadır. (Devreye girme hızı: ~3 m/s, Nominal: ~10 m/s, Cut-out: 25 m/s)</p>
     <div id="res-list" class="space-y-2">
        <div class="skel h-16 rounded-2xl"></div>
     </div>
@@ -2948,7 +2948,7 @@ function renderEnergy(dl, hourly){
     } else if(avgW >= 10 && maxW < 25) {
       resCls = AGRI_CLS.emerald; resDurum = 'Tam Kapasite'; resNot = `Ortalama: ${avgW.toFixed(1)} m/s, Maks: ${maxW.toFixed(1)} m/s. Türbinler nominal güçte.`;
     } else if(avgW >= 3 && avgW < 10) {
-      resCls = AGRI_CLS.sky; resDurum = 'Kısmi Üretim'; resNot = `Ortalama: ${avgW.toFixed(1)} m/s. Cut-in aşıldı, üretim aktif.`;
+      resCls = AGRI_CLS.sky; resDurum = 'Kısmi Üretim'; resNot = `Ortalama: ${avgW.toFixed(1)} m/s. Devreye girme hızı aşıldı, üretim aktif.`;
     } else {
       resCls = AGRI_CLS.slate; resDurum = 'Devreye Girme Hızı Altı'; resNot = `Ortalama: ${avgW.toFixed(1)} m/s. Türbinlerin devreye girmesi için yetersiz rüzgar.`;
     }
