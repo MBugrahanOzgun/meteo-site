@@ -239,6 +239,8 @@
     .temp-range{height:5px;border-radius:9999px;background:rgba(255,255,255,.07);position:relative;overflow:hidden}
     .temp-range span{position:absolute;top:0;bottom:0;border-radius:9999px;background:linear-gradient(90deg,#34d3b5,#f59e0b)}
 
+    #snow-bg{position:fixed;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none;display:block}
+
     @media (prefers-reduced-motion:reduce){
       .particle,.animate-bounce,.animate-pulse{animation:none!important}
       .reveal{transition:none;opacity:1;transform:none}
@@ -274,6 +276,8 @@
   </style>
 </head>
 <body>
+<!-- ======== ARKA PLAN KAR EFEKTİ ======== -->
+<canvas id="snow-bg" aria-hidden="true"></canvas>
 <!-- ======== NAVBAR ======== -->
 <nav id="navbar" class="fixed top-0 inset-x-0 z-50 py-4 px-6 md:px-12 flex items-center justify-between">
   <a href="#" class="flex items-center gap-2.5" onclick="showPage('ozet');return false;">
@@ -1704,6 +1708,73 @@ function aqiMeta(v) {
     Object.assign(d.style,{width:s+'px',height:s+'px',left:Math.random()*100+'%',top:Math.random()*100+'%',background:`rgba(52,211,181,${Math.random()*.25+.05})`,animationDuration:(Math.random()*8+5)+'s',animationDelay:(Math.random()*6)+'s'});
     c.appendChild(d);
   }
+})();
+
+/* Arka plan kar efekti: sayfanın arkasında sabit canvas üzerinde yağan kar taneleri */
+(()=>{
+  const cv=document.getElementById('snow-bg');
+  if(!cv||!cv.getContext) return;
+  const ctx=cv.getContext('2d');
+  const still=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let W=0,H=0,dpr=1,flakes=[],last=0,raf=0;
+
+  const mk=(randomY)=>{
+    const r=Math.random()*2.5+1;                 // 1–3.5 px yarıçap
+    return {
+      x:Math.random()*W,
+      y:randomY?Math.random()*H:-r-Math.random()*40,
+      r,
+      vy:18+r*14+Math.random()*10,                // px/sn — büyük taneler daha hızlı düşer
+      sway:Math.random()*14+6,                    // yatay salınım genliği
+      ph:Math.random()*Math.PI*2,
+      fq:Math.random()*0.8+0.4,
+      a:Math.random()*0.45+0.35
+    };
+  };
+
+  const resize=()=>{
+    dpr=Math.min(window.devicePixelRatio||1,2);
+    W=innerWidth;H=innerHeight;
+    cv.width=W*dpr;cv.height=H*dpr;
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    const n=Math.min(180,Math.max(45,Math.round(W*H/9000)));
+    while(flakes.length<n) flakes.push(mk(true));
+    flakes.length=n;
+    if(still) draw(0);
+  };
+
+  const draw=(dt)=>{
+    ctx.clearRect(0,0,W,H);
+    for(const f of flakes){
+      if(dt){
+        f.ph+=f.fq*dt;
+        f.y+=f.vy*dt;
+        f.x+=Math.sin(f.ph)*f.sway*dt;
+        if(f.y>H+f.r){Object.assign(f,mk(false));}
+        if(f.x<-5) f.x=W+5; else if(f.x>W+5) f.x=-5;
+      }
+      ctx.beginPath();
+      ctx.arc(f.x,f.y,f.r,0,Math.PI*2);
+      ctx.fillStyle=`rgba(240,249,255,${f.a})`;
+      ctx.fill();
+    }
+  };
+
+  const loop=(t)=>{
+    const dt=last?Math.min((t-last)/1000,0.05):0;
+    last=t;
+    draw(dt);
+    raf=requestAnimationFrame(loop);
+  };
+
+  addEventListener('resize',resize);
+  resize();
+  if(still) return;
+  document.addEventListener('visibilitychange',()=>{
+    if(document.hidden){cancelAnimationFrame(raf);raf=0;}
+    else if(!raf){last=0;raf=requestAnimationFrame(loop);}
+  });
+  raf=requestAnimationFrame(loop);
 })();
 
 const ro=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('visible');ro.unobserve(e.target);}}),{threshold:.1});
