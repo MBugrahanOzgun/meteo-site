@@ -343,6 +343,20 @@ def sitemap_xml():
     return Response(content=seo_pages.sitemap_xml(), media_type="application/xml")
 
 
+# --- Telefona uygulama olarak yükleme (PWA) ---
+@app.get("/manifest.webmanifest", include_in_schema=False)
+def web_manifest():
+    return FileResponse("static/manifest.webmanifest", media_type="application/manifest+json")
+
+
+@app.get("/sw.js", include_in_schema=False)
+def service_worker():
+    # Kök adresten servis edilir ki tüm siteyi kapsasın; tarayıcı yeni
+    # sürümü hemen alsın diye önbelleklenmez.
+    return FileResponse("static/sw.js", media_type="application/javascript",
+                        headers={"Cache-Control": "no-cache"})
+
+
 @app.get("/latest")
 async def latest(lat: float = Query(..., ge=-90, le=90), lon: float = Query(..., ge=-180, le=180)):
     data = await get_open_meteo(lat, lon)

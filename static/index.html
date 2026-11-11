@@ -21,6 +21,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Forecaster | Meteoroloji Danışmanlığı ve Sektörel Hava Tahmini</title>
   <link rel="canonical" href="https://forecaster.com.tr/" />
+  <!-- Telefona uygulama olarak yükleme (PWA) -->
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <meta name="theme-color" content="#061219" />
+  <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Forecaster" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Crect%20width%3D%22100%22%20height%3D%22100%22%20rx%3D%2220%22%20fill%3D%22%23061219%22/%3E%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2237%22%20fill%3D%22none%22%20stroke%3D%22%237dd3fc%22%20stroke-width%3D%224.5%22/%3E%3Cpath%20d%3D%22M%2024%2C42%20C%2029%2C33%2035%2C33%2040%2C42%20C%2045%2C51%2051%2C51%2056%2C42%20C%2061%2C33%2067%2C33%2072%2C42%22%20fill%3D%22none%22%20stroke%3D%22%237dd3fc%22%20stroke-width%3D%224%22%20stroke-linecap%3D%22round%22/%3E%3Cpath%20d%3D%22M%2024%2C58%20C%2029%2C49%2035%2C49%2040%2C58%20C%2045%2C67%2051%2C67%2056%2C58%20C%2061%2C49%2067%2C49%2072%2C58%22%20fill%3D%22none%22%20stroke%3D%22%237dd3fc%22%20stroke-width%3D%224%22%20stroke-linecap%3D%22round%22/%3E%3C/svg%3E"/>
   <meta name="description" content="Yenilenebilir enerji, denizcilik, inşaat ve tarım sektörleri için meteoroloji danışmanlığı: canlı hava durumu, 7 günlük tahmin, hava kalitesi ve deniz verileri." />
   <meta name="keywords" content="hava tahmini, hava durumu, hava analizi, kısa vadeli hava tahmini, uzun vadeli hava tahmini, aylık tahmin, mevsimlik tahmin, yağış, sağanak, kar, sis, buzlanma, zirai don, zirai hava tahmini, güneş enerjisi, rüzgar enerjisi, RES, GES, rüzgar tahmini, güneşlenme süresi, maksimum rüzgar, sıcaklık tahmini, basınç, nisbi nem, risk haritası, deniz tahmini, dalga yüksekliği, bofor skalası, 10 m rüzgarı, 100 m rüzgarı, enerji atlası, havacılık meteorolojisi, metar, taf, sinoptik, uydu, radar, meteorolojik veri, fotovoltaik panel, rüzgar türbini, hub yüksekliği, kar kalınlığı, iklim değişikliği" />
@@ -259,6 +267,7 @@
     .page-nav-btn.active::after{content:'';position:absolute;left:0;right:0;bottom:-8px;height:2px;background:#34d3b5;border-radius:2px}
     .page-nav-btn-mobile{width:100%;text-align:left;padding:12px 16px;border-radius:10px;background:none;border:none;cursor:pointer;font:inherit;color:#cbd5e1}
     .page-nav-btn-mobile.active{background:rgba(52,211,181,.12);color:#34d3b5;font-weight:600}
+    .pwa-install-btn{width:100%;text-align:left;padding:12px 16px;border-radius:10px;background:rgba(52,211,181,.06);border:1px dashed rgba(52,211,181,.35);cursor:pointer;font:inherit;color:#7eead4;margin-top:4px}
     #sector-sidebar{background:rgba(255,255,255,.03);border-right:1px solid rgba(255,255,255,.08);backdrop-filter:blur(16px)}
     .sidebar-btn,.sidebar-sub-btn{display:flex;align-items:center;gap:9px;width:100%;text-align:left;padding:9px 10px;border-radius:10px;background:none;border:none;cursor:pointer;font:inherit;color:#cbd5e1;transition:background .15s,color .15s}
     .sidebar-btn:hover,.sidebar-sub-btn:hover{background:rgba(52,211,181,.08);color:#e2e8f0}
@@ -331,6 +340,7 @@
     <button class="page-nav-btn-mobile" data-page="deniz">🌊 Deniz</button>
     <button class="page-nav-btn-mobile" data-page="uzmannotu">📝 Uzman Notu</button>
     <button class="page-nav-btn-mobile" data-page="iletisim">✉️ İletişim</button>
+    <button type="button" class="pwa-install-btn hidden" data-pwa-install>📲 Uygulamayı Telefona Yükle</button>
     <button id="btn-locate-mobile" class="btn-primary text-white text-sm px-4 py-3 rounded-xl mt-2 flex items-center justify-center gap-2">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0L6.343 16.657a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
       Konumum
@@ -1448,6 +1458,7 @@
   <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6 text-slate-600 text-sm">
     <span class="font-display font-700 text-slate-400">Fore<span class="text-brand">caster</span></span>
     <span>© 2026 Forecaster. Tüm hakları saklıdır.</span>
+    <button type="button" data-pwa-install class="hidden text-brand text-sm hover:underline">📲 Uygulama olarak yükle</button>
     <button onclick="showPage('admin')" class="text-slate-700 text-xs hover:text-slate-500">Yönetici Girişi</button>
   </div>
 </footer>
@@ -8252,6 +8263,58 @@ renderFavoritesBar();
     );
   }
 })();
+
+/* ---------------------------------------------------------------
+   UYGULAMA OLARAK YÜKLEME (PWA)
+   Android/Chrome'da "Uygulamayı yükle" butonu tarayıcının yükleme
+   penceresini açar; iPhone'da (otomatik yükleme yok) adım adım tarif
+   gösterilir. Site zaten uygulama olarak açıksa butonlar gizli kalır.
+--------------------------------------------------------------- */
+(function pwaInit(){
+  if(location.protocol==='file:') return;
+  if('serviceWorker' in navigator){
+    window.addEventListener('load', ()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
+  }
+  const standalone=window.matchMedia('(display-mode: standalone)').matches || navigator.standalone===true;
+  if(standalone) return;
+  const btns=[...document.querySelectorAll('[data-pwa-install]')];
+  const show=on=>btns.forEach(b=>b.classList.toggle('hidden', !on));
+  const ua=navigator.userAgent;
+  const isIOS=/iPhone|iPad|iPod/.test(ua) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+  const isAndroid=/Android/.test(ua);
+  let deferred=null;
+  if(isIOS || isAndroid) show(true);
+  window.addEventListener('beforeinstallprompt', e=>{ deferred=e; show(true); });
+  window.addEventListener('appinstalled', ()=>{ deferred=null; show(false); toast('Forecaster ana ekranınıza eklendi ✓','success'); });
+  btns.forEach(b=>b.addEventListener('click', async ()=>{
+    document.getElementById('mobile-nav')?.classList.add('hidden');
+    if(deferred){
+      const ev=deferred; deferred=null;
+      try{ ev.prompt(); await ev.userChoice; }catch(_){ pwaHelp(isIOS); }
+      return;
+    }
+    pwaHelp(isIOS);
+  }));
+})();
+function pwaHelp(isIOS){
+  let m=document.getElementById('pwa-help');
+  if(!m){
+    m=document.createElement('div'); m.id='pwa-help';
+    m.className='fixed inset-0 flex items-end sm:items-center justify-center p-4';
+    m.style.zIndex='300';
+    m.innerHTML=`<div class="absolute inset-0 bg-black/70" data-close></div>
+      <div class="relative rounded-2xl p-6 max-w-sm w-full border border-white/10" style="background:#0a1c25">
+        <p class="text-white text-lg font-700 mb-3">📲 Forecaster'ı ana ekrana ekleyin</p>
+        <div id="pwa-help-body" class="text-slate-300 text-sm leading-relaxed"></div>
+        <button data-close class="btn-primary text-white text-sm px-6 py-2.5 mt-5 w-full">Tamam</button>
+      </div>`;
+    m.addEventListener('click', e=>{ if(e.target.closest('[data-close]')) m.remove(); });
+    document.body.appendChild(m);
+  }
+  m.querySelector('#pwa-help-body').innerHTML = isIOS
+    ? `<ol class="list-decimal pl-5 space-y-2"><li>Bu sayfayı <b>Safari</b>'de açın.</li><li>Alttaki <b>Paylaş</b> düğmesine (yukarı oklu kare) dokunun.</li><li>Listeden <b>Ana Ekrana Ekle</b>'yi seçip <b>Ekle</b>'ye dokunun.</li></ol>`
+    : `<ol class="list-decimal pl-5 space-y-2"><li>Tarayıcının menüsünü açın (sağ üstteki <b>⋮</b>).</li><li><b>Uygulamayı yükle</b> ya da <b>Ana ekrana ekle</b>'yi seçin.</li></ol>`;
+}
 
 /* Adresten açılış (örn. /danismanlik/findik doğrudan açıldıysa) */
 (function routeInit(){
