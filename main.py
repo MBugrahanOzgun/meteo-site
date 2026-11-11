@@ -10,9 +10,11 @@ import httpx
 from cachetools import TTLCache
 from fastapi import FastAPI, File, Header, HTTPException, Query, UploadFile
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+
+import seo_pages
 
 OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
 NOMINATIM_REVERSE_URL = "https://nominatim.openstreetmap.org/reverse"
@@ -314,33 +316,31 @@ def health():
     return {"ok": True, "service": "meteo-site"}
 
 
-@app.get("/")
-def home():
-    return FileResponse("static/index.html")
+# --- Sayfalar ---
+# Her sekme ve Danışmanlık paneli kendi adresinden açılır (örn. /hava-durumu,
+# /danismanlik/findik). Adresler, başlıklar ve açıklamalar seo_pages.py'de.
+def _page_endpoint(route):
+    def endpoint():
+        return HTMLResponse(seo_pages.render_page(route))
+    return endpoint
+
+
+for _route in seo_pages.SEO_ROUTES:
+    app.add_api_route(
+        _route["path"], _page_endpoint(_route), methods=["GET"],
+        include_in_schema=False, response_class=HTMLResponse,
+    )
 
 
 # --- Arama motorları için robots.txt ve sitemap.xml ---
-SITE_URL = "https://forecaster.com.tr"
-
-
 @app.get("/robots.txt", include_in_schema=False)
 def robots_txt():
-    return PlainTextResponse(
-        "User-agent: *\n"
-        "Disallow: /admin/\n"
-        f"Sitemap: {SITE_URL}/sitemap.xml\n"
-    )
+    return PlainTextResponse(seo_pages.robots_txt())
 
 
 @app.get("/sitemap.xml", include_in_schema=False)
 def sitemap_xml():
-    xml = (
-        '<?xml version="1.0" encoding="UTF-8"?>\n'
-        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
-        f"  <url><loc>{SITE_URL}/</loc></url>\n"
-        "</urlset>\n"
-    )
-    return Response(content=xml, media_type="application/xml")
+    return Response(content=seo_pages.sitemap_xml(), media_type="application/xml")
 
 
 @app.get("/latest")
@@ -1308,7 +1308,7 @@ CONTENT = {
             ]
         },
         {
-            "id": "construction",
+            "id": "construction-info",   # canlı şantiye paneli "construction" ile çakışmasın
             "title": "İnşaat ve Müteahhitlik",
             "sections": [
                 {

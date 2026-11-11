@@ -1443,6 +1443,8 @@
 
 <!-- ======== FOOTER ======== -->
 <footer class="border-t border-white/5 py-10 px-6 md:px-12">
+  <!-- Tüm sayfaların linkleri: sunucu (seo_pages.py) burayı doldurur -->
+  <nav id="site-links" aria-label="Sayfalar" class="max-w-7xl mx-auto mb-10 text-sm"><!--SEO_LINKS--></nav>
   <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6 text-slate-600 text-sm">
     <span class="font-display font-700 text-slate-400">Fore<span class="text-brand">caster</span></span>
     <span>© 2026 Forecaster. Tüm hakları saklıdır.</span>
@@ -7707,6 +7709,10 @@ async function loadContent() {
     btn.classList.add('active');
     const targetPanel = document.getElementById('tab-'+btn.dataset.tab);
     if(targetPanel) targetPanel.classList.add('active');
+    if(document.querySelector('section[data-page="danismanlik"]')?.classList.contains('active')){
+      routeApply(ROUTES.byTab[btn.dataset.tab], routeReplaceNext);
+    }
+    routeReplaceNext=false;
 
     if(typeof NP_PANELS!=='undefined' && NP_PANELS[btn.dataset.tab]) npActivate(btn.dataset.tab);
     if(btn.dataset.tab==='aviation') avExtrasRender();
@@ -7952,6 +7958,61 @@ function relocateMap(page){
   if(typeof map!=='undefined' && map) setTimeout(()=>map.invalidateSize(), 80);
 }
 
+/* ---------------------------------------------------------------
+   ADRESLER — her sekme ve Danışmanlık paneli kendi adresinden açılır
+   (örn. /hava-durumu, /danismanlik/findik). Rota tablosu sunucudan gelir
+   (seo_pages.py → <script id="seo-routes">). Sayfa dosyadan açılırsa
+   tablo boş olur ve adres hiç değişmez.
+--------------------------------------------------------------- */
+var ROUTES=(function(){
+  var list=[]; try{ list=JSON.parse(document.getElementById('seo-routes')?.textContent||'[]'); }catch(_){}
+  var R={byPath:{}, byPage:{}, byTab:{}};
+  list.forEach(function(r){ R.byPath[r.path]=r; if(r.tab) R.byTab[r.tab]=r; else R.byPage[r.page]=r; });
+  return R;
+})();
+var routeHold=false;              /* ilk açılışta / geri-ileri tuşunda adres yazmayı durdurur */
+var routeReplaceNext=false;       /* goToSector: sekme + panel geçişi tek geçmiş kaydı olsun */
+var routePath=location.pathname;  /* ekranda gösterilen rotanın adresi */
+
+function routeMeta(r){
+  document.title=r.title;
+  document.querySelector('meta[name="description"]')?.setAttribute('content', r.desc);
+  const can=document.querySelector('link[rel="canonical"]');
+  if(can) can.href=new URL(r.path, can.href).href;
+}
+function routeApply(r, replace){
+  if(!r || routeHold) return;
+  routeMeta(r);
+  if(routePath===r.path) return;
+  routePath=r.path;
+  history[replace?'replaceState':'pushState'](null,'',r.path+location.search+location.hash);
+}
+function routeForPage(page){
+  if(!ROUTES) return null;
+  if(page==='danismanlik'){
+    const act=document.querySelector('.tab-btn.active')?.dataset.tab;
+    return ROUTES.byTab[act] || ROUTES.byTab.services;
+  }
+  return ROUTES.byPage[page];
+}
+/* Bir rotayı ekranda açar (adres zaten doğru olduğu için tekrar yazmaz) */
+function routeOpen(r){
+  routePath=r.path;
+  routeHold=true;
+  try{ showPage(r.page); } finally{ routeHold=false; }
+  routeMeta(r);
+  if(r.tab) routeOpenTab(r, 60);
+}
+/* Danışmanlık sekmeleri /content yüklenince oluşur; hazır olana kadar bekle */
+function routeOpenTab(r, n){
+  if(routePath!==r.path) return;   /* bu arada kullanıcı başka sayfaya geçti */
+  const btn=document.querySelector(`.tab-btn[data-tab="${r.tab}"]`);
+  if(!btn){ if(n>0) setTimeout(()=>routeOpenTab(r, n-1), 150); return; }
+  routeHold=true;
+  try{ btn.click(); } finally{ routeHold=false; }
+  routeMeta(r);
+}
+
 function showPage(page){
   document.querySelectorAll('section[data-page]').forEach(el=>{
     el.classList.toggle('active', el.dataset.page===page);
@@ -7963,6 +8024,7 @@ function showPage(page){
   window.scrollTo({top:0, behavior:'auto'});
   document.getElementById('mobile-nav')?.classList.add('hidden');
   if(PAGE_REFRESH[page]) setTimeout(PAGE_REFRESH[page], 60);
+  routeApply(routeForPage(page), false);
 }
 
 /* ---------------------------------------------------------------
@@ -8125,8 +8187,9 @@ function goToSector(tabKey, anchorId){
       }
       return;
     }
-    if(n>0) setTimeout(()=>tryClick(n-1), 150);
+    if(n>0) setTimeout(()=>tryClick(n-1), 150); else routeReplaceNext=false;
   };
+  routeReplaceNext=true;
   setTimeout(()=>tryClick(10), 80);
 }
 
@@ -8189,6 +8252,27 @@ renderFavoritesBar();
     );
   }
 })();
+
+/* Adresten açılış (örn. /danismanlik/findik doğrudan açıldıysa) */
+(function routeInit(){
+  const r=ROUTES.byPath[location.pathname];
+  if(r && (r.page!=='ozet' || r.tab)) routeOpen(r);
+})();
+/* Geri / ileri tuşları */
+window.addEventListener('popstate', ()=>{
+  const r=ROUTES.byPath[location.pathname];
+  if(!r || r.path===routePath) return;   /* sadece #konum değiştiyse dokunma */
+  routeOpen(r);
+});
+/* Sayfa içi linkler (alt kısımdaki liste): sayfayı yenilemeden aç;
+   Ctrl/Cmd ile tıklanırsa tarayıcı normal şekilde yeni sekmede açar. */
+document.addEventListener('click', e=>{
+  const a=e.target.closest('a[data-route]'); if(!a) return;
+  if(e.defaultPrevented || e.button!==0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+  const r=ROUTES.byPath[a.getAttribute('href')]; if(!r) return;
+  e.preventDefault();
+  if(r.tab) goToSector(r.tab); else showPage(r.page);
+});
 </script>
 </body>
 </html>
