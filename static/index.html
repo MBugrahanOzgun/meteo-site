@@ -137,6 +137,23 @@
     .lm-btn:hover{border-color:rgba(52,211,181,.5)}
     .lm-btn.active{background:#34d3b5;color:#061219;font-weight:600;border-color:#34d3b5}
     .lm-btn:disabled{opacity:.35;cursor:not-allowed}
+    .lm-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+    .lm-grp{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#64748b;font-weight:600;min-width:88px}
+    .lm-legend .cls div{display:flex;align-items:center;gap:6px;font-size:11px;margin-top:3px;color:#cbd5e1}
+    .lm-legend .cls i{width:12px;height:10px;border-radius:2px;display:inline-block;flex-shrink:0}
+    .lm-legend .hint{font-size:10px;color:#94a3b8;margin-top:6px;max-width:230px;line-height:1.35}
+    .lm-ctr{font:600 10px/1 'DM Sans',sans-serif;color:#fff;background:rgba(4,17,31,.72);padding:1px 3px;border-radius:3px;white-space:nowrap}
+    .lm-hl{font:800 22px/1 'Inter',sans-serif;text-align:center;text-shadow:0 0 4px #000,0 0 8px #000}
+    .lm-hl.lo{color:#f87171} .lm-hl.hi{color:#60a5fa}
+    .lm-hl small{display:block;font:700 10px/1.2 'DM Sans',sans-serif;color:#fff}
+    .mg-panel{position:relative;width:100%;height:100%;overflow-y:auto;background:#0a1c25;border:1px solid rgba(255,255,255,.08)}
+    @media (min-width:640px){ #mg-modal{padding:24px!important} .mg-panel{max-width:1000px;height:auto;max-height:92vh;border-radius:18px} }
+    .mg-head{position:sticky;top:0;z-index:2;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:16px 20px;background:#0a1c25;border-bottom:1px solid rgba(255,255,255,.06)}
+    .mg-card{background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:14px;padding:12px}
+    #kp-table th{color:#64748b;font-weight:500;font-size:.75rem;text-align:right;padding:6px 8px}
+    #kp-table td{text-align:right;padding:7px 8px;border-top:1px solid rgba(255,255,255,.06);color:#cbd5e1;white-space:nowrap}
+    #kp-table th:first-child,#kp-table td:first-child{text-align:left}
+    #kp-table td.best{color:#34d3b5;font-weight:700}
     .lm-select{appearance:none;-webkit-appearance:none;background:rgba(4,17,31,.9) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2334d3b5'/%3E%3C/svg%3E") no-repeat right 12px center;border:1px solid rgba(52,211,181,.4);color:#e2e8f0;border-radius:9999px;padding:6px 32px 6px 14px;font-size:.8rem;font-weight:600;cursor:pointer}
     .lm-select option{background:#061219;color:#e2e8f0}
     .lm-pop table{width:100%;border-collapse:collapse;margin-top:6px;font-size:.75rem}
@@ -536,14 +553,20 @@
 
   <!-- ======== MODEL HARİTASI (ECMWF açık veri) ======== -->
   <div id="lm-block" class="mb-20">
-    <div class="flex flex-wrap items-center gap-2 mb-3">
-      <label class="flex items-center gap-2 mr-1">
+    <div class="flex flex-wrap items-center gap-x-4 gap-y-2 mb-4">
+      <label class="flex items-center gap-2">
         <span class="text-slate-500 text-[11px] uppercase tracking-widest font-600">Model</span>
         <select id="lm-model" class="lm-select" aria-label="Tahmin modeli">
           <option value="ecmwf">ECMWF IFS</option>
         </select>
       </label>
-      <div id="lm-layers" class="flex flex-wrap gap-2">
+      <a href="/model-karnesi" data-route class="text-sm text-brand hover:underline">🏆 Hangi model daha iyi tutturuyor?</a>
+      <label class="ml-auto flex items-center gap-2 text-sm text-slate-300 cursor-pointer select-none">
+        <input type="checkbox" id="lm-wind-toggle" class="accent-teal-400 w-4 h-4" checked> Rüzgâr akışı
+      </label>
+    </div>
+    <div id="lm-layers" class="flex flex-col gap-2 mb-3">
+      <div class="lm-row"><span class="lm-grp">Temel</span>
         <button type="button" class="lm-btn active" data-lm="precip">🌧 Yağış</button>
         <button type="button" class="lm-btn" data-lm="temp">🌡 Sıcaklık</button>
         <button type="button" class="lm-btn" data-lm="wind">💨 Rüzgâr</button>
@@ -551,9 +574,17 @@
         <button type="button" class="lm-btn" data-lm="snow">❄️ Kar</button>
         <button type="button" class="lm-btn" data-lm="cloud">☁️ Bulut</button>
       </div>
-      <label class="ml-auto flex items-center gap-2 text-sm text-slate-300 cursor-pointer select-none">
-        <input type="checkbox" id="lm-wind-toggle" class="accent-teal-400 w-4 h-4" checked> Rüzgâr akışı
-      </label>
+      <div class="lm-row"><span class="lm-grp">Sektörel</span>
+        <button type="button" class="lm-btn" data-lm="wind100">🌀 RES rüzgârı (100 m)</button>
+        <button type="button" class="lm-btn" data-lm="frost">🥶 Zirai don riski</button>
+        <button type="button" class="lm-btn" data-lm="cape">⛈ Fırtına potansiyeli</button>
+        <button type="button" class="lm-btn" data-lm="snowdepth">🏔 Kar kalınlığı</button>
+      </div>
+      <div class="lm-row"><span class="lm-grp">Meteorolog</span>
+        <button type="button" class="lm-btn" data-lm="msl">🗺 Basınç ve izobarlar</button>
+        <button type="button" class="lm-btn" data-lm="z500">500 hPa</button>
+        <button type="button" class="lm-btn" data-lm="t850">850 hPa sıcaklık</button>
+      </div>
     </div>
     <div class="relative" style="isolation:isolate">
       <div id="lm-map"></div>
@@ -755,6 +786,49 @@
 </section>
 
 
+<!-- ======== MODEL DOĞRULUK KARNESİ ======== -->
+<section id="karne" data-page="karne" class="py-24 px-6 md:px-12 max-w-7xl mx-auto">
+  <div class="mb-10">
+    <p class="text-brand text-sm font-600 uppercase tracking-widest mb-3">Doğrulama · Havalimanı Ölçümleri</p>
+    <h2 class="font-display text-4xl md:text-5xl font-700 text-white">Model Doğruluk Karnesi</h2>
+    <p class="text-slate-400 mt-4 max-w-2xl">Modellerin bir, iki ve üç gün önceden yaptığı sıcaklık ve rüzgâr tahminlerini Türkiye'deki havalimanlarının resmi ölçümleriyle (METAR) karşılaştırıyoruz. Son 7 günde hangi model, hangi bölgede daha iyi tutturdu?</p>
+  </div>
+  <div class="flex flex-wrap items-center gap-2 mb-6">
+    <button type="button" class="lm-btn active" data-kv="temp">🌡 Sıcaklık</button>
+    <button type="button" class="lm-btn" data-kv="wind">💨 Rüzgâr</button>
+    <span class="hidden sm:block w-px h-6 bg-white/10 mx-2"></span>
+    <button type="button" class="lm-btn active" data-kl="1">1 gün önceden</button>
+    <button type="button" class="lm-btn" data-kl="2">2 gün</button>
+    <button type="button" class="lm-btn" data-kl="3">3 gün</button>
+    <select id="kp-region" class="lm-select sm:ml-auto" aria-label="Bölge"><option>Türkiye</option></select>
+  </div>
+  <div id="kp-rank" class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4"></div>
+  <div class="grid lg:grid-cols-5 gap-6 mt-8">
+    <div class="glass rounded-2xl p-6 lg:col-span-3">
+      <p class="text-slate-300 text-sm font-600">Günlük ortalama hata</p>
+      <p class="text-slate-500 text-xs mt-1 mb-4">1 gün önceden yapılan tahminler · Türkiye geneli · düşük = daha iyi</p>
+      <div style="position:relative;height:240px"><canvas id="kp-chart"></canvas></div>
+    </div>
+    <div class="glass rounded-2xl p-6 lg:col-span-2 overflow-x-auto">
+      <p class="text-slate-300 text-sm font-600">Bölge bölge ortalama hata</p>
+      <p class="text-slate-500 text-xs mt-1 mb-3">Her satırda en iyi model vurgulu</p>
+      <table id="kp-table" class="w-full text-sm"></table>
+    </div>
+  </div>
+  <div class="glass rounded-2xl p-6 mt-8 text-slate-400 text-sm leading-relaxed">
+    <p class="text-slate-300 font-600 mb-2">Nasıl hesaplanıyor?</p>
+    <ul class="list-disc pl-5 space-y-1.5">
+      <li>Her gün modellerin 00 UTC (03:00 TSİ) koşusunun tahminleri, METAR yayımlayan havalimanlarının konumuna enterpolasyonla alınır.</li>
+      <li>Ölçüm olarak havalimanlarının yarım saatte bir yayımladığı resmi METAR raporu kullanılır (saat başına en yakın rapor).</li>
+      <li>Adil olması için karşılaştırma yalnızca dört modelin de tahmini olan istasyon ve saatlerde yapılır. AIFS 6 saatlik olduğundan ortak saatler 03, 09, 15 ve 21 TSİ'dir.</li>
+      <li><b class="text-slate-300">Ortalama hata:</b> tahmin ile ölçüm arasındaki farkın mutlak değerinin ortalaması (küçük = daha iyi). <b class="text-slate-300">Sapma:</b> işaretli ortalama; artıysa model fazla, eksiyse az tahmin ediyor.</li>
+      <li>Modeller 7–25 km'lik ızgaralar kullandığından dağlık istasyonlarda yükseklik farkından gelen benzer bir sapma tüm modellerde görülebilir.</li>
+      <li>Ölçüm kaynağı: <a href="https://aviationweather.gov/" target="_blank" rel="noopener" class="text-brand hover:underline">aviationweather.gov</a> (NOAA). Karne saatte bir güncellenir.</li>
+    </ul>
+    <p id="kp-meta" class="text-slate-500 text-xs mt-4"></p>
+  </div>
+</section>
+
 <!-- ======== AIR QUALITY ======== -->
 <section id="airquality" data-page="kalite" class="py-24 px-6 md:px-12 max-w-7xl mx-auto">
   <div class="reveal mb-12 flex flex-col md:flex-row md:items-end justify-between gap-4">
@@ -912,6 +986,7 @@
     <p id="model-compare-empty" class="text-center text-slate-500 py-8 text-sm">Konum seçildiğinde yüklenecek.</p>
     <div id="mc-confidence" class="mt-6"></div>
     <p id="model-compare-spread" class="text-slate-400 text-xs mt-3 leading-relaxed"></p>
+    <a href="/model-karnesi" data-route class="inline-block text-sm text-brand hover:underline mt-4">🏆 Geçmişte hangi model daha iyi tutturdu? Model doğruluk karnesi →</a>
   </div>
 </section>
 
@@ -5857,7 +5932,7 @@ document.addEventListener('click',e=>{
 =============================================================== */
 const LM={map:null, meta:null, bins:{}, pending:{}, layer:'precip', frame:0, canvas:null, overlay:null,
           geom:null, timer:null, wind:null, windOn:true, pt:null, popup:null, ready:false, luts:{},
-          model:'ecmwf', models:[], cache:{}, cmp:false, cmpLoading:false, attr:null};
+          model:'ecmwf', models:[], cache:{}, cmp:false, cmpLoading:false, attr:null, geoms:{}, overlayKey:null, ctrLayer:null, synFit:false};
 const LM_LINKS={ecmwf:'https://www.ecmwf.int/en/forecasts/datasets/open-data', aifs:'https://www.ecmwf.int/en/forecasts/datasets/open-data',
   gfs:'https://registry.opendata.aws/noaa-gfs-bdp-pds/', icon_eu:'https://opendata.dwd.de/'};
 const LM_ATTR={ecmwf:'Model: &copy; <a href="https://www.ecmwf.int/" target="_blank" rel="noopener">ECMWF</a> (CC BY 4.0)',
@@ -5866,6 +5941,12 @@ const LM_ATTR={ecmwf:'Model: &copy; <a href="https://www.ecmwf.int/" target="_bl
   icon_eu:'Model: Datenbasis <a href="https://www.dwd.de/" target="_blank" rel="noopener">Deutscher Wetterdienst</a> ICON-EU'};
 
 const LM_WIND_STOPS=[[0,'#1e3a5f'],[10,'#2563eb'],[20,'#0ea5e9'],[30,'#14b8a6'],[40,'#84cc16'],[55,'#facc15'],[70,'#f97316'],[90,'#dc2626'],[120,'#a21caf']];
+/* Sınıflı katmanlar: [üst sınır, renk (null = boyama), açıklama] — küçükten büyüğe */
+const LM_RES_CLASSES=[[3,'#475569','Devreye girme hızı altı (<3 m/s)'],[6,'#86efac','Kısmi üretim (3–6 m/s)'],[9,'#22c55e','Kısmi üretim (6–9 m/s)'],
+  [12,'#15803d','Kısmi üretim (9–12 m/s)'],[25,'#0d9488','Nominal üretim (12–25 m/s)'],[Infinity,'#dc2626','Devreden çıkma: fırtına (>25 m/s)']];
+const LM_FROST_CLASSES=[[-6,'#7c3aed','Kuvvetli don (−6 °C altı)'],[-3,'#b91c1c','Orta don (−6…−3 °C)'],[-1,'#ef4444','Hafif don (−3…−1 °C)'],
+  [1,'#fb923c','Don sınırı (−1…+1 °C)'],[3,'#fde68a','Kırağı riski (+1…+3 °C)'],[Infinity,null,'Risk yok']];
+const LM_CAPE_CLASSES=[[250,null,'Yok'],[1000,'#fde047','Zayıf (250–1000)'],[2000,'#fb923c','Orta (1000–2000)'],[3500,'#dc2626','Kuvvetli (2000–3500)'],[Infinity,'#a21caf','Çok kuvvetli (3500+)']];
 const LM_DEFS={
   precip:{label:'Yağış', unit:'mm/saat', need:['precip'], log:true, cut:0.1, alpha:.88,
           stops:[[0.1,'#7dd3fc'],[0.5,'#38bdf8'],[1,'#2563eb'],[2,'#16a34a'],[4,'#84cc16'],[8,'#facc15'],[16,'#f97316'],[32,'#dc2626'],[64,'#a21caf']],
@@ -5873,15 +5954,38 @@ const LM_DEFS={
   temp:  {label:'Sıcaklık', unit:'°C', need:['temp'], alpha:.62,
           stops:[[-25,'#581c87'],[-15,'#4338ca'],[-5,'#2563eb'],[0,'#22d3ee'],[5,'#2dd4bf'],[10,'#4ade80'],[15,'#a3e635'],[20,'#facc15'],[25,'#fb923c'],[30,'#ef4444'],[40,'#991b1b']],
           ticks:[-15,-5,0,10,20,30,40]},
-  wind:  {label:'Rüzgâr hızı', unit:'km/sa', need:['u','v'], alpha:.62, stops:LM_WIND_STOPS, ticks:[0,20,40,70,120]},
-  gust:  {label:'Rüzgâr hamlesi', unit:'km/sa', need:['gust'], alpha:.62, stops:LM_WIND_STOPS, ticks:[0,20,40,70,120]},
+  wind:  {label:'Rüzgâr hızı', unit:'km/sa', need:['u','v'], derive:'speed', alpha:.62, stops:LM_WIND_STOPS, ticks:[0,20,40,70,120]},
+  gust:  {label:'Rüzgâr hamlesi', unit:'km/sa', need:['gust'], factor:3.6, alpha:.62, stops:LM_WIND_STOPS, ticks:[0,20,40,70,120]},
   snow:  {label:'Kar yağışı', unit:'cm/saat', need:['snow'], log:true, cut:0.05, alpha:.92,
           stops:[[0.05,'#e0e7ff'],[0.2,'#c7d2fe'],[0.5,'#a5b4fc'],[1,'#818cf8'],[2,'#c084fc'],[4,'#e879f9'],[8,'#f0abfc']],
           ticks:[0.1,0.5,1,2,4,8]},
   cloud: {label:'Bulut örtüsü', unit:'%', need:['cloud'], cut:5, alpha:1,
           stops:[[5,'rgba(203,213,225,0)'],[30,'rgba(203,213,225,.32)'],[60,'rgba(226,232,240,.55)'],[90,'rgba(241,245,249,.78)'],[100,'rgba(255,255,255,.86)']],
           ticks:[10,30,60,90]},
+  /* --- sektörel --- */
+  wind100:{label:'RES rüzgârı (100 m)', unit:'m/s', need:['u100','v100'], derive:'speed', alpha:.7, classes:LM_RES_CLASSES,
+          hint:'Türbin göbek yüksekliğindeki (100 m) rüzgâr. Eşikler tipik bir rüzgâr türbinine göredir.'},
+  frost: {label:'Zirai don riski', unit:'°C', need:['temp'], derive:'min24', alpha:.78, classes:LM_FROST_CLASSES,
+          hint:'Seçili saatten sonraki 24 saatin en düşük 2 m sıcaklığı. Açık ve rüzgârsız gecelerde toprak yüzeyi 2–3 °C daha soğuk olabilir.'},
+  cape:  {label:'Fırtına potansiyeli (CAPE)', unit:'J/kg', need:['cape'], alpha:.7, classes:LM_CAPE_CLASSES,
+          hint:'Atmosferdeki kararsızlık enerjisi. Yüksek CAPE ile yağış bir aradaysa gök gürültülü sağanak, şimşek ve dolu olasılığı artar.'},
+  snowdepth:{label:'Kar kalınlığı', unit:'cm', need:['snowdepth'], log:true, cut:1, alpha:.88,
+          stops:[[1,'#e0f2fe'],[5,'#bae6fd'],[10,'#93c5fd'],[25,'#818cf8'],[50,'#a78bfa'],[100,'#e879f9'],[200,'#f0abfc']], ticks:[1,5,10,25,50,100,200]},
+  /* --- meteorolog (geniş sinoptik alan) --- */
+  msl:   {label:'Deniz seviyesi basıncı', unit:'hPa', need:['msl'], alpha:.5, syn:true,
+          stops:[[985,'#6d28d9'],[995,'#2563eb'],[1005,'#38bdf8'],[1013,'#cbd5e1'],[1020,'#fbbf24'],[1030,'#f97316'],[1040,'#dc2626']], ticks:[990,1000,1013,1020,1030],
+          contour:{var:'msl', every:4, major:20, fmt:v=>Math.round(v)}, centers:true,
+          hint:'Çizgiler 4 hPa aralıklı izobarlardır. A: alçak basınç, Y: yüksek basınç merkezi.'},
+  z500:  {label:'500 hPa yükseklik', unit:'dam', need:['z500'], factor:0.1, alpha:.55, syn:true,
+          stops:[[516,'#4c1d95'],[528,'#2563eb'],[540,'#0ea5e9'],[552,'#22c55e'],[564,'#facc15'],[576,'#f97316'],[588,'#dc2626']], ticks:[520,540,560,580],
+          contour:{var:'z500', every:4, factor:0.1, major:20, fmt:v=>Math.round(v)},
+          hint:'Orta troposferdeki akış: çukurlar (düşük değerler) soğuk hava ve kararsızlık, sırtlar sıcak ve durgun hava getirir.'},
+  t850:  {label:'850 hPa sıcaklık', unit:'°C', need:['t850'], alpha:.55, syn:true,
+          stops:[[-30,'#581c87'],[-20,'#4338ca'],[-10,'#2563eb'],[-5,'#22d3ee'],[0,'#2dd4bf'],[5,'#4ade80'],[10,'#a3e635'],[15,'#facc15'],[20,'#fb923c'],[25,'#ef4444']], ticks:[-20,-10,0,10,20],
+          contour:{var:'z500', every:4, factor:0.1, major:20, fmt:v=>Math.round(v)},
+          hint:'Yaklaşık 1500 m\'deki hava kütlesi sıcaklığı; çizgiler 500 hPa yüksekliği (dam). Karda −5 °C altı önemli bir eşiktir.'},
 };
+const LM_MODEL_COLORS={ecmwf:'#34d3b5', aifs:'#38bdf8', gfs:'#f59e0b', icon_eu:'#a78bfa'};
 const LM_CITIES=[['İstanbul',41.01,28.98],['Ankara',39.93,32.86],['İzmir',38.42,27.14],['Bursa',40.19,29.06],['Antalya',36.89,30.71],
   ['Adana',37.00,35.32],['Konya',37.87,32.48],['Samsun',41.29,36.33],['Trabzon',41.00,39.72],['Erzurum',39.90,41.27],
   ['Diyarbakır',37.91,40.24],['Van',38.49,43.38],['Gaziantep',37.07,37.38],['Kayseri',38.73,35.49],['Sivas',39.75,37.02],['Eskişehir',39.78,30.52]];
@@ -5894,7 +5998,9 @@ function lmParseColor(c){
 function lmPos(def,v){ return def.log?Math.log(Math.max(v,1e-6)):v; }
 function lmLut(layer){
   if(LM.luts[layer]) return LM.luts[layer];
-  const def=LM_DEFS[layer], st=def.stops.map(([v,c])=>[lmPos(def,v),lmParseColor(c)]);
+  const def=LM_DEFS[layer];
+  if(def.classes) return LM.luts[layer]={classes:def.classes.map(([up,col])=>[up,col?lmParseColor(col):null])};
+  const st=def.stops.map(([v,c])=>[lmPos(def,v),lmParseColor(c)]);
   const p0=st[0][0], p1=st[st.length-1][0], lut=new Uint8ClampedArray(256*4);
   for(let k=0;k<256;k++){
     const p=p0+(p1-p0)*k/255; let a=st[0], b=st[st.length-1];
@@ -5905,12 +6011,16 @@ function lmLut(layer){
   }
   return LM.luts[layer]={lut,p0,p1};
 }
+function lmClassOf(def,v){ for(const c of def.classes){ if(v<c[0]) return c; } return def.classes[def.classes.length-1]; }
 
 /* ---------- veri ---------- */
+/* Değişkenin ızgarası: yüzey alanları "tr" (0,25°), sinoptik alanlar "syn" (0,5°, geniş) */
+function lmGridC(c, nm){ const m=c.meta, g=m.vars&&m.vars[nm]&&m.vars[nm].grid; return (g&&m.grids&&m.grids[g])||m; }
 function lmEnsureC(c, names){
-  const m=c.meta, n=m.steps.length*m.ny*m.nx;
+  const m=c.meta;
   return Promise.all(names.map(nm=>{
     if(c.bins[nm]) return c.bins[nm];
+    const G=lmGridC(c,nm), n=m.steps.length*G.ny*G.nx;
     if(!c.pending[nm]) c.pending[nm]=fetch(`/layers/${m.model}/${m.run_id}/${nm}.bin`).then(r=>{
       if(!r.ok) throw new Error(`HTTP ${r.status}`); return r.arrayBuffer();
     }).then(buf=>{
@@ -5928,30 +6038,54 @@ async function lmModelCache(key){
   return LM.cache[key]={meta:await r.json(), bins:{}, pending:{}};
 }
 function lmAvail(layer){ const a=LM.meta&&LM.meta.available; return !a || LM_DEFS[layer].need.every(v=>a.includes(v)); }
+/* Katman için yüklenecek değişkenler: kendi alanları + (varsa) kontur alanı */
+function lmNeed(layer){
+  const d=LM_DEFS[layer], a=LM.meta&&LM.meta.available, n=[...d.need];
+  if(d.contour && !n.includes(d.contour.var) && (!a||a.includes(d.contour.var))) n.push(d.contour.var);
+  return n;
+}
 function lmHas(layer){ return LM_DEFS[layer].need.every(k=>LM.bins[k]); }
-/* Bir karenin alanı, gösterim biriminde (Float32Array ny*nx) */
+/* Bir karenin alanı gösterim biriminde: {F: Float32Array ny*nx, G: ızgara} */
 function lmField(layer, frame){
-  const m=LM.meta, n=m.nx*m.ny, off=frame*n, out=new Float32Array(n), miss=m.missing;
-  if(layer==='wind'){
-    const U=LM.bins.u, V=LM.bins.v, s=m.vars.u.scale*3.6;
+  const def=LM_DEFS[layer], m=LM.meta, nm=def.need[0], G=lmGridC(LM,nm), n=G.nx*G.ny, miss=m.missing, out=new Float32Array(n);
+  if(def.derive==='speed'){
+    const U=LM.bins[def.need[0]], V=LM.bins[def.need[1]], s=m.vars[nm].scale*(def.unit==='km/sa'?3.6:1), off=frame*n;
     for(let k=0;k<n;k++){ const u=U[off+k], v=V[off+k]; out[k]=(u===miss||v===miss)?NaN:Math.hypot(u,v)*s; }
+  } else if(def.derive==='min24'){
+    const A=LM.bins[nm], s=m.vars[nm].scale, t0=Date.parse(m.times[frame]);
+    out.fill(Infinity);
+    for(let f=frame; f<m.times.length && Date.parse(m.times[f])-t0<=24*3600e3; f++){
+      const off=f*n; for(let k=0;k<n;k++){ const a=A[off+k]; if(a!==miss && a*s<out[k]) out[k]=a*s; }
+    }
+    for(let k=0;k<n;k++) if(out[k]===Infinity) out[k]=NaN;
   } else {
-    const nm=LM_DEFS[layer].need[0], A=LM.bins[nm], s=m.vars[nm].scale*(layer==='gust'?3.6:1);
+    const A=LM.bins[nm], s=m.vars[nm].scale*(def.factor||1), off=frame*n;
     for(let k=0;k<n;k++){ const a=A[off+k]; out[k]=a===miss?NaN:a*s; }
   }
-  return out;
+  return {F:out, G};
 }
 /* Ham değişkenin (m/s, °C …) bir noktadaki değeri — çift doğrusal enterpolasyon */
 function lmAtC(c, nm, frame, lat, lon){
   const m=c.meta, A=c.bins[nm]; if(!A) return NaN;
-  const fj=(m.lat_n-lat)/m.res, fi=(lon-m.lon_w)/m.res;
-  if(!(fj>=0&&fi>=0&&fj<=m.ny-1&&fi<=m.nx-1)) return NaN;
-  const j0=Math.floor(fj), i0=Math.floor(fi), j1=Math.min(j0+1,m.ny-1), i1=Math.min(i0+1,m.nx-1), dj=fj-j0, di=fi-i0;
-  const off=frame*m.nx*m.ny, g=(j,i)=>{ const v=A[off+j*m.nx+i]; return v===m.missing?NaN:v; };
+  const G=lmGridC(c,nm), fj=(G.lat_n-lat)/G.res, fi=(lon-G.lon_w)/G.res;
+  if(!(fj>=0&&fi>=0&&fj<=G.ny-1&&fi<=G.nx-1)) return NaN;
+  const j0=Math.floor(fj), i0=Math.floor(fi), j1=Math.min(j0+1,G.ny-1), i1=Math.min(i0+1,G.nx-1), dj=fj-j0, di=fi-i0;
+  const off=frame*G.nx*G.ny, g=(j,i)=>{ const v=A[off+j*G.nx+i]; return v===m.missing?NaN:v; };
   const v=(g(j0,i0)*(1-di)+g(j0,i1)*di)*(1-dj)+(g(j1,i0)*(1-di)+g(j1,i1)*di)*dj;
   return v*m.vars[nm].scale;
 }
 function lmAt(nm, frame, lat, lon){ return lmAtC({meta:LM.meta,bins:LM.bins}, nm, frame, lat, lon); }
+/* Seçili katmanın bir noktadaki değeri (gösterim biriminde) */
+function lmLayerValue(layer, lat, lon){
+  const def=LM_DEFS[layer], f=LM.frame;
+  if(def.derive==='speed') return Math.hypot(lmAt(def.need[0],f,lat,lon),lmAt(def.need[1],f,lat,lon))*(def.unit==='km/sa'?3.6:1);
+  if(def.derive==='min24'){
+    const t0=Date.parse(LM.meta.times[f]); let mn=NaN;
+    for(let k=f;k<LM.meta.times.length && Date.parse(LM.meta.times[k])-t0<=24*3600e3;k++){ const v=lmAt('temp',k,lat,lon); if(v===v && !(v>=mn)) mn=v; }
+    return mn;
+  }
+  return lmAt(def.need[0],f,lat,lon)*(def.factor||1);
+}
 
 /* ---------- renk katmanı: Mercator'a göre örneklenmiş canvas ---------- */
 const LMCanvasOverlay=L.ImageOverlay.extend({
@@ -5963,38 +6097,116 @@ const LMCanvasOverlay=L.ImageOverlay.extend({
     el.onselectstart=L.Util.falseFn; el.onmousemove=L.Util.falseFn;
   },
 });
-function lmGeom(){
-  const m=LM.meta, W=(m.nx-1)*8;
+function lmGeom(){ LM.geoms={}; }
+function lmGeomFor(G){
+  const key=`${G.lat_n},${G.lat_s},${G.lon_w},${G.lon_e},${G.nx},${G.ny}`;
+  LM.geoms=LM.geoms||{};
+  if(LM.geoms[key]) return LM.geoms[key];
+  const W=Math.min((G.nx-1)*8,720);
   const merc=lat=>Math.log(Math.tan(Math.PI/4+lat*Math.PI/360));
-  const yN=merc(m.lat_n), yS=merc(m.lat_s), xSpan=(m.lon_e-m.lon_w)*Math.PI/180, H=Math.round(W*(yN-yS)/xSpan);
+  const yN=merc(G.lat_n), yS=merc(G.lat_s), xSpan=(G.lon_e-G.lon_w)*Math.PI/180, H=Math.round(W*(yN-yS)/xSpan);
   const fj=new Float32Array(H), fi=new Float32Array(W);
-  for(let r=0;r<H;r++){ const y=yN-(r+.5)/H*(yN-yS), lat=(2*Math.atan(Math.exp(y))-Math.PI/2)*180/Math.PI; fj[r]=Math.min(Math.max((m.lat_n-lat)/m.res,0),m.ny-1); }
-  for(let c=0;c<W;c++){ fi[c]=Math.min(Math.max((c+.5)/W*(m.nx-1),0),m.nx-1); }
-  LM.geom={W,H,fj,fi};
+  for(let r=0;r<H;r++){ const y=yN-(r+.5)/H*(yN-yS), lat=(2*Math.atan(Math.exp(y))-Math.PI/2)*180/Math.PI; fj[r]=Math.min(Math.max((G.lat_n-lat)/G.res,0),G.ny-1); }
+  for(let c=0;c<W;c++){ fi[c]=Math.min(Math.max((c+.5)/W*(G.nx-1),0),G.nx-1); }
+  return LM.geoms[key]={W,H,fj,fi,key};
 }
 function lmDraw(){
   if(!LM.ready||!lmHas(LM.layer)) return;
-  const def=LM_DEFS[LM.layer], {lut,p0,p1}=lmLut(LM.layer), F=lmField(LM.layer,LM.frame);
-  const {W,H,fj,fi}=LM.geom, m=LM.meta, nx=m.nx, ny=m.ny, cut=def.cut, lo=cut!=null?cut*0.4:null, log=def.log, span=p1-p0;
+  const def=LM_DEFS[LM.layer], L_=lmLut(LM.layer), {F,G}=lmField(LM.layer,LM.frame), geo=lmGeomFor(G);
+  if(LM.overlayKey!==geo.key){ LM.overlay.setBounds(L.latLngBounds([[G.lat_s,G.lon_w],[G.lat_n,G.lon_e]])); LM.overlayKey=geo.key; }
+  const {W,H,fj,fi}=geo, nx=G.nx, ny=G.ny;
   if(LM.canvas.width!==W||LM.canvas.height!==H){ LM.canvas.width=W; LM.canvas.height=H; }
   const ctx=LM.canvas.getContext('2d'), img=ctx.createImageData(W,H), px=img.data;
+  const cls=L_.classes, A=def.alpha, cut=def.cut, lo=cut!=null?cut*0.4:null, log=def.log, lut=L_.lut, p0=L_.p0, span=L_.p1-L_.p0;
   for(let r=0;r<H;r++){
     const y=fj[r], j0=Math.floor(y), j1=Math.min(j0+1,ny-1), dj=y-j0, a0=j0*nx, a1=j1*nx;
     for(let c=0;c<W;c++){
       const x=fi[c], i0=Math.floor(x), i1=Math.min(i0+1,nx-1), di=x-i0;
       const v=(F[a0+i0]*(1-di)+F[a0+i1]*di)*(1-dj)+(F[a1+i0]*(1-di)+F[a1+i1]*di)*dj;
-      if(!(v===v) || (cut!=null && v<lo)) continue;
+      if(!(v===v)) continue;
+      const o=(r*W+c)*4;
+      if(cls){
+        let col=null; for(let q=0;q<cls.length;q++){ if(v<cls[q][0]){ col=cls[q][1]; break; } }
+        if(!col) continue;
+        px[o]=col[0]; px[o+1]=col[1]; px[o+2]=col[2]; px[o+3]=255*A*col[3];
+        continue;
+      }
+      if(cut!=null && v<lo) continue;
       const p=log?Math.log(Math.max(v,cut||v)):v; let k=Math.round((p-p0)/span*255); k=k<0?0:k>255?255:k;
-      const o=(r*W+c)*4, l=k*4, fade=(cut!=null && v<cut)?(v-lo)/(cut-lo):1;   /* eşik altında kenarı yumuşat */
+      const l=k*4, fade=(cut!=null && v<cut)?(v-lo)/(cut-lo):1;   /* eşik altında kenarı yumuşat */
       px[o]=lut[l]; px[o+1]=lut[l+1]; px[o+2]=lut[l+2]; px[o+3]=lut[l+3]*fade;
     }
   }
   ctx.putImageData(img,0,0);
+  lmContours(def);
+}
+
+/* ---------- konturlar (izobar, 500 hPa) ve basınç merkezleri ---------- */
+function lmContours(def){
+  if(LM.ctrLayer){ LM.map.removeLayer(LM.ctrLayer); LM.ctrLayer=null; }
+  const ct=def.contour; if(!ct || !LM.bins[ct.var]) return;
+  const m=LM.meta, G=lmGridC(LM,ct.var), nx=G.nx, ny=G.ny, n=nx*ny, off=LM.frame*n, A=LM.bins[ct.var], s=m.vars[ct.var].scale*(ct.factor||1), miss=m.missing;
+  const Z=new Float32Array(n); let lo=Infinity, hi=-Infinity;
+  for(let k=0;k<n;k++){ const a=A[off+k]; Z[k]=a===miss?NaN:a*s; if(Z[k]===Z[k]){ if(Z[k]<lo) lo=Z[k]; if(Z[k]>hi) hi=Z[k]; } }
+  if(!(lo<hi)) return;
+  const latOf=j=>G.lat_n-j*G.res, lonOf=i=>G.lon_w+i*G.res, grp=L.layerGroup();
+  for(let lv=Math.ceil(lo/ct.every)*ct.every; lv<=hi; lv+=ct.every){
+    const segs=[], t=(p,q)=>q===p?0.5:(lv-p)/(q-p);
+    for(let j=0;j<ny-1;j++) for(let i=0;i<nx-1;i++){
+      const a=Z[j*nx+i], b=Z[j*nx+i+1], c=Z[(j+1)*nx+i+1], d=Z[(j+1)*nx+i];
+      if(!(a===a&&b===b&&c===c&&d===d)) continue;
+      const idx=(a>lv?8:0)|(b>lv?4:0)|(c>lv?2:0)|(d>lv?1:0); if(idx===0||idx===15) continue;
+      const top=[latOf(j),lonOf(i+t(a,b))], right=[latOf(j+t(b,c)),lonOf(i+1)], bottom=[latOf(j+1),lonOf(i+t(d,c))], left=[latOf(j+t(a,d)),lonOf(i)];
+      switch(idx){
+        case 1: case 14: segs.push([left,bottom]); break;
+        case 2: case 13: segs.push([bottom,right]); break;
+        case 3: case 12: segs.push([left,right]); break;
+        case 4: case 11: segs.push([top,right]); break;
+        case 6: case 9:  segs.push([top,bottom]); break;
+        case 7: case 8:  segs.push([left,top]); break;
+        case 5:  segs.push([left,top],[bottom,right]); break;
+        case 10: segs.push([top,right],[left,bottom]); break;
+      }
+    }
+    if(!segs.length) continue;
+    const major=ct.major && Math.round(lv)%ct.major===0;
+    L.polyline(segs,{pane:'lmContours',color:'rgba(255,255,255,.85)',weight:major?1.7:1,interactive:false}).addTo(grp);
+    [0.3,0.75].forEach(q=>{ const sg=segs[Math.floor(segs.length*q)]; if(!sg) return;
+      L.marker([(sg[0][0]+sg[1][0])/2,(sg[0][1]+sg[1][1])/2],{pane:'lmContours',interactive:false,keyboard:false,
+        icon:L.divIcon({className:'',html:`<span class="lm-ctr">${ct.fmt(lv)}</span>`,iconSize:null,iconAnchor:[11,7]})}).addTo(grp); });
+  }
+  if(def.centers) lmCenters(Z,G,grp);
+  LM.ctrLayer=grp.addTo(LM.map);
+}
+/* Alçak (A) ve yüksek (Y) basınç merkezleri: 2° yarıçapta en düşük/en yüksek ve çevresinden belirgin farklı noktalar */
+/* Alçak/yüksek basınç merkezleri: ~2,5°lik pencerede en uç değer olan ve
+   çevresinden en az 1 hPa ayrışan noktalar. Yükseklerin yayvan olması ve
+   0,1 hPa yuvarlamadan doğan eşit tepeler için pencere kenarda kırpılır,
+   eşitlikte tarama sırasında ilk nokta seçilir. */
+function lmCenters(Z,G,grp){
+  const nx=G.nx, ny=G.ny, R=5, M=2;
+  for(let j=M;j<ny-M;j++) for(let i=M;i<nx-M;i++){
+    const v=Z[j*nx+i]; if(!(v===v)) continue;
+    const j0=Math.max(0,j-R), j1=Math.min(ny-1,j+R), i0=Math.max(0,i-R), i1=Math.min(nx-1,i+R);
+    let isMin=true, isMax=true, sum=0, cnt=0;
+    for(let jj=j0;jj<=j1 && (isMin||isMax);jj++) for(let ii=i0;ii<=i1;ii++){
+      const w=Z[jj*nx+ii]; if(!(w===w)) continue;
+      sum+=w; cnt++;
+      if(jj===j && ii===i) continue;
+      const earlier = jj<j || (jj===j && ii<i);
+      if(w<v || (w===v && earlier)) isMin=false;
+      if(w>v || (w===v && earlier)) isMax=false;
+    }
+    if(!(isMin||isMax) || cnt<9 || Math.abs(v-sum/cnt)<1) continue;
+    L.marker([G.lat_n-j*G.res,G.lon_w+i*G.res],{pane:'lmContours',interactive:false,keyboard:false,
+      icon:L.divIcon({className:'',iconSize:null,iconAnchor:[10,14],
+        html:`<div class="lm-hl ${isMin?'lo':'hi'}">${isMin?'A':'Y'}<small>${Math.round(v)}</small></div>`})}).addTo(grp);
+  }
 }
 
 /* ---------- rüzgâr akışı (parçacıklar) ---------- */
 function lmWindActive(){
-  return LM.windOn && LM.ready && LM.bins.u && LM.bins.v && !document.hidden &&
+  return LM.windOn && LM.ready && LM.bins.u && LM.bins.v && !document.hidden && !LM_DEFS[LM.layer].syn &&
          document.querySelector('section[data-page="haritalar"]')?.classList.contains('active');
 }
 const LMWind=L.Layer.extend({
@@ -6088,11 +6300,96 @@ function lmPlay(on){
 /* ---------- lejant ---------- */
 function lmLegend(){
   if(!LM.legendEl) return;
-  const def=LM_DEFS[LM.layer], {p0,p1}=lmLut(LM.layer), pct=v=>((lmPos(def,v)-p0)/(p1-p0)*100);
-  const grad=def.stops.map(([v,c])=>`${c} ${pct(v).toFixed(1)}%`).join(',');
-  LM.legendEl.innerHTML=`<b>${def.label}</b> <span style="color:#94a3b8">(${def.unit})</span>
-    <div class="bar" style="background:linear-gradient(90deg,${grad})"></div>
-    <div class="ticks">${def.ticks.map(v=>`<span style="left:${Math.min(Math.max(pct(v),4),96)}%">${v}</span>`).join('')}</div>`;
+  const def=LM_DEFS[LM.layer];
+  let body='';
+  if(def.classes){
+    body=`<div class="cls">${def.classes.filter(c=>c[1]).map(([,col,lab])=>`<div><i style="background:${col}"></i>${lab}</div>`).join('')}</div>`;
+  } else {
+    const {p0,p1}=lmLut(LM.layer), pct=v=>((lmPos(def,v)-p0)/(p1-p0)*100);
+    const grad=def.stops.map(([v,c])=>`${c} ${pct(v).toFixed(1)}%`).join(',');
+    body=`<div class="bar" style="background:linear-gradient(90deg,${grad})"></div>
+      <div class="ticks">${def.ticks.map(v=>`<span style="left:${Math.min(Math.max(pct(v),4),96)}%">${v}</span>`).join('')}</div>`;
+  }
+  LM.legendEl.innerHTML=`<b>${def.label}</b> <span style="color:#94a3b8">(${def.unit})</span>${body}${def.hint?`<p class="hint">${def.hint}</p>`:''}`;
+}
+
+/* ---------- meteogram: tıklanan noktada tüm modellerin 7 günlük seyri ---------- */
+const MG={charts:[]};
+function mgClose(){
+  MG.charts.forEach(c=>c.destroy()); MG.charts=[];
+  const m=document.getElementById('mg-modal'); if(m) m.style.display='none';
+  document.body.style.overflow='';
+}
+function mgModal(){
+  let m=document.getElementById('mg-modal'); if(m) return m;
+  m=document.createElement('div'); m.id='mg-modal';
+  m.setAttribute('role','dialog'); m.setAttribute('aria-modal','true');
+  m.style.cssText='display:none;position:fixed;inset:0;z-index:400;background:rgba(2,8,14,.82);align-items:center;justify-content:center;padding:0';
+  m.innerHTML=`<div class="mg-panel">
+    <div class="mg-head">
+      <div><p class="text-white font-600">📈 Meteogram <span id="mg-pt" class="text-brand"></span></p>
+        <p id="mg-sub" class="text-slate-500 text-xs mt-1"></p><div id="mg-legend" class="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs"></div></div>
+      <button type="button" id="mg-close" class="text-slate-400 hover:text-white text-3xl leading-none px-2" aria-label="Kapat">×</button>
+    </div>
+    <div id="mg-body" class="p-4 sm:p-6 grid gap-5"></div>
+  </div>`;
+  document.body.appendChild(m);
+  m.addEventListener('click',e=>{ if(e.target===m) mgClose(); });
+  m.querySelector('#mg-close').addEventListener('click',mgClose);
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape' && m.style.display!=='none') mgClose(); });
+  return m;
+}
+function mgChart(canvas, title, unit, datasets, o={}){
+  const tNow=Date.parse(LM.meta.times[LM.frame]);
+  const xs=datasets.flatMap(d=>d.data.map(p=>p.x)); const xmin=Math.min(...xs), xmax=Math.max(...xs);
+  const ticks=[]; for(let t=Math.ceil((xmin+3*3600e3)/86400e3)*86400e3-3*3600e3; t<=xmax; t+=86400e3) ticks.push(t);   /* TSİ gece yarıları */
+  const lbl=v=>{ const d=lmTr(new Date(v).toISOString()); return `${d.wd} ${d.day}`; };
+  return new Chart(canvas.getContext('2d'),{type:'line',data:{datasets},
+    options:{responsive:true, maintainAspectRatio:false, animation:false, parsing:false,
+      interaction:{mode:'nearest',axis:'x',intersect:false},
+      plugins:{legend:{display:false},
+        tooltip:{backgroundColor:'rgba(4,17,31,.92)',titleColor:'#94a3b8',bodyColor:'#e0f2fe',
+          callbacks:{title:it=>{ const d=lmTr(new Date(it[0].parsed.x).toISOString()); return `${d.wd} ${d.day} ${d.mo} ${d.hh}:00 TSİ`; },
+                     label:it=>`${it.dataset.label}: ${it.parsed.y!=null?it.parsed.y.toFixed(o.dec??1):'—'} ${unit}`}}},
+      scales:{x:{type:'linear',min:xmin,max:xmax,afterBuildTicks:ax=>{ ax.ticks=ticks.map(v=>({value:v})); },
+                 ticks:{color:'#64748b',font:{family:'DM Sans',size:11},callback:lbl},grid:{color:'rgba(255,255,255,.06)'}},
+              y:{beginAtZero:!!o.zero,ticks:{color:'#64748b',font:{family:'DM Sans',size:11}},grid:{color:'rgba(255,255,255,.06)'},
+                 title:{display:true,text:`${title} (${unit})`,color:'#94a3b8',font:{family:'DM Sans',size:11}}}}},
+    plugins:[{id:'nowline',afterDatasetsDraw(ch){ const x=ch.scales.x.getPixelForValue(tNow); if(x<ch.chartArea.left||x>ch.chartArea.right) return;
+      const c=ch.ctx; c.save(); c.strokeStyle='rgba(52,211,181,.75)'; c.setLineDash([3,3]); c.beginPath(); c.moveTo(x,ch.chartArea.top); c.lineTo(x,ch.chartArea.bottom); c.stroke(); c.restore(); }}]});
+}
+async function lmMeteogram(lat,lng){
+  const m=mgModal(); MG.charts.forEach(c=>c.destroy()); MG.charts=[];
+  m.style.display='flex'; document.body.style.overflow='hidden';
+  m.querySelector('#mg-pt').textContent=`· ${lat.toFixed(2)}°K, ${lng.toFixed(2)}°D`;
+  m.querySelector('#mg-sub').textContent='Modeller yükleniyor…';
+  m.querySelector('#mg-legend').innerHTML=''; m.querySelector('#mg-body').innerHTML='';
+  try{
+    const ready=LM.models.filter(x=>x.ready), list=[];
+    await Promise.all(ready.map(async x=>{
+      const c=await lmModelCache(x.key);
+      await lmEnsureC(c,['temp','precip','u','v','msl'].filter(v=>!c.meta.available||c.meta.available.includes(v)));
+      list.push([x,c]);
+    }));
+    list.sort((a,b)=>ready.indexOf(a[0])-ready.indexOf(b[0]));
+    const series=(fn)=>list.map(([x,c])=>({label:x.label, borderColor:LM_MODEL_COLORS[x.key]||'#e2e8f0', backgroundColor:'transparent',
+      borderWidth:x.key===LM.model?2.6:1.6, pointRadius:0, tension:.25,
+      data:c.meta.times.map((t,k)=>({x:Date.parse(t), y:fn(c,k)})).filter(p=>p.y===p.y)})).filter(d=>d.data.length);
+    const charts=[
+      ['temp','Sıcaklık','°C',series((c,k)=>lmAtC(c,'temp',k,lat,lng)),{dec:1}],
+      ['precip','Yağış','mm/saat',series((c,k)=>lmAtC(c,'precip',k,lat,lng)).map(d=>({...d,stepped:'before',tension:0})),{dec:1,zero:true}],
+      ['wind','Rüzgâr (10 m)','km/sa',series((c,k)=>Math.hypot(lmAtC(c,'u',k,lat,lng),lmAtC(c,'v',k,lat,lng))*3.6),{dec:0,zero:true}],
+      ['msl','Basınç','hPa',series((c,k)=>lmAtC(c,'msl',k,lat,lng)),{dec:1}],
+    ].filter(ch=>ch[3].length);
+    if(!charts.length || !charts[0][3].length) throw new Error('Bu nokta model alanlarının dışında');
+    m.querySelector('#mg-sub').textContent=`${list.length} modelin tahmini · çizgi kalınlığı seçili modeli gösterir · kesikli çizgi haritadaki saat`;
+    m.querySelector('#mg-legend').innerHTML=list.map(([x])=>`<span class="flex items-center gap-1.5 text-slate-300"><i style="display:inline-block;width:14px;height:3px;border-radius:2px;background:${LM_MODEL_COLORS[x.key]}"></i>${x.label}</span>`).join('');
+    const body=m.querySelector('#mg-body');
+    body.innerHTML=charts.map(([k])=>`<div class="mg-card"><div style="position:relative;height:200px"><canvas id="mg-c-${k}"></canvas></div></div>`).join('');
+    charts.forEach(([k,t,u,ds,o])=>MG.charts.push(mgChart(document.getElementById(`mg-c-${k}`),t,u,ds,o)));
+  }catch(e){
+    m.querySelector('#mg-sub').textContent=''; m.querySelector('#mg-body').innerHTML=`<p class="text-slate-400 text-sm">Meteogram oluşturulamadı: ${e.message||''}</p>`;
+  }
 }
 
 /* ---------- tıklanan nokta ---------- */
@@ -6154,10 +6451,21 @@ function lmPopupHtml(){
     ${row('💨 Rüzgâr',`${fmt(ws)} km/sa ${dirStr(Math.round(wd))}`)}
     ${gu===gu?row('🌪 Hamle',`${fmt(gu)} km/sa`):''}
     ${row('☁️ Bulut',`%${fmt(cl)}`)}
+    ${lmLayerRow(lat,lng,row)}
     ${lmSpark(lat,lng)}
     ${lmCmpHtml(lat,lng)}
+    <button class="btn2" onclick="lmMeteogram(${lat.toFixed(4)},${lng.toFixed(4)})">📈 Meteogram (tüm modeller)</button>
     <button class="btn" onclick="lmGoPoint(${lat.toFixed(4)},${lng.toFixed(4)})">Bu noktanın ayrıntılı tahmini →</button>
   </div>`;
+}
+/* Temel satırlarda olmayan seçili katmanın değeri (ör. 100 m rüzgâr, CAPE, basınç) */
+function lmLayerRow(lat,lng,row){
+  if(['precip','temp','wind','gust','snow','cloud'].includes(LM.layer)) return '';
+  const def=LM_DEFS[LM.layer], v=lmLayerValue(LM.layer,lat,lng);
+  if(!(v===v)) return '';
+  const dec=['msl','t850','wind100'].includes(LM.layer)?1:0;
+  const cls=def.classes?lmClassOf(def,v)[2].split(' (')[0]:'';
+  return `<div style="border-top:1px solid rgba(255,255,255,.08);margin-top:4px;padding-top:4px">${row(`🗺 ${def.label}`,`${v.toFixed(dec)} ${def.unit}`)}${cls?`<p style="color:#7eead4;font-size:.75rem;text-align:right">${cls}</p>`:''}</div>`;
 }
 function lmGoPoint(lat,lng){
   if(LM.map) LM.map.closePopup();
@@ -6182,8 +6490,13 @@ async function lmSelect(layer){
   LM.layer=layer;
   lmLayerButtons(); lmLegend();
   if(!LM.meta) return;
-  if(!lmHas(layer)){
-    try{ await lmEnsure(LM_DEFS[layer].need); }catch(_){ toast('Harita katmanı yüklenemedi','error'); return; }
+  if(LM_DEFS[layer].syn && !LM.synFit){            /* sinoptik haritalar ilk açılışta geniş alanı göstersin */
+    LM.synFit=true; const G=LM.meta.grids&&LM.meta.grids.syn;
+    if(G) LM.map.fitBounds([[G.lat_s+2,G.lon_w+2],[G.lat_n-2,G.lon_e-2]]);
+  }
+  const need=lmNeed(layer);
+  if(need.some(k=>!LM.bins[k])){
+    try{ await lmEnsure(need); }catch(_){ toast('Harita katmanı yüklenemedi','error'); return; }
   }
   if(LM.layer===layer) lmDraw();
 }
@@ -6211,7 +6524,7 @@ async function lmSetModel(key){
     if(!LM.canvas) LM.canvas=document.createElement('canvas');
     if(!LM.overlay) LM.overlay=new LMCanvasOverlay(LM.canvas,b,{className:'lm-field',interactive:false,pane:'lmField'}).addTo(LM.map);
     else LM.overlay.setBounds(L.latLngBounds(b));
-    await lmEnsure([...new Set([...LM_DEFS[LM.layer].need,'u','v'])]);
+    await lmEnsure([...new Set([...lmNeed(LM.layer),'u','v'])]);
     LM.ready=true;
     lmStatus(null);
     lmSetFrame(LM.frame); lmLegend(); lmMetaLine();
@@ -6242,6 +6555,7 @@ function lmInit(){
   mp.attributionControl.setPrefix(false);
   mp.createPane('lmField').style.zIndex=410;
   mp.createPane('lmBorders').style.zIndex=420;
+  const cp=mp.createPane('lmContours'); cp.style.zIndex=430; cp.style.pointerEvents='none';
   const lbl=mp.createPane('lmLabels'); lbl.style.zIndex=460; lbl.style.pointerEvents='none';
   const base=L.maplibreGL({
     style:'https://tiles.openfreemap.org/styles/dark',
@@ -6282,6 +6596,92 @@ function lmOpen(){
   if(!LM.map) setTimeout(lmInit,60);
   else setTimeout(()=>LM.map.invalidateSize(),60);
 }
+
+/* ===============================================================
+   MODEL DOĞRULUK KARNESİ — /verification/scores (verification.py)
+   Modellerin 00 UTC koşularının istasyon tahminleri, havalimanlarının
+   METAR ölçümleriyle aynı istasyon ve saatlerde karşılaştırılır.
+=============================================================== */
+const KP={data:null, t:0, var:'temp', ld:'1', region:'Türkiye', chart:null};
+const KP_UNIT={temp:'°C', wind:'km/sa'};
+const KP_SHORT={ecmwf:'IFS', aifs:'AIFS', gfs:'GFS', icon_eu:'ICON'};
+async function kpLoad(force){
+  if(!force && KP.data && Date.now()-KP.t<10*60e3){ kpRender(); return; }
+  const rank=document.getElementById('kp-rank'); if(!rank) return;
+  if(!KP.data) rank.innerHTML='<p class="text-slate-500 text-sm">Karne yükleniyor…</p>';
+  try{
+    const r=await fetch('/verification/scores'); if(!r.ok) throw new Error(`HTTP ${r.status}`);
+    KP.data=await r.json(); KP.t=Date.now();
+    const sel=document.getElementById('kp-region');
+    sel.innerHTML=KP.data.regions.map(x=>`<option ${x===KP.region?'selected':''}>${x}</option>`).join('');
+    kpRender();
+  }catch(e){
+    rank.innerHTML=`<div class="glass rounded-2xl p-6 sm:col-span-2 lg:col-span-4"><p class="text-white font-600">Karne yüklenemedi</p><p class="text-slate-400 text-sm mt-1">${e.message||''}</p><button class="lm-btn mt-3" onclick="kpLoad(true)">Tekrar dene</button></div>`;
+  }
+}
+function kpBiasText(b,v){
+  const u=KP_UNIT[v], a=Math.abs(b).toFixed(1);
+  if(Math.abs(b)<(v==='temp'?0.3:1.5)) return 'Belirgin bir sapma yok';
+  return v==='temp' ? (b>0?`Ortalama ${a} ${u} sıcak tahmin ediyor`:`Ortalama ${a} ${u} soğuk tahmin ediyor`)
+                    : (b>0?`Rüzgârı ortalama ${a} ${u} kuvvetli tahmin ediyor`:`Rüzgârı ortalama ${a} ${u} zayıf tahmin ediyor`);
+}
+function kpRender(){
+  const d=KP.data; if(!d) return;
+  document.querySelectorAll('[data-kv]').forEach(b=>b.classList.toggle('active',b.dataset.kv===KP.var));
+  document.querySelectorAll('[data-kl]').forEach(b=>b.classList.toggle('active',b.dataset.kl===KP.ld));
+  const label=k=>(d.models.find(m=>m.key===k)||{}).label||k, unit=KP_UNIT[KP.var];
+  const byLd=(d.results[KP.var]||{})[KP.ld]||{}, res=byLd[KP.region];
+  const rank=document.getElementById('kp-rank');
+  const c=d.counts||{};
+  document.getElementById('kp-meta').textContent=`Dönem: son ${d.days} gün · ${c.stations||0} istasyondan ${c.observations||0} ölçüm · ${c.matched||0} tahmin–ölçüm eşleşmesi · güncellendi: ${(()=>{const t=lmTr(d.generated_at); return `${t.day} ${t.mo} ${t.hh}:00 TSİ`;})()}`;
+  if(!res || !Object.keys(res).length){
+    rank.innerHTML=`<div class="glass rounded-2xl p-6 sm:col-span-2 lg:col-span-4">
+      <p class="text-white font-600">📊 Karne verisi birikiyor</p>
+      <p class="text-slate-400 text-sm mt-2 max-w-3xl leading-relaxed">Sistem her gün modellerin 00 UTC koşularındaki tahminleri kaydediyor ve havalimanlarının ölçümleri geldikçe karşılaştırıyor. ${KP.ld==='1'?'1 günlük sonuçlar, tahmin edilen saatler gerçekleştikçe birkaç saat içinde':`${KP.ld} gün önceden yapılan tahminlerin sonuçları ${KP.ld} gün sonra`} görünmeye başlar; tam 7 günlük karne bir hafta içinde oluşur.</p>
+      <p class="text-slate-500 text-xs mt-3">Şu ana kadar: ${c.forecasts||0} istasyon tahmini, ${c.observations||0} ölçüm.</p></div>`;
+    document.getElementById('kp-table').innerHTML='';
+    if(KP.chart){ KP.chart.destroy(); KP.chart=null; }
+    return;
+  }
+  const keys=Object.keys(res).sort((a,b)=>res[a].mae-res[b].mae), worst=Math.max(...keys.map(k=>res[k].mae),0.01);
+  const medal=['🥇','🥈','🥉',''];
+  rank.innerHTML=keys.map((k,i)=>{ const r=res[k], col=LM_MODEL_COLORS[k]||'#94a3b8';
+    return `<div class="glass rounded-2xl p-5" style="border:1px solid ${i===0?col+'88':'rgba(255,255,255,.06)'}">
+      <div class="flex items-center justify-between gap-2"><p class="text-white font-600">${medal[i]||''} ${label(k)}</p><span class="text-slate-500 text-xs">${r.n} vaka</span></div>
+      <p class="font-display text-3xl font-800 mt-3" style="color:${col}">${r.mae.toFixed(1)} <span class="text-sm font-600 text-slate-400">${unit}</span></p>
+      <p class="text-slate-500 text-xs">ortalama hata</p>
+      <div class="h-1.5 rounded-full mt-3" style="background:rgba(255,255,255,.06)"><div class="h-full rounded-full" style="width:${Math.max(4,r.mae/worst*100)}%;background:${col}"></div></div>
+      <p class="text-slate-400 text-xs mt-3">${kpBiasText(r.bias,KP.var)}</p>
+      <p class="text-slate-400 text-xs mt-1">Vakaların %${Math.round(r.wins*100)}'inde en yakın tahmin</p>
+    </div>`; }).join('');
+  /* bölge tablosu */
+  const models=d.models.map(m=>m.key).filter(k=>Object.values(byLd).some(r=>r[k]));
+  const rows=d.regions.filter(rg=>byLd[rg]).map(rg=>{ const r=byLd[rg], best=Math.min(...models.filter(k=>r[k]).map(k=>r[k].mae));
+    return `<tr><td>${rg}</td>${models.map(k=>r[k]?`<td class="${r[k].mae===best?'best':''}">${r[k].mae.toFixed(1)}</td>`:'<td>—</td>').join('')}<td class="text-slate-500">${Object.values(r)[0].n}</td></tr>`; }).join('');
+  document.getElementById('kp-table').innerHTML=`<tr><th>Bölge</th>${models.map(k=>`<th>${KP_SHORT[k]||k}</th>`).join('')}<th>vaka</th></tr>${rows}`;
+  /* günlük hata grafiği (1 gün önceden, Türkiye) */
+  const daily=(d.daily||{})[KP.var]||{}, days=Object.keys(daily).sort(), cv=document.getElementById('kp-chart');
+  if(KP.chart){ KP.chart.destroy(); KP.chart=null; }
+  if(days.length && cv){
+    const ks=d.models.map(m=>m.key).filter(k=>days.some(dd=>daily[dd][k]!=null));
+    KP.chart=new Chart(cv.getContext('2d'),{type:'line',
+      data:{labels:days.map(x=>{ const t=new Date(x+'T12:00:00Z'); return `${t.getUTCDate()} ${LM_MO[t.getUTCMonth()]}`; }),
+        datasets:ks.map(k=>({label:label(k),data:days.map(dd=>daily[dd][k]??null),borderColor:LM_MODEL_COLORS[k],backgroundColor:LM_MODEL_COLORS[k],
+          borderWidth:2,tension:.3,pointRadius:days.length<10?3:0,spanGaps:true}))},
+      options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+        plugins:{legend:{labels:{color:'#94a3b8',font:{family:'DM Sans',size:11},boxWidth:12}},
+          tooltip:{backgroundColor:'rgba(4,17,31,.92)',callbacks:{label:it=>`${it.dataset.label}: ${it.parsed.y!=null?it.parsed.y.toFixed(2):'—'} ${unit}`}}},
+        scales:{x:{ticks:{color:'#64748b',font:{family:'DM Sans',size:11}},grid:{color:'rgba(255,255,255,.04)'}},
+                y:{beginAtZero:true,ticks:{color:'#64748b',font:{family:'DM Sans',size:11}},grid:{color:'rgba(255,255,255,.06)'},
+                   title:{display:true,text:`Ortalama hata (${unit})`,color:'#64748b',font:{family:'DM Sans',size:11}}}}}});
+  }
+}
+document.addEventListener('click',e=>{
+  const v=e.target.closest('[data-kv]'), l=e.target.closest('[data-kl]');
+  if(v){ KP.var=v.dataset.kv; kpRender(); }
+  if(l){ KP.ld=l.dataset.kl; kpRender(); }
+});
+document.getElementById('kp-region')?.addEventListener('change',e=>{ KP.region=e.target.value; kpRender(); });
 
 /* ---------------- TÜM HİZMETLER ---------------- */
 function npGoModels(){ showPage('grafik'); setTimeout(()=>{ document.getElementById('model-compare-chart')?.scrollIntoView({behavior:'smooth',block:'center'}); },200); }
@@ -8532,6 +8932,7 @@ map.on('click',async e=>{
 --------------------------------------------------------------- */
 const PAGE_REFRESH = {
   haritalar: ()=> { tmOpen(); lmOpen(); },
+  karne:     ()=> kpLoad(),
   hava:     ()=> { if(chartInst) chartInst.resize(); },
   kalite:   ()=> { if(aqiInst) aqiInst.resize(); },
   deniz:    ()=> { if(marineInst) marineInst.resize(); },

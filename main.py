@@ -15,6 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 import grid_layers
+import verification
 import seo_pages
 
 OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
@@ -392,6 +393,12 @@ def layers_bin(model: str, rid: str, var: str):
     # Bir koşunun dosyası hiç değişmez: tarayıcı uzun süre önbellekleyebilir
     return FileResponse(path, media_type="application/octet-stream",
                         headers={"Cache-Control": "public, max-age=604800, immutable"})
+
+
+# --- Model doğruluk karnesi (METAR ile karşılaştırma) ---
+@app.get("/verification/scores", include_in_schema=False)
+def verification_scores(days: int = Query(7, ge=1, le=30)):
+    return JSONResponse(verification.scores(days), headers={"Cache-Control": "public, max-age=600"})
 
 
 # --- Telefona uygulama olarak yükleme (PWA) ---
