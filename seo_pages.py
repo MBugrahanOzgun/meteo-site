@@ -38,7 +38,7 @@ SEO_ROUTES = [
      "desc": "Türkiye uyarı haritası ve il, ilçe bazlı meteorolojik uyarılar; önümüzdeki günler için yağış, rüzgâr, sıcaklık ve orman yangını riskleri."},
     {"path": "/tahmin-haritalari", "page": "haritalar", "label": "Tahmin Haritaları",
      "title": "Yağış, Sıcaklık ve Rüzgâr Tahmin Haritası | Forecaster",
-     "desc": "ECMWF modeliyle Türkiye için 3 saatlik adımlarla yağış, sıcaklık, rüzgâr, kar ve bulut tahmin haritası; hareketli rüzgâr akışı ve 81 il için 7 günlük haritalar."},
+     "desc": "ECMWF, AIFS, GFS ve ICON-EU modelleriyle Türkiye için yağış, sıcaklık, rüzgâr, kar ve bulut tahmin haritası; hareketli rüzgâr akışı, model karşılaştırma ve 81 il haritaları."},
     {"path": "/tahmin-grafikleri", "page": "grafik", "label": "Tahmin Grafikleri",
      "title": "Tahmin Grafikleri ve Model Karşılaştırması | Forecaster",
      "desc": "Seçili konum için 168 saatlik tahmin grafikleri; ECMWF, GFS, ICON ve GEM modellerinin karşılaştırması ve gün gün tahmin güveni."},

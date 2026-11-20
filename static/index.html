@@ -136,6 +136,15 @@
     .lm-btn{background:rgba(52,211,181,.08);border:1px solid rgba(52,211,181,.2);border-radius:9999px;padding:6px 14px;font-size:.8rem;cursor:pointer;transition:all .2s;color:#cbd5e1}
     .lm-btn:hover{border-color:rgba(52,211,181,.5)}
     .lm-btn.active{background:#34d3b5;color:#061219;font-weight:600;border-color:#34d3b5}
+    .lm-btn:disabled{opacity:.35;cursor:not-allowed}
+    .lm-select{appearance:none;-webkit-appearance:none;background:rgba(4,17,31,.9) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2334d3b5'/%3E%3C/svg%3E") no-repeat right 12px center;border:1px solid rgba(52,211,181,.4);color:#e2e8f0;border-radius:9999px;padding:6px 32px 6px 14px;font-size:.8rem;font-weight:600;cursor:pointer}
+    .lm-select option{background:#061219;color:#e2e8f0}
+    .lm-pop table{width:100%;border-collapse:collapse;margin-top:6px;font-size:.75rem}
+    .lm-pop th{color:#64748b;font-weight:500;text-align:right;padding:2px 4px}
+    .lm-pop td{text-align:right;padding:3px 4px;border-top:1px solid rgba(255,255,255,.06)}
+    .lm-pop th:first-child,.lm-pop td:first-child{text-align:left}
+    .lm-pop tr.cur td{color:#34d3b5;font-weight:600}
+    .lm-pop .btn2{display:block;width:100%;margin-top:6px;background:transparent;color:#7eead4;border:1px solid rgba(52,211,181,.4);border-radius:8px;padding:6px 10px;font-weight:600;font-size:.78rem;cursor:pointer}
     #lm-map{height:clamp(380px,64vh,620px);border-radius:16px;overflow:hidden}
     @media (max-width:640px){ #lm-map{height:440px} }
     #lm-map canvas.lm-field{image-rendering:auto}
@@ -520,14 +529,20 @@
 <!-- ======== TAHMİN HARİTALARI (Toplam Yağış / Rüzgâr) ======== -->
 <section id="tm-page" data-page="haritalar" class="py-24 px-6 md:px-12 max-w-7xl mx-auto">
   <div class="reveal mb-10">
-    <p class="text-brand text-sm font-600 uppercase tracking-widest mb-3">ECMWF Modeli · 7 Günlük Tahmin</p>
+    <p class="text-brand text-sm font-600 uppercase tracking-widest mb-3">4 Model · 7 Günlük Tahmin</p>
     <h2 class="font-display text-4xl md:text-5xl font-700 text-white">Tahmin Haritaları</h2>
-    <p class="text-slate-400 mt-4 max-w-2xl">Yağış, sıcaklık, rüzgâr, kar ve bulut tahminini 3 saatlik adımlarla oynatın; haritada herhangi bir noktaya tıklayarak o noktanın değerlerini ve 7 günlük seyrini görün.</p>
+    <p class="text-slate-400 mt-4 max-w-2xl">ECMWF, ECMWF AIFS, GFS ve ICON-EU modelleriyle yağış, sıcaklık, rüzgâr, kar ve bulut tahminini zaman çubuğuyla oynatın; haritada herhangi bir noktaya tıklayarak o noktanın değerlerini, 7 günlük seyrini ve modellerin aynı saat için ne dediğini görün.</p>
   </div>
 
   <!-- ======== MODEL HARİTASI (ECMWF açık veri) ======== -->
   <div id="lm-block" class="mb-20">
     <div class="flex flex-wrap items-center gap-2 mb-3">
+      <label class="flex items-center gap-2 mr-1">
+        <span class="text-slate-500 text-[11px] uppercase tracking-widest font-600">Model</span>
+        <select id="lm-model" class="lm-select" aria-label="Tahmin modeli">
+          <option value="ecmwf">ECMWF IFS</option>
+        </select>
+      </label>
       <div id="lm-layers" class="flex flex-wrap gap-2">
         <button type="button" class="lm-btn active" data-lm="precip">🌧 Yağış</button>
         <button type="button" class="lm-btn" data-lm="temp">🌡 Sıcaklık</button>
@@ -5841,7 +5856,14 @@ document.addEventListener('click',e=>{
    doğrudan bu veriden okunur — ek istek gerekmez.
 =============================================================== */
 const LM={map:null, meta:null, bins:{}, pending:{}, layer:'precip', frame:0, canvas:null, overlay:null,
-          geom:null, timer:null, wind:null, windOn:true, pt:null, popup:null, ready:false, luts:{}};
+          geom:null, timer:null, wind:null, windOn:true, pt:null, popup:null, ready:false, luts:{},
+          model:'ecmwf', models:[], cache:{}, cmp:false, cmpLoading:false, attr:null};
+const LM_LINKS={ecmwf:'https://www.ecmwf.int/en/forecasts/datasets/open-data', aifs:'https://www.ecmwf.int/en/forecasts/datasets/open-data',
+  gfs:'https://registry.opendata.aws/noaa-gfs-bdp-pds/', icon_eu:'https://opendata.dwd.de/'};
+const LM_ATTR={ecmwf:'Model: &copy; <a href="https://www.ecmwf.int/" target="_blank" rel="noopener">ECMWF</a> (CC BY 4.0)',
+  aifs:'Model: &copy; <a href="https://www.ecmwf.int/" target="_blank" rel="noopener">ECMWF</a> AIFS (CC BY 4.0)',
+  gfs:'Model: <a href="https://www.ncei.noaa.gov/products/weather-climate-models/global-forecast" target="_blank" rel="noopener">NOAA/NCEP GFS</a>',
+  icon_eu:'Model: Datenbasis <a href="https://www.dwd.de/" target="_blank" rel="noopener">Deutscher Wetterdienst</a> ICON-EU'};
 
 const LM_WIND_STOPS=[[0,'#1e3a5f'],[10,'#2563eb'],[20,'#0ea5e9'],[30,'#14b8a6'],[40,'#84cc16'],[55,'#facc15'],[70,'#f97316'],[90,'#dc2626'],[120,'#a21caf']];
 const LM_DEFS={
@@ -5885,19 +5907,27 @@ function lmLut(layer){
 }
 
 /* ---------- veri ---------- */
-function lmEnsure(names){
-  const m=LM.meta, n=m.steps.length*m.ny*m.nx;
+function lmEnsureC(c, names){
+  const m=c.meta, n=m.steps.length*m.ny*m.nx;
   return Promise.all(names.map(nm=>{
-    if(LM.bins[nm]) return LM.bins[nm];
-    if(!LM.pending[nm]) LM.pending[nm]=fetch(`/layers/${m.run_id}/${nm}.bin`).then(r=>{
+    if(c.bins[nm]) return c.bins[nm];
+    if(!c.pending[nm]) c.pending[nm]=fetch(`/layers/${m.model}/${m.run_id}/${nm}.bin`).then(r=>{
       if(!r.ok) throw new Error(`HTTP ${r.status}`); return r.arrayBuffer();
     }).then(buf=>{
       const a=new Int16Array(buf); if(a.length!==n) throw new Error('beklenmeyen veri boyutu');
-      return LM.bins[nm]=a;
-    }).finally(()=>{ delete LM.pending[nm]; });
-    return LM.pending[nm];
+      return c.bins[nm]=a;
+    }).finally(()=>{ delete c.pending[nm]; });
+    return c.pending[nm];
   }));
 }
+function lmEnsure(names){ return lmEnsureC({meta:LM.meta,bins:LM.bins,pending:LM.pending}, names); }
+async function lmModelCache(key){
+  if(LM.cache[key]) return LM.cache[key];
+  const r=await fetch(`/layers/meta?model=${encodeURIComponent(key)}`);
+  if(!r.ok) throw new Error(r.status===503?'Bu modelin verisi hazırlanıyor':`HTTP ${r.status}`);
+  return LM.cache[key]={meta:await r.json(), bins:{}, pending:{}};
+}
+function lmAvail(layer){ const a=LM.meta&&LM.meta.available; return !a || LM_DEFS[layer].need.every(v=>a.includes(v)); }
 function lmHas(layer){ return LM_DEFS[layer].need.every(k=>LM.bins[k]); }
 /* Bir karenin alanı, gösterim biriminde (Float32Array ny*nx) */
 function lmField(layer, frame){
@@ -5912,8 +5942,8 @@ function lmField(layer, frame){
   return out;
 }
 /* Ham değişkenin (m/s, °C …) bir noktadaki değeri — çift doğrusal enterpolasyon */
-function lmAt(nm, frame, lat, lon){
-  const m=LM.meta, A=LM.bins[nm]; if(!A) return NaN;
+function lmAtC(c, nm, frame, lat, lon){
+  const m=c.meta, A=c.bins[nm]; if(!A) return NaN;
   const fj=(m.lat_n-lat)/m.res, fi=(lon-m.lon_w)/m.res;
   if(!(fj>=0&&fi>=0&&fj<=m.ny-1&&fi<=m.nx-1)) return NaN;
   const j0=Math.floor(fj), i0=Math.floor(fi), j1=Math.min(j0+1,m.ny-1), i1=Math.min(i0+1,m.nx-1), dj=fj-j0, di=fi-i0;
@@ -5921,6 +5951,7 @@ function lmAt(nm, frame, lat, lon){
   const v=(g(j0,i0)*(1-di)+g(j0,i1)*di)*(1-dj)+(g(j1,i0)*(1-di)+g(j1,i1)*di)*dj;
   return v*m.vars[nm].scale;
 }
+function lmAt(nm, frame, lat, lon){ return lmAtC({meta:LM.meta,bins:LM.bins}, nm, frame, lat, lon); }
 
 /* ---------- renk katmanı: Mercator'a göre örneklenmiş canvas ---------- */
 const LMCanvasOverlay=L.ImageOverlay.extend({
@@ -6020,10 +6051,13 @@ const LMWind=L.Layer.extend({
 const LM_WD=['Paz','Pzt','Sal','Çar','Per','Cum','Cmt'], LM_MO=['Oca','Şub','Mar','Nis','May','Haz','Tem','Ağu','Eyl','Eki','Kas','Ara'];
 function lmTr(iso){ const d=new Date(new Date(iso).getTime()+3*3600e3); return {wd:LM_WD[d.getUTCDay()], day:d.getUTCDate(), mo:LM_MO[d.getUTCMonth()], hh:String(d.getUTCHours()).padStart(2,'0')}; }
 function lmTimeText(i){ const t=lmTr(LM.meta.times[i]); return `${t.wd} ${t.day} ${t.mo} ${t.hh}:00`; }
-function lmBuildTime(){
+function lmNearest(times, t){ let best=0, bd=Infinity; times.forEach((x,i)=>{ const d=Math.abs(Date.parse(x)-t); if(d<bd){ bd=d; best=i; } }); return [best,bd]; }
+function lmBuildTime(keepT){
   const m=LM.meta, sl=document.getElementById('lm-time'), n=m.times.length;
   sl.max=n-1;
-  const now=Date.now(); let k=m.times.findIndex(t=>Date.parse(t)>=now-90*60e3); LM.frame=k<0?n-1:k; sl.value=LM.frame;
+  if(keepT!=null){ LM.frame=lmNearest(m.times,keepT)[0]; }
+  else { const now=Date.now(); const k=m.times.findIndex(t=>Date.parse(t)>=now-90*60e3); LM.frame=k<0?n-1:k; }
+  sl.value=LM.frame;
   const box=document.getElementById('lm-days'); box.innerHTML=''; let last=null;
   m.times.forEach((iso,i)=>{
     const t=lmTr(iso); if(t.day===last) return; last=t.day;
@@ -6078,9 +6112,35 @@ function lmSpark(lat,lon){
     <line x1="${cx}" x2="${cx}" y1="2" y2="${H-4}" stroke="#34d3b5" stroke-width="1" stroke-dasharray="2 2"/>
   </svg><p style="color:#64748b;font-size:.7rem;margin-top:2px">7 gün · <span style="color:#fb923c">sıcaklık</span> · <span style="color:#38bdf8">yağış</span></p>`;
 }
+function lmCmpHtml(lat,lng){
+  if(LM.cmpLoading) return '<p style="color:#94a3b8;font-size:.75rem;margin-top:6px">Modeller yükleniyor…</p>';
+  if(!LM.cmp) return `<button class="btn2" onclick="lmCompare()">📊 Tüm modelleri karşılaştır</button>`;
+  const T=Date.parse(LM.meta.times[LM.frame]), fmt=(v,d=0)=>v===v?v.toFixed(d):'—';
+  const rows=LM.models.filter(x=>x.ready&&LM.cache[x.key]).map(x=>{
+    const c=LM.cache[x.key], [k,dt]=lmNearest(c.meta.times,T), ok=dt<=3*3600e3;
+    const t=ok?lmAtC(c,'temp',k,lat,lng):NaN, p=ok?lmAtC(c,'precip',k,lat,lng):NaN;
+    const w=ok?Math.hypot(lmAtC(c,'u',k,lat,lng),lmAtC(c,'v',k,lat,lng))*3.6:NaN;
+    return `<tr class="${x.key===LM.model?'cur':''}"><td>${x.label}</td><td>${fmt(t)}°</td><td>${p===p?(p>=0.05?p.toFixed(1):'0'):'—'}</td><td>${fmt(w)}</td></tr>`;
+  }).join('');
+  return `<table><tr><th>Model</th><th>°C</th><th>mm/sa</th><th>km/sa</th></tr>${rows}</table>
+    <p style="color:#64748b;font-size:.68rem;margin-top:3px">Aynı saat (±3 sa) için modellerin tahmini. Değerler birbirine ne kadar yakınsa tahmine güven o kadar yüksek.</p>`;
+}
+async function lmCompare(){
+  if(!LM.pt) return;
+  LM.cmpLoading=true; if(LM.popup) LM.popup.setContent(lmPopupHtml());
+  try{
+    await Promise.all(LM.models.filter(x=>x.ready).map(async x=>{
+      const c=await lmModelCache(x.key);
+      await lmEnsureC(c,['temp','precip','u','v'].filter(v=>!c.meta.available||c.meta.available.includes(v)));
+    }));
+    LM.cmp=true;
+  }catch(_){ toast('Model verisi yüklenemedi','error'); }
+  LM.cmpLoading=false;
+  if(LM.popup && LM.map.hasLayer(LM.popup)) LM.popup.setContent(lmPopupHtml());
+}
 function lmPopupHtml(){
   const {lat,lng}=LM.pt, f=LM.frame, fmt=(v,d=0)=>v===v?v.toFixed(d):'—';
-  const head=`<p style="color:#34d3b5;font-weight:600">📍 ${lat.toFixed(2)}°K, ${lng.toFixed(2)}°D</p>`;
+  const head=`<p style="color:#34d3b5;font-weight:600">📍 ${lat.toFixed(2)}°K, ${lng.toFixed(2)}°D <span style="color:#64748b;font-weight:500;font-size:.72rem">· ${LM.meta.label||''}</span></p>`;
   const t=lmAt('temp',f,lat,lng);
   if(!(t===t)) return `<div class="lm-pop">${head}<p style="color:#94a3b8;margin-top:4px">Bu nokta model haritasının kapsamı dışında (Türkiye ve çevresi).</p></div>`;
   const u=lmAt('u',f,lat,lng), v=lmAt('v',f,lat,lng), ws=Math.hypot(u,v)*3.6, wd=(Math.atan2(-u,-v)*180/Math.PI+360)%360;
@@ -6092,9 +6152,10 @@ function lmPopupHtml(){
     ${row('🌧 Yağış',pr>=0.05?`${fmt(pr,1)} mm/sa`:'yok')}
     ${sn>=0.05?row('❄️ Kar',`${fmt(sn,1)} cm/sa`):''}
     ${row('💨 Rüzgâr',`${fmt(ws)} km/sa ${dirStr(Math.round(wd))}`)}
-    ${row('🌪 Hamle',`${fmt(gu)} km/sa`)}
+    ${gu===gu?row('🌪 Hamle',`${fmt(gu)} km/sa`):''}
     ${row('☁️ Bulut',`%${fmt(cl)}`)}
     ${lmSpark(lat,lng)}
+    ${lmCmpHtml(lat,lng)}
     <button class="btn" onclick="lmGoPoint(${lat.toFixed(4)},${lng.toFixed(4)})">Bu noktanın ayrıntılı tahmini →</button>
   </div>`;
 }
@@ -6110,45 +6171,75 @@ function lmGoPoint(lat,lng){
 
 /* ---------- kurulum ---------- */
 function lmStatus(html){ const el=document.getElementById('lm-status'); if(!el) return; if(html==null){ el.style.display='none'; return; } el.style.display='flex'; el.innerHTML=html; }
+function lmLayerButtons(){
+  document.querySelectorAll('#lm-layers .lm-btn').forEach(b=>{
+    const ok=lmAvail(b.dataset.lm); b.disabled=!ok; b.title=ok?'':`${LM.meta?.label||'Bu model'} bu katmanı yayımlamıyor`;
+    b.classList.toggle('active',b.dataset.lm===LM.layer);
+  });
+}
 async function lmSelect(layer){
+  if(LM.meta && !lmAvail(layer)) return;
   LM.layer=layer;
-  document.querySelectorAll('#lm-layers .lm-btn').forEach(b=>b.classList.toggle('active',b.dataset.lm===layer));
-  lmLegend();
+  lmLayerButtons(); lmLegend();
   if(!LM.meta) return;
   if(!lmHas(layer)){
     try{ await lmEnsure(LM_DEFS[layer].need); }catch(_){ toast('Harita katmanı yüklenemedi','error'); return; }
   }
   if(LM.layer===layer) lmDraw();
 }
-async function lmLoad(){
-  lmStatus('<p class="text-slate-300 text-sm">Model haritası yükleniyor…</p>');
+function lmMetaLine(){
+  const m=LM.meta, run=lmTr(m.run);
+  document.getElementById('lm-meta').innerHTML=`Kaynak: <a href="${LM_LINKS[m.model]||'#'}" target="_blank" rel="noopener" class="text-brand hover:underline">${m.source}</a>, Forecaster tarafından işlenmiştir · Model koşusu: ${run.day} ${run.mo} ${run.hh}:00 TSİ · ${m.note||''} · Yağış ve kar, adım aralığının saatlik ortalamasıdır.`;
+  const ac=LM.map.attributionControl;
+  if(LM.attr) ac.removeAttribution(LM.attr);
+  LM.attr=LM_ATTR[m.model]||''; if(LM.attr) ac.addAttribution(LM.attr);
+}
+async function lmSetModel(key){
+  const keepT=LM.meta?Date.parse(LM.meta.times[LM.frame]):null;
+  lmPlay(false);
+  if(LM.map) LM.map.closePopup();
+  LM.ready=false; LM.cmp=false;
+  lmStatus('<p class="text-slate-300 text-sm">Model yükleniyor…</p>');
   try{
-    const r=await fetch('/layers/meta');
-    if(r.status===503){
-      lmStatus(`<div><p class="text-white font-600 mb-1">Model verisi hazırlanıyor</p><p class="text-slate-400 text-sm max-w-sm">Sunucu ECMWF'nin son model koşusunu işliyor. Birkaç dakika sonra tekrar deneyin.</p><button class="lm-btn mt-3" onclick="lmLoad()">Tekrar dene</button></div>`);
-      return;
-    }
-    if(!r.ok) throw new Error(`HTTP ${r.status}`);
-    LM.meta=await r.json();
-    lmGeom(); lmBuildTime();
+    const c=await lmModelCache(key);
+    LM.model=key; LM.meta=c.meta; LM.bins=c.bins; LM.pending=c.pending;
+    document.getElementById('lm-model').value=key;
+    lmGeom(); lmBuildTime(keepT);
+    if(!lmAvail(LM.layer)) LM.layer='precip';
+    lmLayerButtons();
     const m=LM.meta, b=[[m.lat_s,m.lon_w],[m.lat_n,m.lon_e]];
-    if(!LM.canvas){ LM.canvas=document.createElement('canvas'); }
+    if(!LM.canvas) LM.canvas=document.createElement('canvas');
     if(!LM.overlay) LM.overlay=new LMCanvasOverlay(LM.canvas,b,{className:'lm-field',interactive:false,pane:'lmField'}).addTo(LM.map);
+    else LM.overlay.setBounds(L.latLngBounds(b));
     await lmEnsure([...new Set([...LM_DEFS[LM.layer].need,'u','v'])]);
     LM.ready=true;
     lmStatus(null);
-    lmSetFrame(LM.frame); lmLegend();
-    const run=lmTr(m.run);
-    document.getElementById('lm-meta').innerHTML=`Kaynak: <a href="https://www.ecmwf.int/en/forecasts/datasets/open-data" target="_blank" rel="noopener" class="text-brand hover:underline">ECMWF IFS açık verisi</a> (CC BY 4.0), Forecaster tarafından işlenmiştir · Model koşusu: ${run.day} ${run.mo} ${run.hh}:00 TSİ · 0,25° (~25 km) çözünürlük · 3 saatlik adımlar (6. günden sonra 6 saatlik) · Yağış ve kar, adım aralığının saatlik ortalamasıdır.`;
+    lmSetFrame(LM.frame); lmLegend(); lmMetaLine();
+  }catch(e){
+    lmStatus(`<div><p class="text-white font-600 mb-1">Model haritası yüklenemedi</p><p class="text-slate-400 text-sm">${e.message||''}</p><button class="lm-btn mt-3" onclick="lmLoad()">Tekrar dene</button></div>`);
+  }
+}
+async function lmLoad(){
+  lmStatus('<p class="text-slate-300 text-sm">Model haritası yükleniyor…</p>');
+  try{
+    const r=await fetch('/layers/models'); if(!r.ok) throw new Error(`HTTP ${r.status}`);
+    LM.models=await r.json();
+    const sel=document.getElementById('lm-model');
+    sel.innerHTML=LM.models.map(x=>`<option value="${x.key}" ${x.ready?'':'disabled'}>${x.label}${x.ready?(x.hours&&x.hours<168?` (${Math.round(x.hours/24)} gün)`:''):' (hazırlanıyor)'}</option>`).join('');
+    const ready=LM.models.filter(x=>x.ready);
+    if(!ready.length){
+      lmStatus(`<div><p class="text-white font-600 mb-1">Model verisi hazırlanıyor</p><p class="text-slate-400 text-sm max-w-sm">Sunucu modellerin son koşusunu indirip işliyor. Birkaç dakika sonra tekrar deneyin.</p><button class="lm-btn mt-3" onclick="lmLoad()">Tekrar dene</button></div>`);
+      return;
+    }
+    await lmSetModel(ready.some(x=>x.key===LM.model)?LM.model:ready[0].key);
   }catch(e){
     lmStatus(`<div><p class="text-white font-600 mb-1">Model haritası yüklenemedi</p><p class="text-slate-400 text-sm">${e.message||''}</p><button class="lm-btn mt-3" onclick="lmLoad()">Tekrar dene</button></div>`);
   }
 }
 function lmInit(){
   const mp=LM.map=L.map('lm-map',{zoomControl:true,minZoom:4,maxZoom:10,zoomSnap:.25,zoomDelta:.5,worldCopyJump:false});
-  mp.setMaxBounds([[30,18],[48,52]]);
+  mp.setMaxBounds([[24,8],[58,62]]);   /* geniş tutuldu: kuzeyde açılan pencere için harita kayabilsin */
   mp.attributionControl.setPrefix(false);
-  mp.attributionControl.addAttribution('Model: &copy; <a href="https://www.ecmwf.int/" target="_blank" rel="noopener">ECMWF</a> (CC BY 4.0)');
   mp.createPane('lmField').style.zIndex=410;
   mp.createPane('lmBorders').style.zIndex=420;
   const lbl=mp.createPane('lmLabels'); lbl.style.zIndex=460; lbl.style.pointerEvents='none';
@@ -6157,6 +6248,7 @@ function lmInit(){
     attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &middot; <a href="https://openfreemap.org">OpenFreeMap</a>',
   }).addTo(mp);
   try{ const gl=base.getMaplibreMap(); let ok=false; gl.once('styledata',()=>{ ok=true; }); gl.once('error',()=>{ if(!ok) gl.setStyle('https://tiles.openfreemap.org/styles/positron'); }); }catch(_){}
+  mp.attributionControl.addAttribution('&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> &middot; <a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a>');
   addMapFurniture(mp);
   mp.fitBounds([[35.7,25.6],[42.2,44.9]],{padding:[6,6]});
   fetch('/static/tr-iller.json').then(r=>r.json()).then(geo=>{
@@ -6173,12 +6265,13 @@ function lmInit(){
   LM.wind=new LMWind().addTo(mp);
   mp.on('click',async e=>{
     if(!LM.ready) return;
-    LM.pt=e.latlng;
-    LM.popup=L.popup({maxWidth:300,autoPanPadding:[20,20]}).setLatLng(e.latlng).setContent('<p style="color:#94a3b8">Yükleniyor…</p>').openOn(mp);
+    LM.pt=e.latlng; LM.cmp=false; LM.cmpLoading=false;
+    LM.popup=L.popup({maxWidth:300,maxHeight:Math.max(220,Math.min(380,mp.getSize().y-140)),autoPanPadding:[16,16]}).setLatLng(e.latlng).setContent('<p style="color:#94a3b8">Yükleniyor…</p>').openOn(mp);
     try{ await lmEnsure(['temp','precip','snow','u','v','gust','cloud']); LM.popup.setContent(lmPopupHtml()); }
     catch(_){ LM.popup.setContent('<p style="color:#f87171">Veri yüklenemedi.</p>'); }
   });
   document.getElementById('lm-layers').addEventListener('click',e=>{ const b=e.target.closest('[data-lm]'); if(b) lmSelect(b.dataset.lm); });
+  document.getElementById('lm-model').addEventListener('change',e=>lmSetModel(e.target.value));
   document.getElementById('lm-time').addEventListener('input',e=>{ lmPlay(false); lmSetFrame(+e.target.value); });
   document.getElementById('lm-play').addEventListener('click',()=>lmPlay(!LM.timer));
   document.getElementById('lm-wind-toggle').addEventListener('change',e=>{ LM.windOn=e.target.checked; });

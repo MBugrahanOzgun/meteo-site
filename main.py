@@ -205,7 +205,7 @@ async def _layers_loop():
     await asyncio.sleep(20)                 # açılışı yavaşlatmasın
     while True:
         try:
-            await asyncio.to_thread(grid_layers.refresh)
+            await asyncio.to_thread(grid_layers.refresh_all)
         except Exception:                   # görev asla durmasın
             pass
         await asyncio.sleep(20 * 60)        # 20 dakikada bir yeni koşu var mı bak
@@ -360,10 +360,17 @@ def sitemap_xml():
     return Response(content=seo_pages.sitemap_xml(), media_type="application/xml")
 
 
-# --- Model haritası (ECMWF açık veri) ---
+# --- Model haritası (ECMWF, GFS, ICON açık verileri) ---
+@app.get("/layers/models", include_in_schema=False)
+def layers_models():
+    return JSONResponse(grid_layers.models_summary(), headers={"Cache-Control": "public, max-age=300"})
+
+
 @app.get("/layers/meta", include_in_schema=False)
-def layers_meta():
-    meta = grid_layers.latest_meta()
+def layers_meta(model: str = "ecmwf"):
+    if model not in grid_layers.MODELS:
+        raise HTTPException(status_code=404)
+    meta = grid_layers.latest_meta(model)
     if not meta:
         raise HTTPException(status_code=503, detail="Model haritası verisi hazırlanıyor, birkaç dakika sonra tekrar deneyin.")
     return JSONResponse(meta, headers={"Cache-Control": "public, max-age=300"})
@@ -371,15 +378,15 @@ def layers_meta():
 
 @app.get("/layers/status", include_in_schema=False)
 def layers_status():
-    meta = grid_layers.latest_meta()
-    return {**grid_layers.status, "latest_run": meta and meta.get("run_id")}
+    return {k: {**grid_layers.status.get(k, {}), "latest_run": (grid_layers.latest_meta(k) or {}).get("run_id")}
+            for k in grid_layers.MODELS}
 
 
-@app.get("/layers/{rid}/{var}.bin", include_in_schema=False)
-def layers_bin(rid: str, var: str):
-    if not (rid.isdigit() and len(rid) == 10) or var not in grid_layers.VARS:
+@app.get("/layers/{model}/{rid}/{var}.bin", include_in_schema=False)
+def layers_bin(model: str, rid: str, var: str):
+    if model not in grid_layers.MODELS or not (rid.isdigit() and len(rid) == 10) or var not in grid_layers.VARS:
         raise HTTPException(status_code=404)
-    path = os.path.join(grid_layers.LAYERS_DIR, rid, f"{var}.bin")
+    path = os.path.join(grid_layers.model_dir(model), rid, f"{var}.bin")
     if not os.path.isfile(path):
         raise HTTPException(status_code=404)
     # Bir koşunun dosyası hiç değişmez: tarayıcı uzun süre önbellekleyebilir
