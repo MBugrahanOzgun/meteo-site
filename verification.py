@@ -110,10 +110,21 @@ def parse_metars(items: list) -> tuple[list, list]:
 def update_observations(now: datetime | None = None, force: bool = False) -> int:
     """Son METAR'ları çekip kaydeder (en fazla saatte bir). Kaydedilen gözlem sayısını döndürür."""
     ts = (now or datetime.now(timezone.utc)).timestamp()
+    stamp = os.path.join(DATA_DIR, ".metar_last")      # işleyici her seferinde yeni süreç: zamanı diskte tut
     with _lock:
-        if not force and ts - _state["last_obs"] < 50 * 60:
+        last = _state["last_obs"]
+        try:
+            last = max(last, float(open(stamp).read().strip() or 0))
+        except (OSError, ValueError):
+            pass
+        if not force and 0 <= ts - last < 50 * 60:
             return 0
         _state["last_obs"] = ts
+        try:
+            with open(stamp, "w") as fh:
+                fh.write(str(ts))
+        except OSError:
+            pass
     con = _db()
     try:
         empty = con.execute("SELECT COUNT(*) FROM obs").fetchone()[0] == 0

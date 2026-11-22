@@ -86,8 +86,45 @@ STEPS_3H_7D = list(range(0, 145, 3)) + list(range(150, 169, 6))   # 53 adım, 16
 STEPS_6H_7D = list(range(0, 169, 6))                              # 29 adım
 STEPS_3H_5D = list(range(0, 121, 3))                              # 41 adım
 
-# /layers/status için son durum (hata ayıklama), model başına
+# /layers/status için son durum (hata ayıklama), model başına. İşleme ayrı bir
+# süreçte (layer_worker.py) çalıştığı için durum ayrıca layers/<model>/status.json
+# dosyasına yazılır; web sunucusu oradan okur.
 status: dict[str, dict] = {}
+
+
+def _status_path(key: str) -> str:
+    return os.path.join(LAYERS_DIR, key, "status.json")
+
+
+def save_status(key: str, st: dict | None = None) -> None:
+    st = status.get(key) if st is None else st
+    if st is None:
+        return
+    try:
+        os.makedirs(os.path.dirname(_status_path(key)), exist_ok=True)
+        tmp = _status_path(key) + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(st, fh, ensure_ascii=False)
+        os.replace(tmp, _status_path(key))
+    except OSError:
+        pass
+
+
+def read_status(key: str) -> dict:
+    try:
+        with open(_status_path(key), encoding="utf-8") as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        return dict(status.get(key, {}))
+
+
+def mark_failed(key: str, msg: str) -> None:
+    """İşleyici süreç beklenmedik biçimde bittiyse (bellek, çökme, zaman aşımı) durumu düzelt."""
+    st = read_status(key)
+    st.update({"last_error": msg, "processing": None, "progress": None,
+               "last_check": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")})
+    status[key] = st
+    save_status(key, st)
 
 
 # ================================================================ yardımcılar
@@ -164,9 +201,8 @@ def decode_msg(msg: bytes, grid: str = "tr") -> tuple[np.ndarray, dict]:
             info["start"], info["end"] = int(g("startStep")), int(g("endStep"))
         except Exception:
             pass
-        vals = eccodes.codes_get_values(gid).astype(np.float64)
-        if int(g("bitmapPresent")):
-            vals[vals == float(g("missingValue"))] = np.nan
+        vals = eccodes.codes_get_values(gid).astype(np.float64, copy=False)   # küresel alan: gereksiz kopya yok
+        miss = float(g("missingValue")) if int(g("bitmapPresent")) else None
     finally:
         eccodes.codes_release(gid)
 
@@ -178,7 +214,11 @@ def decode_msg(msg: bytes, grid: str = "tr") -> tuple[np.ndarray, dict]:
     cols = np.rint(dl / di).astype(int)
     if rows.min() < 0 or rows.max() >= nj or cols.min() < 0 or cols.max() >= ni:
         raise ValueError(f"{grid} ızgarası modelin alanının dışında kaldı")
-    return vals[np.ix_(rows, cols)], info
+    crop = vals[np.ix_(rows, cols)]              # küçük kopya; büyük dizi hemen serbest kalır
+    del vals
+    if miss is not None:
+        crop[crop == miss] = np.nan
+    return crop, info
 
 
 def decode_crop(msg: bytes) -> np.ndarray:
@@ -452,6 +492,7 @@ def process_run(model: Model, client: httpx.Client, run: datetime) -> dict:
 
     for si, step in enumerate(steps):
         st["progress"] = f"{si + 1}/{n}"
+        save_status(model.key)
         raw = model.fetch_step(client, run, step)
         f = {}
         for k, msgs in raw.items():
@@ -613,8 +654,10 @@ def refresh(key: str = "ecmwf", now: datetime | None = None) -> str:
     """Modelin yeni bir koşusu yayımlandıysa indirip işler (bloklayan; arka plan görevinden çağrılır)."""
     model = MODELS[key]
     now = now or datetime.now(timezone.utc)
-    st = status.setdefault(key, {"last_check": None, "last_result": None, "last_error": None,
-                                 "processing": None, "progress": None})
+    if key not in status:                  # yeni süreç: önceki durumu (son hata vb.) dosyadan devral
+        status[key] = {"last_check": None, "last_result": None, "last_error": None,
+                       "processing": None, "progress": None, **read_status(key)}
+    st = status[key]
     os.makedirs(model_dir(key), exist_ok=True)
     st["last_check"] = now.strftime("%Y-%m-%dT%H:%M:%SZ")
     lock = open(os.path.join(model_dir(key), ".lock"), "w")
@@ -636,6 +679,7 @@ def refresh(key: str = "ecmwf", now: datetime | None = None) -> str:
                 st["last_result"] = f"güncel ({cur['run_id']})" if cur else "yayımlanmış koşu bulunamadı"
                 return st["last_result"]
             st["processing"] = run_id(run)
+            save_status(key)
             t0 = time.time()
             meta = process_run(model, client, run)
             st["last_result"] = f"{meta['run_id']} işlendi ({time.time() - t0:.0f} sn)"
@@ -649,13 +693,15 @@ def refresh(key: str = "ecmwf", now: datetime | None = None) -> str:
     finally:
         st["processing"] = None
         st["progress"] = None
+        save_status(key)
         try:
             fcntl.flock(lock, fcntl.LOCK_UN)
         finally:
             lock.close()
 
 
-def refresh_all(now: datetime | None = None) -> dict:
+def prepare(now: datetime | None = None) -> None:
+    """Model işlemeden önceki hafif işler: eski düzeni taşı, karne gözlemleri ve geri doldurma."""
     os.makedirs(LAYERS_DIR, exist_ok=True)
     _migrate_legacy()
     try:                                   # karne: METAR ölçümleri (saatte bir) ve diskteki koşulardan geri doldurma
@@ -664,6 +710,10 @@ def refresh_all(now: datetime | None = None) -> dict:
         verification.backfill_from_disk()
     except Exception:
         log.exception("karne güncellenemedi")
+
+
+def refresh_all(now: datetime | None = None) -> dict:
+    prepare(now)
     return {k: refresh(k, now) for k in MODELS}
 
 

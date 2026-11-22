@@ -2,6 +2,7 @@ import asyncio
 import json
 import os
 import sqlite3
+import sys
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
@@ -202,13 +203,49 @@ async def lifespan(app: FastAPI):
     await app.state.http.aclose()
 
 
+LAYER_WORKER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "layer_worker.py")
+LAYER_WORKER_TIMEOUT = 90 * 60              # tek modelin bir koşusu bundan uzun sürerse takılmış say
+SIGNAL_NAMES = {9: "SIGKILL — büyük olasılıkla bellek yetersizliği", 11: "SIGSEGV — GRIB çözücü çöktü",
+                6: "SIGABRT", 15: "SIGTERM"}
+layer_worker_log: dict = {}                 # /layers/status için son çalıştırmaların çıkış durumu
+
+
+async def _run_layer_worker(*args: str, timeout: float) -> int | None:
+    """layer_worker.py'yi ayrı süreçte çalıştırır; çıkış kodunu (zaman aşımında None) döndürür."""
+    env = {**os.environ, "PYTHONUNBUFFERED": "1",
+           "MALLOC_ARENA_MAX": "2",                       # iş parçacığı başına bellek havuzu şişmesin
+           "OPENBLAS_NUM_THREADS": "1", "OMP_NUM_THREADS": "1"}
+    proc = await asyncio.create_subprocess_exec(sys.executable, LAYER_WORKER, *args, env=env)
+    try:
+        return await asyncio.wait_for(proc.wait(), timeout)
+    except asyncio.TimeoutError:
+        proc.kill()
+        await proc.wait()
+        return None
+    except asyncio.CancelledError:          # sunucu kapanıyor: işleyiciyi de kapat
+        proc.kill()
+        raise
+
+
 async def _layers_loop():
     await asyncio.sleep(20)                 # açılışı yavaşlatmasın
     while True:
         try:
-            await asyncio.to_thread(grid_layers.refresh_all)
-        except Exception:                   # görev asla durmasın
-            pass
+            rc = await _run_layer_worker("--prep", timeout=10 * 60)
+            layer_worker_log["prep"] = {"rc": rc, "at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}
+            for key in grid_layers.MODELS:
+                rc = await _run_layer_worker(key, timeout=LAYER_WORKER_TIMEOUT)
+                layer_worker_log[key] = {"rc": rc, "at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}
+                if rc is None:
+                    grid_layers.mark_failed(key, f"işleyici {LAYER_WORKER_TIMEOUT // 60} dakikada bitmedi, durduruldu")
+                elif rc < 0:
+                    grid_layers.mark_failed(key, f"işleyici sonlandırıldı ({SIGNAL_NAMES.get(-rc, f'sinyal {-rc}')})")
+                elif rc != 0:
+                    grid_layers.mark_failed(key, f"işleyici hata koduyla bitti ({rc})")
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:              # görev asla durmasın
+            print(f"[layers] döngü hatası: {type(e).__name__}: {e}", flush=True)
         await asyncio.sleep(20 * 60)        # 20 dakikada bir yeni koşu var mı bak
 
 
@@ -379,8 +416,11 @@ def layers_meta(model: str = "ecmwf"):
 
 @app.get("/layers/status", include_in_schema=False)
 def layers_status():
-    return {k: {**grid_layers.status.get(k, {}), "latest_run": (grid_layers.latest_meta(k) or {}).get("run_id")}
-            for k in grid_layers.MODELS}
+    out = {k: {**grid_layers.read_status(k), "latest_run": (grid_layers.latest_meta(k) or {}).get("run_id"),
+               "worker": layer_worker_log.get(k)}
+           for k in grid_layers.MODELS}
+    out["_prep"] = layer_worker_log.get("prep")
+    return out
 
 
 @app.get("/layers/{model}/{rid}/{var}.bin", include_in_schema=False)
